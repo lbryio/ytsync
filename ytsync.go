@@ -166,7 +166,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return err
 	}
 
-	channelNotFound := (*resolveResp)[s.LbryChannelName].Error == nil || strings.Contains(*((*resolveResp)[s.LbryChannelName].Error), "cannot be resolved")
+	channelNotFound := (*resolveResp)[s.LbryChannelName].Error != nil && strings.Contains(*((*resolveResp)[s.LbryChannelName].Error), "cannot be resolved")
 
 	if !channelNotFound {
 		return errors.New("Channel exists and we don't own it. Pick another channel.")
