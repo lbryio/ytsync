@@ -72,8 +72,8 @@ func (s *Sync) Go() error {
 	} else if addresses == nil || len(*addresses) == 0 {
 		return errors.New("could not find an address in wallet")
 	}
-	claimAddress := (*addresses)[0]
-	if claimAddress == "" {
+	s.claimAddress = (*addresses)[0]
+	if s.claimAddress == "" {
 		return errors.New("found blank claim address")
 	}
 
