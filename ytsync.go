@@ -24,8 +24,10 @@ import (
 )
 
 const (
-	redisHashKey   = "ytsync"
-	redisSyncedVal = "t"
+	redisHashKey       = "ytsync"
+	redisSyncedVal     = "t"
+	channelClaimAmount = 0.01
+	publishAmount      = 0.01
 )
 
 // Sync stores the options that control how syncing happens
@@ -185,7 +187,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.New("Channel exists and we don't own it. Pick another channel.")
 	}
 
-	_, err = s.daemon.ChannelNew(s.LbryChannelName, 0.01)
+	_, err = s.daemon.ChannelNew(s.LbryChannelName, channelClaimAmount)
 	if err != nil {
 		return err
 	}
@@ -407,7 +409,7 @@ func (s *Sync) publish(v video, conn redis.Conn) error {
 		options.ChannelName = &s.LbryChannelName
 	}
 
-	_, err := s.daemon.Publish(v.getClaimName(), v.getFilename(), 0.01, options)
+	_, err := s.daemon.Publish(v.getClaimName(), v.getFilename(), publishAmount, options)
 	if err != nil {
 		return err
 	}
