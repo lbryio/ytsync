@@ -134,9 +134,21 @@ func (s *Sync) CountVideos() (uint64, error) {
 }
 
 func (s *Sync) FullCycle() error {
+	if os.Getenv("HOME") == "" {
+		return errors.New("no $HOME env var found")
+	}
+
+	newChannel := true
+
+	lbryumDir := os.Getenv("HOME") + "/.lbryum"
 	walletDir := os.Getenv("HOME") + "/wallets/" + strings.Replace(s.LbryChannelName, "@", "", 1)
 	if _, err := os.Stat(walletDir); !os.IsNotExist(err) {
-		return errors.New("channel has already been uploaded, and wallet is in " + walletDir)
+		newChannel = false
+		err = os.Rename(walletDir, lbryumDir)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+		log.Println("Continuing previous upload")
 	}
 
 	err := s.startDaemonViaSystemd()
@@ -144,38 +156,40 @@ func (s *Sync) FullCycle() error {
 		return err
 	}
 
-	s.initDaemon()
+	if newChannel {
+		s.initDaemon()
 
-	addressResp, err := s.daemon.WalletUnusedAddress()
-	if err != nil {
-		return err
-	} else if addressResp == nil {
-		return errors.New("no response")
-	}
-	address := string(*addressResp)
+		addressResp, err := s.daemon.WalletUnusedAddress()
+		if err != nil {
+			return err
+		} else if addressResp == nil {
+			return errors.New("no response")
+		}
+		address := string(*addressResp)
 
-	count, err := s.CountVideos()
-	if err != nil {
-		return err
-	}
-	initialAmount := float64(count)*publishAmount + channelClaimAmount + 5 // +5 for fees and such
+		count, err := s.CountVideos()
+		if err != nil {
+			return err
+		}
+		initialAmount := float64(count)*publishAmount + channelClaimAmount + 5 // +5 for fees and such
 
-	log.Printf("Loading wallet with %f initial credits", initialAmount)
-	lbrycrdd, err := lbrycrd.NewWithDefaultURL()
-	if err != nil {
-		return err
-	}
-	lbrycrdd.SimpleSend(address, initialAmount)
-	//lbrycrdd.SendWithSplit(address, initialAmount, 50)
+		log.Printf("Loading wallet with %f initial credits", initialAmount)
+		lbrycrdd, err := lbrycrd.NewWithDefaultURL()
+		if err != nil {
+			return err
+		}
+		lbrycrdd.SimpleSend(address, initialAmount)
+		//lbrycrdd.SendWithSplit(address, initialAmount, 50)
 
-	wait := 15 * time.Second
-	log.Println("Waiting " + wait.String() + " for lbryum to let us know we have the new transaction")
-	time.Sleep(wait)
+		wait := 15 * time.Second
+		log.Println("Waiting " + wait.String() + " for lbryum to let us know we have the new transaction")
+		time.Sleep(wait)
 
-	log.Println("Waiting for transaction to be confirmed")
-	err = s.waitUntilUTXOsConfirmed()
-	if err != nil {
-		return err
+		log.Println("Waiting for transaction to be confirmed")
+		err = s.waitUntilUTXOsConfirmed()
+		if err != nil {
+			return err
+		}
 	}
 
 	err = s.Go()
@@ -184,7 +198,7 @@ func (s *Sync) FullCycle() error {
 	}
 
 	// wait for reflection to finish???
-	wait = 15 * time.Second // should bump this up to a few min, but keeping it low for testing
+	wait := 15 * time.Second // should bump this up to a few min, but keeping it low for testing
 	log.Println("Waiting " + wait.String() + " to finish reflecting everything")
 	time.Sleep(wait)
 
@@ -194,12 +208,6 @@ func (s *Sync) FullCycle() error {
 		return err
 	}
 
-	// move wallet
-	if os.Getenv("HOME") == "" {
-		return errors.New("could not move lbryum dir - no $HOME var found")
-	}
-
-	lbryumDir := os.Getenv("HOME") + "/.lbryum"
 	err = os.Rename(lbryumDir, walletDir)
 	if err != nil {
 		return errors.Wrap(err, 0)
