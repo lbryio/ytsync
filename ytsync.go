@@ -35,12 +35,13 @@ const (
 
 // Sync stores the options that control how syncing happens
 type Sync struct {
-	YoutubeAPIKey    string
-	YoutubeChannelID string
-	LbryChannelName  string
-	StopOnError      bool
-	MaxTries         int
-	ConcurrentVideos int
+	YoutubeAPIKey           string
+	YoutubeChannelID        string
+	LbryChannelName         string
+	StopOnError             bool
+	MaxTries                int
+	ConcurrentVideos        int
+	TakeOverExistingChannel bool
 
 	daemon         *jsonrpc.Client
 	claimAddress   string
@@ -397,13 +398,19 @@ func (s *Sync) ensureChannelOwnership() error {
 		return err
 	}
 
-	channelNotFound := (*resolveResp)[s.LbryChannelName].Error != nil && strings.Contains(*((*resolveResp)[s.LbryChannelName].Error), "cannot be resolved")
+	channel := (*resolveResp)[s.LbryChannelName]
+	channelBidAmount := channelClaimAmount
 
+	channelNotFound := channel.Error != nil && strings.Contains(*(channel.Error), "cannot be resolved")
 	if !channelNotFound {
-		return errors.New("Channel exists and we don't own it. Pick another channel.")
+		if !s.TakeOverExistingChannel {
+			return errors.New("Channel exists and we don't own it. Pick another channel.")
+		}
+		log.Println("Channel exists and we don't own it. Outbidding existing claim.")
+		channelBidAmount, _ = channel.Certificate.Amount.Add(decimal.NewFromFloat(channelClaimAmount)).Float64()
 	}
 
-	_, err = s.daemon.ChannelNew(s.LbryChannelName, channelClaimAmount)
+	_, err = s.daemon.ChannelNew(s.LbryChannelName, channelBidAmount)
 	if err != nil {
 		return err
 	}
