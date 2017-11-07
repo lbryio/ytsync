@@ -172,7 +172,8 @@ func (s *Sync) FullCycle() error {
 		if err != nil {
 			return err
 		}
-		initialAmount := float64(count)*publishAmount + channelClaimAmount + 5 // +5 for fees and such
+		initialAmount := float64(count)*publishAmount + channelClaimAmount
+		initialAmount += initialAmount * 0.1 // add 10% margin for fees, etc
 
 		log.Printf("Loading wallet with %f initial credits", initialAmount)
 		lbrycrdd, err := lbrycrd.NewWithDefaultURL()
@@ -268,7 +269,8 @@ func (s *Sync) Go() error {
 							})
 						} else if s.MaxTries > 1 {
 							if strings.Contains(err.Error(), "non 200 status code received") ||
-								strings.Contains(err.Error(), " reason: 'This video contains content from") {
+								strings.Contains(err.Error(), " reason: 'This video contains content from") ||
+								strings.Contains(err.Error(), "Playback on other websites has been disabled by the video owner") {
 								log.Println("This error should not be retried at all")
 							} else if tryCount >= s.MaxTries {
 								log.Println("Video failed after " + strconv.Itoa(s.MaxTries) + " retries, exiting")
@@ -294,12 +296,35 @@ func (s *Sync) Go() error {
 	return err
 }
 
+func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {
+	if utxolist == nil {
+		return false
+	}
+
+	if len(*utxolist) < 1 {
+		return false
+	} else {
+		for _, utxo := range *utxolist {
+			if utxo.Height == 0 {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 func (s *Sync) ensureEnoughUTXOs() error {
 	utxolist, err := s.daemon.UTXOList()
 	if err != nil {
 		return err
 	} else if utxolist == nil {
 		return errors.New("no response")
+	}
+
+	if !allUTXOsConfirmed(utxolist) {
+		log.Println("Waiting for previous txns to confirm") // happens if you restarted the daemon soon after a previous publish run
+		s.waitUntilUTXOsConfirmed()
 	}
 
 	target := 50
@@ -357,19 +382,7 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 			return errors.New("no response")
 		}
 
-		allConfirmed := true
-		if len(*r) < 1 {
-			allConfirmed = false
-		} else {
-			for _, utxo := range *r {
-				if utxo.Height == 0 {
-					allConfirmed = false
-					break
-				}
-			}
-		}
-
-		if allConfirmed {
+		if allUTXOsConfirmed(r) {
 			return nil
 		}
 
