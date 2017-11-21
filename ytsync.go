@@ -58,7 +58,7 @@ func (s *Sync) initDaemon() {
 			if err == nil {
 				break
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}
 }
