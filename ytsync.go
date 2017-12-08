@@ -109,6 +109,14 @@ func (s *Sync) init() error {
 		}
 	}
 
+	balance, err := s.daemon.WalletBalance()
+	if err != nil {
+		return err
+	} else if balance == nil {
+		return errors.New("no response")
+	}
+	log.Println("starting with " + decimal.Decimal(*balance).String() + "LBC")
+
 	return nil
 }
 
@@ -140,12 +148,16 @@ func (s *Sync) FullCycle() error {
 	}
 
 	newChannel := true
+	defaultWalletDir := os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
+	walletBackupDir := os.Getenv("HOME") + "/wallets/" + strings.Replace(s.LbryChannelName, "@", "", 1)
 
-	lbryumDir := os.Getenv("HOME") + "/.lbryum"
-	walletDir := os.Getenv("HOME") + "/wallets/" + strings.Replace(s.LbryChannelName, "@", "", 1)
-	if _, err := os.Stat(walletDir); !os.IsNotExist(err) {
+	if _, err := os.Stat(walletBackupDir); !os.IsNotExist(err) {
+		if _, err := os.Stat(defaultWalletDir); !os.IsNotExist(err) {
+			return errors.New("Tried to continue previous upload, but default_wallet already exists")
+		}
+
 		newChannel = false
-		err = os.Rename(walletDir, lbryumDir)
+		err = os.Rename(walletBackupDir, defaultWalletDir)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -210,7 +222,7 @@ func (s *Sync) FullCycle() error {
 		return err
 	}
 
-	err = os.Rename(lbryumDir, walletDir)
+	err = os.Rename(defaultWalletDir, walletBackupDir)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
