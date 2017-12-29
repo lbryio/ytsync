@@ -111,6 +111,7 @@ func (s *Sync) FullCycle() error {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-interruptChan
+		log.Println("Got interrupt signal. Will shut down after current publishes finish")
 		s.stop.Stop()
 	}()
 
