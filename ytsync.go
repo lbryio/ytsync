@@ -1,6 +1,7 @@
 package ytsync
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -67,6 +68,14 @@ func (s *Sync) FullCycle() error {
 	var err error
 	if os.Getenv("HOME") == "" {
 		return errors.New("no $HOME env var found")
+	}
+
+	if s.YoutubeChannelID == "" {
+		channelID, err := getChannelIDFromFile(s.LbryChannelName)
+		if err != nil {
+			return err
+		}
+		s.YoutubeChannelID = channelID
 	}
 
 	defaultWalletDir := os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
@@ -340,4 +349,24 @@ func stopDaemonViaSystemd() error {
 		return errors.New(err)
 	}
 	return nil
+}
+
+func getChannelIDFromFile(channelName string) (string, error) {
+	channelsJSON, err := ioutil.ReadFile("./channels")
+	if err != nil {
+		return "", errors.Wrap(err, 0)
+	}
+
+	var channels map[string]string
+	err = json.Unmarshal(channelsJSON, &channels)
+	if err != nil {
+		return "", errors.Wrap(err, 0)
+	}
+
+	channelID, ok := channels[channelName]
+	if !ok {
+		return "", errors.New("channel not in list")
+	}
+
+	return channelID, nil
 }

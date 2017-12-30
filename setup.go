@@ -28,12 +28,9 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("Source channel has %d videos", numOnSource)
 
-	numPublished := uint64(0)
-	if s.LbryChannelName != "" {
-		numPublished, err = s.daemon.NumClaimsInChannel(s.LbryChannelName)
-		if err != nil {
-			return err
-		}
+	numPublished, err := s.daemon.NumClaimsInChannel(s.LbryChannelName)
+	if err != nil {
+		return err
 	}
 	log.Debugf("We already published %d videos", numPublished)
 
@@ -88,11 +85,9 @@ func (s *Sync) walletSetup() error {
 		return err
 	}
 
-	if s.LbryChannelName != "" {
-		err = s.ensureChannelOwnership()
-		if err != nil {
-			return err
-		}
+	err = s.ensureChannelOwnership()
+	if err != nil {
+		return err
 	}
 
 	balanceResp, err = s.daemon.WalletBalance()

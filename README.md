@@ -3,8 +3,7 @@
 - make sure you don't have a `.lbryum/wallets/default_wallet` 
   - delete existing wallet if there's nothing you need there, or better yet, move it somewhere else in case you need it later
 - make sure daemon is stopped and can be controlled with `systemctl`
-- run `lbry ytsync YOUTUBE_KEY YOUTUBE_CHANNEL_ID LBRY_CHANNEL_NAME --max-tries=5`
-  - `max-tries` will retry errors that you will probably get (e.g. failed publishes)
+- run `lbry ytsync YOUTUBE_KEY LBRY_CHANNEL_NAME YOUTUBE_CHANNEL_ID`
 - after sync is complete, daemon will be stopped and wallet will be moved to `~/wallets/`
 - now mark content as synced in doc
 
