@@ -207,6 +207,7 @@ func (s *Sync) startWorker(workerNum int) {
 				} else if s.MaxTries > 1 {
 					if strings.Contains(err.Error(), "non 200 status code received") ||
 						strings.Contains(err.Error(), " reason: 'This video contains content from") ||
+						strings.Contains(err.Error(), "dont know which claim to update") ||
 						strings.Contains(err.Error(), "Playback on other websites has been disabled by the video owner") {
 						log.Println("This error should not be retried at all")
 					} else if tryCount >= s.MaxTries {

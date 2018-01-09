@@ -47,6 +47,9 @@ func (s *Sync) walletSetup() error {
 		address := string(*addressResp)
 
 		amountToAdd *= 1.5 // add 50% margin for fees, future publishes, etc
+		if amountToAdd < 1 {
+			amountToAdd = 1
+		}
 		log.Printf("Adding %f credits", amountToAdd)
 		lbrycrdd, err := lbrycrd.NewWithDefaultURL()
 		if err != nil {
@@ -114,7 +117,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		s.waitUntilUTXOsConfirmed()
 	}
 
-	target := 50
+	target := 30
 	count := 0
 
 	for _, utxo := range *utxolist {
