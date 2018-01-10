@@ -13,6 +13,11 @@ import (
 )
 
 func (s *Sync) walletSetup() error {
+	err := s.ensureChannelOwnership()
+	if err != nil {
+		return err
+	}
+
 	balanceResp, err := s.daemon.WalletBalance()
 	if err != nil {
 		return err
@@ -38,38 +43,11 @@ func (s *Sync) walletSetup() error {
 	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
 
 	if amountToAdd > 0 {
-		addressResp, err := s.daemon.WalletUnusedAddress()
-		if err != nil {
-			return err
-		} else if addressResp == nil {
-			return errors.New("no response")
-		}
-		address := string(*addressResp)
-
 		amountToAdd *= 1.5 // add 50% margin for fees, future publishes, etc
 		if amountToAdd < 1 {
 			amountToAdd = 1
 		}
-		log.Printf("Adding %f credits", amountToAdd)
-		lbrycrdd, err := lbrycrd.NewWithDefaultURL()
-		if err != nil {
-			return err
-		}
-
-		_, err = lbrycrdd.SimpleSend(address, amountToAdd)
-		if err != nil {
-			return err
-		}
-
-		wait := 15 * time.Second
-		log.Println("Waiting " + wait.String() + " for lbryum to let us know we have the new transaction")
-		time.Sleep(wait)
-
-		log.Println("Waiting for transaction to be confirmed")
-		err = s.waitUntilUTXOsConfirmed()
-		if err != nil {
-			return err
-		}
+		s.addCredits(amountToAdd)
 	}
 
 	claimAddress, err := s.daemon.WalletUnusedAddress()
@@ -87,19 +65,6 @@ func (s *Sync) walletSetup() error {
 	if err != nil {
 		return err
 	}
-
-	err = s.ensureChannelOwnership()
-	if err != nil {
-		return err
-	}
-
-	balanceResp, err = s.daemon.WalletBalance()
-	if err != nil {
-		return err
-	} else if balanceResp == nil {
-		return errors.New("no response")
-	}
-	log.Println("starting with " + decimal.Decimal(*balanceResp).String() + "LBC")
 
 	return nil
 }
@@ -223,6 +188,18 @@ func (s *Sync) ensureChannelOwnership() error {
 		channelBidAmount, _ = channel.Certificate.Amount.Add(decimal.NewFromFloat(channelClaimAmount)).Float64()
 	}
 
+	balanceResp, err := s.daemon.WalletBalance()
+	if err != nil {
+		return err
+	} else if balanceResp == nil {
+		return errors.New("no response")
+	}
+	balance := decimal.Decimal(*balanceResp)
+
+	if balance.LessThan(decimal.NewFromFloat(channelBidAmount)) {
+		s.addCredits(channelBidAmount + 0.1)
+	}
+
 	_, err = s.daemon.ChannelNew(s.LbryChannelName, channelBidAmount)
 	if err != nil {
 		return err
@@ -252,4 +229,32 @@ func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {
 	}
 
 	return true
+}
+
+func (s *Sync) addCredits(amountToAdd float64) error {
+	log.Printf("Adding %f credits", amountToAdd)
+	lbrycrdd, err := lbrycrd.NewWithDefaultURL()
+	if err != nil {
+		return err
+	}
+
+	addressResp, err := s.daemon.WalletUnusedAddress()
+	if err != nil {
+		return err
+	} else if addressResp == nil {
+		return errors.New("no response")
+	}
+	address := string(*addressResp)
+
+	_, err = lbrycrdd.SimpleSend(address, amountToAdd)
+	if err != nil {
+		return err
+	}
+
+	wait := 15 * time.Second
+	log.Println("Waiting " + wait.String() + " for lbryum to let us know we have the new transaction")
+	time.Sleep(wait)
+
+	log.Println("Waiting for transaction to be confirmed")
+	return s.waitUntilUTXOsConfirmed()
 }
