@@ -58,7 +58,7 @@ func (v YoutubeVideo) getFilename() string {
 	return v.dir + "/" + v.id + ".mp4"
 }
 
-func (v YoutubeVideo) getClaimName() string {
+func (v YoutubeVideo) getClaimName(attempt int) string {
 	maxLen := 40
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
@@ -92,7 +92,7 @@ func (v YoutubeVideo) getAbbrevDescription() string {
 	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..."
 }
 
-func (v YoutubeVideo) Download() error {
+func (v YoutubeVideo) download() error {
 	videoPath := v.getFilename()
 
 	_, err := os.Stat(videoPath)
@@ -115,7 +115,7 @@ func (v YoutubeVideo) Download() error {
 	return nil
 }
 
-func (v YoutubeVideo) TriggerThumbnailSave() error {
+func (v YoutubeVideo) triggerThumbnailSave() error {
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	params, err := json.Marshal(map[string]string{"videoid": v.id})
@@ -158,39 +158,38 @@ func (v YoutubeVideo) TriggerThumbnailSave() error {
 
 func strPtr(s string) *string { return &s }
 
-func (v YoutubeVideo) Publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
+func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
 	options := jsonrpc.PublishOptions{
 		Title:        &v.title,
 		Author:       &v.channelTitle,
 		Description:  strPtr(v.getAbbrevDescription() + "\nhttps://www.youtube.com/watch?v=" + v.id),
 		Language:     strPtr("en"),
 		ClaimAddress: &claimAddress,
-		Thumbnail:    strPtr("http://berk.ninja/thumbnails/" + v.id),
+		Thumbnail:    strPtr("https://berk.ninja/thumbnails/" + v.id),
 		License:      strPtr("Copyrighted (contact author)"),
 	}
 	if channelName != "" {
 		options.ChannelName = &channelName
 	}
 
-	_, err := daemon.Publish(v.getClaimName(), v.getFilename(), amount, options)
-	return err
+	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
 func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
 	//download and thumbnail can be done in parallel
-	err := v.Download()
+	err := v.download()
 	if err != nil {
 		return errors.WrapPrefix(err, "download error", 0)
 	}
 	log.Debugln("Downloaded " + v.id)
 
-	err = v.TriggerThumbnailSave()
+	err = v.triggerThumbnailSave()
 	if err != nil {
 		return errors.WrapPrefix(err, "thumbnail error", 0)
 	}
 	log.Debugln("Created thumbnail for " + v.id)
 
-	err = v.Publish(daemon, claimAddress, amount, channelName)
+	err = v.publish(daemon, claimAddress, amount, channelName)
 	if err != nil {
 		return errors.WrapPrefix(err, "publish error", 0)
 	}

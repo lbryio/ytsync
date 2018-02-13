@@ -1,7 +1,10 @@
 package ytsync
 
 import (
+	"bufio"
+	"encoding/csv"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -81,11 +84,11 @@ func (s *Sync) FullCycle() error {
 	defaultWalletDir := os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
 	walletBackupDir := os.Getenv("HOME") + "/wallets/" + strings.Replace(s.LbryChannelName, "@", "", 1)
 
-	if _, err = os.Stat(walletBackupDir); !os.IsNotExist(err) {
-		if _, err := os.Stat(defaultWalletDir); !os.IsNotExist(err) {
-			return errors.New("Tried to continue previous upload, but default_wallet already exists")
-		}
+	if _, err := os.Stat(defaultWalletDir); !os.IsNotExist(err) {
+		return errors.New("default_wallet already exists")
+	}
 
+	if _, err = os.Stat(walletBackupDir); !os.IsNotExist(err) {
 		err = os.Rename(walletBackupDir, defaultWalletDir)
 		if err != nil {
 			return errors.Wrap(err, 0)
@@ -162,7 +165,11 @@ func (s *Sync) doSync() error {
 		go s.startWorker(i)
 	}
 
-	err = s.enqueueVideos()
+	if s.LbryChannelName == "@UCBerkeley" {
+		err = s.enqueueUCBVideos()
+	} else {
+		err = s.enqueueYoutubeVideos()
+	}
 	close(s.queue)
 	s.wg.Wait()
 	return err
@@ -193,7 +200,7 @@ func (s *Sync) startWorker(workerNum int) {
 			return
 		}
 
-		log.Println("========================================")
+		log.Println("================================================================================")
 
 		tryCount := 0
 		for {
@@ -209,6 +216,7 @@ func (s *Sync) startWorker(workerNum int) {
 						strings.Contains(err.Error(), " reason: 'This video contains content from") ||
 						strings.Contains(err.Error(), "dont know which claim to update") ||
 						strings.Contains(err.Error(), "uploader has not made this video available in your country") ||
+						strings.Contains(err.Error(), "download error: AccessDenied: Access Denied") ||
 						strings.Contains(err.Error(), "Playback on other websites has been disabled by the video owner") {
 						log.Println("This error should not be retried at all")
 					} else if tryCount >= s.MaxTries {
@@ -225,7 +233,7 @@ func (s *Sync) startWorker(workerNum int) {
 	}
 }
 
-func (s *Sync) enqueueVideos() error {
+func (s *Sync) enqueueYoutubeVideos() error {
 	client := &http.Client{
 		Transport: &transport.APIKey{Key: s.YoutubeAPIKey},
 	}
@@ -289,6 +297,55 @@ func (s *Sync) enqueueVideos() error {
 
 	sort.Sort(byPublishedAt(videos))
 	//or sort.Sort(sort.Reverse(byPlaylistPosition(videos)))
+
+Enqueue:
+	for _, v := range videos {
+		select {
+		case <-s.stop.Chan():
+			break Enqueue
+		default:
+		}
+
+		select {
+		case s.queue <- v:
+		case <-s.stop.Chan():
+			break Enqueue
+		}
+	}
+
+	return nil
+}
+
+func (s *Sync) enqueueUCBVideos() error {
+	var videos []video
+
+	csvFile, err := os.Open("ucb.csv")
+	if err != nil {
+		return err
+	}
+
+	reader := csv.NewReader(bufio.NewReader(csvFile))
+	for {
+		line, err := reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		data := struct {
+			PublishedAt string `json:"publishedAt"`
+		}{}
+		err = json.Unmarshal([]byte(line[4]), &data)
+		if err != nil {
+			return err
+		}
+
+		videos = append(videos, sources.NewUCBVideo(line[0], line[2], line[1], line[3], data.PublishedAt, s.videoDirectory))
+	}
+
+	log.Printf("Publishing %d videos\n", len(videos))
+
+	sort.Sort(byPublishedAt(videos))
 
 Enqueue:
 	for _, v := range videos {

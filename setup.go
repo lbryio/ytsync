@@ -27,9 +27,14 @@ func (s *Sync) walletSetup() error {
 	balance := decimal.Decimal(*balanceResp)
 	log.Debugf("Starting balance is %s", balance.String())
 
-	numOnSource, err := s.CountVideos()
-	if err != nil {
-		return err
+	var numOnSource uint64
+	if s.LbryChannelName == "@UCBerkeley" {
+		numOnSource = 10104
+	} else {
+		numOnSource, err = s.CountVideos()
+		if err != nil {
+			return err
+		}
 	}
 	log.Debugf("Source channel has %d videos", numOnSource)
 
