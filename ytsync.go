@@ -16,12 +16,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/stopOnce"
 	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 
-	"github.com/go-errors/errors"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/youtube/v3"
@@ -70,7 +70,7 @@ type Sync struct {
 func (s *Sync) FullCycle() error {
 	var err error
 	if os.Getenv("HOME") == "" {
-		return errors.New("no $HOME env var found")
+		return errors.Err("no $HOME env var found")
 	}
 
 	if s.YoutubeChannelID == "" {
@@ -85,7 +85,7 @@ func (s *Sync) FullCycle() error {
 	walletBackupDir := os.Getenv("HOME") + "/wallets/" + strings.Replace(s.LbryChannelName, "@", "", 1)
 
 	if _, err := os.Stat(defaultWalletDir); !os.IsNotExist(err) {
-		return errors.New("default_wallet already exists")
+		return errors.Err("default_wallet already exists")
 	}
 
 	if _, err = os.Stat(walletBackupDir); !os.IsNotExist(err) {
@@ -255,25 +255,25 @@ func (s *Sync) enqueueYoutubeVideos() error {
 
 	service, err := youtube.New(client)
 	if err != nil {
-		return errors.WrapPrefix(err, "error creating YouTube service", 0)
+		return errors.Prefix("error creating YouTube service", err)
 	}
 
 	response, err := service.Channels.List("contentDetails").Id(s.YoutubeChannelID).Do()
 	if err != nil {
-		return errors.WrapPrefix(err, "error getting channels", 0)
+		return errors.Prefix("error getting channels", err)
 	}
 
 	if len(response.Items) < 1 {
-		return errors.New("youtube channel not found")
+		return errors.Err("youtube channel not found")
 	}
 
 	if response.Items[0].ContentDetails.RelatedPlaylists == nil {
-		return errors.New("no related playlists")
+		return errors.Err("no related playlists")
 	}
 
 	playlistID := response.Items[0].ContentDetails.RelatedPlaylists.Uploads
 	if playlistID == "" {
-		return errors.New("no channel playlist")
+		return errors.Err("no channel playlist")
 	}
 
 	var videos []video
@@ -287,11 +287,11 @@ func (s *Sync) enqueueYoutubeVideos() error {
 
 		playlistResponse, err := req.Do()
 		if err != nil {
-			return errors.WrapPrefix(err, "error getting playlist items", 0)
+			return errors.Prefix("error getting playlist items", err)
 		}
 
 		if len(playlistResponse.Items) < 1 {
-			return errors.New("playlist items not found")
+			return errors.Err("playlist items not found")
 		}
 
 		for _, item := range playlistResponse.Items {
@@ -380,7 +380,18 @@ Enqueue:
 	return nil
 }
 
-func (s *Sync) processVideo(v video) error {
+func (s *Sync) processVideo(v video) (err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			var ok bool
+			err, ok = p.(error)
+			if !ok {
+				err = errors.Err("%v", p)
+			}
+			err = errors.Wrap(p, 2)
+		}
+	}()
+
 	log.Println("Processing " + v.IDAndNum())
 	defer func(start time.Time) {
 		log.Println(v.ID() + " took " + time.Since(start).String())
@@ -412,7 +423,7 @@ func (s *Sync) processVideo(v video) error {
 func startDaemonViaSystemd() error {
 	err := exec.Command("/usr/bin/sudo", "/bin/systemctl", "start", "lbrynet.service").Run()
 	if err != nil {
-		return errors.New(err)
+		return errors.Err(err)
 	}
 	return nil
 }
@@ -420,7 +431,7 @@ func startDaemonViaSystemd() error {
 func stopDaemonViaSystemd() error {
 	err := exec.Command("/usr/bin/sudo", "/bin/systemctl", "stop", "lbrynet.service").Run()
 	if err != nil {
-		return errors.New(err)
+		return errors.Err(err)
 	}
 	return nil
 }
@@ -439,7 +450,7 @@ func getChannelIDFromFile(channelName string) (string, error) {
 
 	channelID, ok := channels[channelName]
 	if !ok {
-		return "", errors.New("channel not in list")
+		return "", errors.Err("channel not in list")
 	}
 
 	return channelID, nil

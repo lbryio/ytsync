@@ -11,11 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/go-errors/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -136,7 +136,7 @@ func (v ucbVideo) download() error {
 	if err != nil {
 		return err
 	} else if bytesWritten == 0 {
-		return errors.New("zero bytes written")
+		return errors.Err("zero bytes written")
 	}
 
 	return nil
@@ -188,7 +188,7 @@ func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
-		return errors.WrapPrefix(err, "download error", 0)
+		return errors.Prefix("download error", err)
 	}
 	log.Debugln("Downloaded " + v.id)
 
@@ -200,7 +200,7 @@ func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float
 
 	err = v.publish(daemon, claimAddress, amount, channelName)
 	if err != nil {
-		return errors.WrapPrefix(err, "publish error", 0)
+		return errors.Prefix("publish error", err)
 	}
 
 	return nil

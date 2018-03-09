@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 
-	"github.com/go-errors/errors"
 	ytdl "github.com/kkdai/youtube"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
@@ -150,7 +150,7 @@ func (v YoutubeVideo) triggerThumbnailSave() error {
 	}
 
 	if decoded.error != 0 {
-		return errors.New("error creating thumbnail: " + decoded.message)
+		return errors.Err("error creating thumbnail: " + decoded.message)
 	}
 
 	return nil
@@ -179,19 +179,19 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
-		return errors.WrapPrefix(err, "download error", 0)
+		return errors.Prefix("download error", err)
 	}
 	log.Debugln("Downloaded " + v.id)
 
 	err = v.triggerThumbnailSave()
 	if err != nil {
-		return errors.WrapPrefix(err, "thumbnail error", 0)
+		return errors.Prefix("thumbnail error", err)
 	}
 	log.Debugln("Created thumbnail for " + v.id)
 
 	err = v.publish(daemon, claimAddress, amount, channelName)
 	if err != nil {
-		return errors.WrapPrefix(err, "publish error", 0)
+		return errors.Prefix("publish error", err)
 	}
 
 	return nil

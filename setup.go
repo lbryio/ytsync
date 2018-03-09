@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/lbrycrd"
 
-	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
@@ -22,7 +22,7 @@ func (s *Sync) walletSetup() error {
 	if err != nil {
 		return err
 	} else if balanceResp == nil {
-		return errors.New("no response")
+		return errors.Err("no response")
 	}
 	balance := decimal.Decimal(*balanceResp)
 	log.Debugf("Starting balance is %s", balance.String())
@@ -59,11 +59,11 @@ func (s *Sync) walletSetup() error {
 	if err != nil {
 		return err
 	} else if claimAddress == nil {
-		return errors.New("could not get unused address")
+		return errors.Err("could not get unused address")
 	}
 	s.claimAddress = string(*claimAddress)
 	if s.claimAddress == "" {
-		return errors.New("found blank claim address")
+		return errors.Err("found blank claim address")
 	}
 
 	err = s.ensureEnoughUTXOs()
@@ -79,7 +79,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	if err != nil {
 		return err
 	} else if utxolist == nil {
-		return errors.New("no response")
+		return errors.Err("no response")
 	}
 
 	if !allUTXOsConfirmed(utxolist) {
@@ -103,7 +103,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if err != nil {
 			return err
 		} else if balance == nil {
-			return errors.New("no response")
+			return errors.Err("no response")
 		}
 
 		log.Println("balance is " + decimal.Decimal(*balance).String())
@@ -114,9 +114,9 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if err != nil {
 			return err
 		} else if prefillTx == nil {
-			return errors.New("no response")
+			return errors.Err("no response")
 		} else if !prefillTx.Complete || !prefillTx.Broadcast {
-			return errors.New("failed to prefill addresses")
+			return errors.Err("failed to prefill addresses")
 		}
 
 		wait := 15 * time.Second
@@ -139,7 +139,7 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 		if err != nil {
 			return err
 		} else if r == nil {
-			return errors.New("no response")
+			return errors.Err("no response")
 		}
 
 		if allUTXOsConfirmed(r) {
@@ -154,14 +154,14 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 
 func (s *Sync) ensureChannelOwnership() error {
 	if s.LbryChannelName == "" {
-		return errors.New("no channel name set")
+		return errors.Err("no channel name set")
 	}
 
 	channels, err := s.daemon.ChannelListMine()
 	if err != nil {
 		return err
 	} else if channels == nil {
-		return errors.New("no channel response")
+		return errors.Err("no channel response")
 	}
 
 	isChannelMine := false
@@ -169,7 +169,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		if channel.Name == s.LbryChannelName {
 			isChannelMine = true
 		} else {
-			return errors.New("this wallet has multiple channels. maybe something went wrong during setup?")
+			return errors.Err("this wallet has multiple channels. maybe something went wrong during setup?")
 		}
 	}
 	if isChannelMine {
@@ -187,7 +187,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	channelNotFound := channel.Error != nil && strings.Contains(*(channel.Error), "cannot be resolved")
 	if !channelNotFound {
 		if !s.TakeOverExistingChannel {
-			return errors.New("Channel exists and we don't own it. Pick another channel.")
+			return errors.Err("Channel exists and we don't own it. Pick another channel.")
 		}
 		log.Println("Channel exists and we don't own it. Outbidding existing claim.")
 		channelBidAmount, _ = channel.Certificate.Amount.Add(decimal.NewFromFloat(channelClaimAmount)).Float64()
@@ -197,7 +197,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	if err != nil {
 		return err
 	} else if balanceResp == nil {
-		return errors.New("no response")
+		return errors.Err("no response")
 	}
 	balance := decimal.Decimal(*balanceResp)
 
@@ -247,7 +247,7 @@ func (s *Sync) addCredits(amountToAdd float64) error {
 	if err != nil {
 		return err
 	} else if addressResp == nil {
-		return errors.New("no response")
+		return errors.Err("no response")
 	}
 	address := string(*addressResp)
 

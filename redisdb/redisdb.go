@@ -3,8 +3,9 @@ package redisdb
 import (
 	"time"
 
+	"github.com/lbryio/lbry.go/errors"
+
 	"github.com/garyburd/redigo/redis"
-	"github.com/go-errors/errors"
 )
 
 const (
@@ -39,7 +40,7 @@ func (r DB) IsPublished(id string) (bool, error) {
 
 	alreadyPublished, err := redis.String(conn.Do("HGET", redisHashKey, id))
 	if err != nil && err != redis.ErrNil {
-		return false, errors.WrapPrefix(err, "redis error", 0)
+		return false, errors.Prefix("redis error", err)
 
 	}
 
@@ -56,7 +57,7 @@ func (r DB) SetPublished(id string) error {
 
 	_, err := redis.Bool(conn.Do("HSET", redisHashKey, id, redisSyncedVal))
 	if err != nil {
-		return errors.New("redis error: " + err.Error())
+		return errors.Prefix("redis error", err)
 	}
 	return nil
 }
