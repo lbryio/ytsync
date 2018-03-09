@@ -134,7 +134,22 @@ func (s *Sync) FullCycle() error {
 	}
 
 	log.Infoln("Waiting for daemon to finish starting...")
-	s.daemon = jsonrpc.NewClientAndWait("")
+	s.daemon = jsonrpc.NewClient("")
+	s.daemon.SetRPCTimeout(5 * time.Minute)
+
+WaitForDaemonStart:
+	for {
+		select {
+		case <-s.stop.Chan():
+			return nil
+		default:
+			_, err := s.daemon.WalletBalance()
+			if err == nil {
+				break WaitForDaemonStart
+			}
+			time.Sleep(5 * time.Second)
+		}
+	}
 
 	err = s.doSync()
 	if err != nil {
