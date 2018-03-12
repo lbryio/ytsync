@@ -46,11 +46,19 @@ func (s *Sync) walletSetup() error {
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*publishAmount + channelClaimAmount
 	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
+	amountToAdd *= 1.5 // add 50% margin for fees, future publishes, etc
+
+	if s.Refill > 0 {
+		if amountToAdd < 0 {
+			amountToAdd = float64(s.Refill)
+		} else {
+			amountToAdd += float64(s.Refill)
+		}
+	}
 
 	if amountToAdd > 0 {
-		amountToAdd *= 1.5 // add 50% margin for fees, future publishes, etc
 		if amountToAdd < 1 {
-			amountToAdd = 1
+			amountToAdd = 1 // no reason to bother adding less than 1 credit
 		}
 		s.addCredits(amountToAdd)
 	}

@@ -55,6 +55,7 @@ type Sync struct {
 	MaxTries                int
 	ConcurrentVideos        int
 	TakeOverExistingChannel bool
+	Refill                  int
 
 	daemon         *jsonrpc.Client
 	claimAddress   string
@@ -123,7 +124,7 @@ func (s *Sync) FullCycle() error {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-interruptChan
-		log.Println("Got interrupt signal. Will shut down after current publishes finish")
+		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
 		s.stop.Stop()
 	}()
 
