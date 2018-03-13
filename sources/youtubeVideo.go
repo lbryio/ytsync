@@ -14,7 +14,7 @@ import (
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 
-	ytdl "github.com/kkdai/youtube"
+	"github.com/nikooo777/ytdl"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
 )
@@ -103,16 +103,21 @@ func (v YoutubeVideo) download() error {
 		return nil
 	}
 
-	downloader := ytdl.NewYoutube(false)
-	err = downloader.DecodeURL("https://www.youtube.com/watch?v=" + v.id)
+	videoUrl := "https://www.youtube.com/watch?v=" + v.id
+	videoInfo, err := ytdl.GetVideoInfo(videoUrl)
 	if err != nil {
 		return err
 	}
-	err = downloader.StartDownload(videoPath)
+
+	var downloadedFile *os.File
+	downloadedFile, err = os.Create(v.getFilename())
 	if err != nil {
 		return err
 	}
-	return nil
+
+	defer downloadedFile.Close()
+
+	return videoInfo.Download(videoInfo.Formats.Best(ytdl.FormatAudioEncodingKey)[0], downloadedFile)
 }
 
 func (v YoutubeVideo) triggerThumbnailSave() error {
