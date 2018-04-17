@@ -123,8 +123,6 @@ func (s *Sync) ensureEnoughUTXOs() error {
 			return err
 		} else if prefillTx == nil {
 			return errors.Err("no response")
-		} else if !prefillTx.Complete || !prefillTx.Broadcast {
-			return errors.Err("failed to prefill addresses")
 		}
 
 		wait := 15 * time.Second

@@ -235,13 +235,11 @@ func (s *Sync) startWorker(workerNum int) {
 						strings.Contains(err.Error(), "download error: AccessDenied: Access Denied") ||
 						strings.Contains(err.Error(), "Playback on other websites has been disabled by the video owner") {
 						log.Println("This error should not be retried at all")
-					} else if tryCount >= s.MaxTries {
-						log.Printf("Video failed after %d retries, exiting", s.MaxTries)
-						s.stop.Stop()
-					} else {
+					} else if tryCount < s.MaxTries{
 						log.Println("Retrying")
 						continue
 					}
+					log.Printf("Video failed after %d retries, skipping", s.MaxTries)
 				}
 			}
 			break
