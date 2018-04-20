@@ -22,6 +22,7 @@ import (
 	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 
+	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/youtube/v3"
@@ -104,9 +105,18 @@ func (s *Sync) FullCycle() error {
 			log.Errorf("error shutting down daemon: %v", shutdownErr)
 			log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR", shutdownErr)
 		} else {
-			walletErr := os.Rename(defaultWalletDir, walletBackupDir)
-			if walletErr != nil {
-				log.Errorf("error moving wallet to backup dir: %v", walletErr)
+			// the cli will return long before the daemon effectively stops. we must observe the processes running
+			// before moving the wallet
+			var waitTimeout time.Duration = 180
+			processDeathError := waitForDaemonProcess(waitTimeout)
+			if processDeathError != nil {
+				log.Errorf("error shutdown down daemon: %v", processDeathError)
+				log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR", processDeathError)
+			} else {
+				walletErr := os.Rename(defaultWalletDir, walletBackupDir)
+				if walletErr != nil {
+					log.Errorf("error moving wallet to backup dir: %v", walletErr)
+				}
 			}
 		}
 	}()
@@ -235,7 +245,14 @@ func (s *Sync) startWorker(workerNum int) {
 						strings.Contains(err.Error(), "download error: AccessDenied: Access Denied") ||
 						strings.Contains(err.Error(), "Playback on other websites has been disabled by the video owner") {
 						log.Println("This error should not be retried at all")
-					} else if tryCount < s.MaxTries{
+					} else if tryCount < s.MaxTries {
+						if strings.Contains(err.Error(), "The transaction was rejected by network rules.(258: txn-mempool-conflict)") {
+							log.Println("waiting for a block and refilling addresses before retrying")
+							err = s.ensureEnoughUTXOs()
+							if err != nil {
+								log.Println(err.Error())
+							}
+						}
 						log.Println("Retrying")
 						continue
 					}
@@ -453,4 +470,43 @@ func getChannelIDFromFile(channelName string) (string, error) {
 	}
 
 	return channelID, nil
+}
+
+// waitForDaemonProcess observes the running processes and returns when the process is no longer running or when the timeout is up
+func waitForDaemonProcess(timeout time.Duration) error {
+	processes, err := ps.Processes()
+	if err != nil {
+		return err
+	}
+	var daemonProcessId = -1
+	for _, p := range processes {
+		if p.Executable() == "lbrynet-daemon" {
+			daemonProcessId = p.Pid()
+			break
+		}
+	}
+	if daemonProcessId == -1 {
+		return nil
+	}
+	then := time.Now()
+	stopTime := then.Add(time.Duration(timeout * time.Second))
+	for !time.Now().After(stopTime) {
+		wait := 10 * time.Second
+		log.Println("the daemon is still running, waiting for it to exit")
+		time.Sleep(wait)
+		proc, err := os.FindProcess(daemonProcessId)
+		if err != nil {
+			// couldn't find the process, that means the daemon is stopped and can continue
+			return nil
+		}
+		//double check if process is running and alive
+		//by sending a signal 0
+		//NOTE : syscall.Signal is not available in Windows
+		err = proc.Signal(syscall.Signal(0))
+		//the process doesn't exist anymore! we're free to go
+		if err != nil && err == syscall.ESRCH {
+			return nil
+		}
+	}
+	return errors.Err("timeout reached")
 }

@@ -95,7 +95,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		s.waitUntilUTXOsConfirmed()
 	}
 
-	target := 30
+	target := 60
 	count := 0
 
 	for _, utxo := range *utxolist {
