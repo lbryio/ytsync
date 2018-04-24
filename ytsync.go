@@ -103,15 +103,15 @@ func (s *Sync) FullCycle() error {
 		shutdownErr := stopDaemonViaSystemd()
 		if shutdownErr != nil {
 			log.Errorf("error shutting down daemon: %v", shutdownErr)
-			log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR", shutdownErr)
+			log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 		} else {
 			// the cli will return long before the daemon effectively stops. we must observe the processes running
 			// before moving the wallet
-			var waitTimeout time.Duration = 180
+			var waitTimeout time.Duration = 60 * 6
 			processDeathError := waitForDaemonProcess(waitTimeout)
 			if processDeathError != nil {
 				log.Errorf("error shutdown down daemon: %v", processDeathError)
-				log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR", processDeathError)
+				log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 			} else {
 				walletErr := os.Rename(defaultWalletDir, walletBackupDir)
 				if walletErr != nil {
@@ -504,7 +504,7 @@ func waitForDaemonProcess(timeout time.Duration) error {
 		//NOTE : syscall.Signal is not available in Windows
 		err = proc.Signal(syscall.Signal(0))
 		//the process doesn't exist anymore! we're free to go
-		if err != nil && err == syscall.ESRCH {
+		if err != nil && (err == syscall.ESRCH || err.Error() == "os: process already finished") {
 			return nil
 		}
 	}
