@@ -424,6 +424,10 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
+	if v.PlaylistPosition() > 3000 {
+		log.Println(v.ID() + " is old: skipping")
+		return nil
+	}
 	err = v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
 	if err != nil {
 		return err
