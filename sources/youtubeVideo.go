@@ -59,10 +59,10 @@ func (v YoutubeVideo) PublishedAt() time.Time {
 }
 
 func (v YoutubeVideo) getFilename() string {
-	return v.dir + "/" + v.id + ".mp4"
+	return v.dir + "/" + v.getClaimName() + ".mp4"
 }
 
-func (v YoutubeVideo) getClaimName(attempt int) string {
+func (v YoutubeVideo) getClaimName() string {
 	maxLen := 40
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
