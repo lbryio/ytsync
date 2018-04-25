@@ -46,6 +46,10 @@ func (v YoutubeVideo) ID() string {
 	return v.id
 }
 
+func (v YoutubeVideo) PlaylistPosition() int {
+	return int(v.playlistPosition)
+}
+
 func (v YoutubeVideo) IDAndNum() string {
 	return v.ID() + " (" + strconv.Itoa(int(v.playlistPosition)) + " in channel)"
 }
@@ -118,6 +122,16 @@ func (v YoutubeVideo) download() error {
 	defer downloadedFile.Close()
 
 	return videoInfo.Download(videoInfo.Formats.Best(ytdl.FormatAudioEncodingKey)[0], downloadedFile)
+}
+
+func (v YoutubeVideo) delete() error {
+	videoPath := v.getFilename()
+	err := os.Remove(videoPath)
+	if err != nil {
+		return err
+	}
+	log.Debugln(v.id + " deleted from disk (" + videoPath + ")")
+	return nil
 }
 
 func (v YoutubeVideo) triggerThumbnailSave() error {
@@ -197,6 +211,13 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	err = v.publish(daemon, claimAddress, amount, channelName)
 	if err != nil {
 		return errors.Prefix("publish error", err)
+	}
+
+	err = v.delete()
+	if err != nil {
+		// the video was published anyway so it should be marked as published
+		// for that to happen, no errors should be returned any further than here
+		log.Debugln(errors.Prefix("delete error", err))
 	}
 
 	return nil

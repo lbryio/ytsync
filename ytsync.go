@@ -36,6 +36,7 @@ const (
 type video interface {
 	ID() string
 	IDAndNum() string
+	PlaylistPosition() int
 	PublishedAt() time.Time
 	Sync(*jsonrpc.Client, string, float64, string) error
 }

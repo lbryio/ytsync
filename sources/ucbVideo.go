@@ -44,6 +44,10 @@ func (v ucbVideo) ID() string {
 	return v.id
 }
 
+func (v ucbVideo) PlaylistPosition() int {
+	return 0
+}
+
 func (v ucbVideo) IDAndNum() string {
 	return v.ID() + " (?)"
 }
