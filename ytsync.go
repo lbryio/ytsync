@@ -22,6 +22,8 @@ import (
 	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 
+	"fmt"
+	"github.com/lbryio/lbry.go/util"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
@@ -103,16 +105,14 @@ func (s *Sync) FullCycle() error {
 		log.Printf("Stopping daemon")
 		shutdownErr := stopDaemonViaSystemd()
 		if shutdownErr != nil {
-			log.Errorf("error shutting down daemon: %v", shutdownErr)
-			log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+			logShutdownError(shutdownErr)
 		} else {
 			// the cli will return long before the daemon effectively stops. we must observe the processes running
 			// before moving the wallet
 			var waitTimeout time.Duration = 60 * 6
 			processDeathError := waitForDaemonProcess(waitTimeout)
 			if processDeathError != nil {
-				log.Errorf("error shutdown down daemon: %v", processDeathError)
-				log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+				logShutdownError(processDeathError)
 			} else {
 				walletErr := os.Rename(defaultWalletDir, walletBackupDir)
 				if walletErr != nil {
@@ -175,6 +175,13 @@ WaitForDaemonStart:
 
 	return nil
 }
+func logShutdownError(shutdownErr error) {
+	errMsg := fmt.Sprintf("error shutting down daemon: %v", shutdownErr)
+	log.Errorf(errMsg)
+	util.SendToSlack(errMsg)
+	log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+	util.SendToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+}
 
 func (s *Sync) doSync() error {
 	var err error
@@ -235,7 +242,9 @@ func (s *Sync) startWorker(workerNum int) {
 			err := s.processVideo(v)
 
 			if err != nil {
-				log.Errorln("error processing video: " + err.Error())
+				logMsg := fmt.Sprintf("error processing video: " + err.Error())
+				log.Errorln(logMsg)
+
 				if s.StopOnError {
 					s.grp.Stop()
 				} else if s.MaxTries > 1 {
@@ -247,9 +256,10 @@ func (s *Sync) startWorker(workerNum int) {
 						strings.Contains(err.Error(), "Playback on other websites has been disabled by the video owner") {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
-						if strings.Contains(err.Error(), "The transaction was rejected by network rules.(258: txn-mempool-conflict)") {
+						if strings.Contains(err.Error(), "The transaction was rejected by network rules.(258: txn-mempool-conflict)") ||
+							strings.Contains(err.Error(), "failed: Not enough funds") {
 							log.Println("waiting for a block and refilling addresses before retrying")
-							err = s.ensureEnoughUTXOs()
+							err = s.walletSetup()
 							if err != nil {
 								log.Println(err.Error())
 							}
@@ -257,7 +267,9 @@ func (s *Sync) startWorker(workerNum int) {
 						log.Println("Retrying")
 						continue
 					}
-					log.Printf("Video failed after %d retries, skipping", s.MaxTries)
+					logMsg = fmt.Sprintf("Video failed after %d retries, skipping. Stack: %s", s.MaxTries, logMsg)
+					log.Printf(logMsg)
+					util.SendToSlack(logMsg)
 				}
 			}
 			break
