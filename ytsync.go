@@ -23,6 +23,7 @@ import (
 	"github.com/lbryio/lbry.go/ytsync/sources"
 
 	"fmt"
+
 	"github.com/lbryio/lbry.go/util"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
@@ -244,20 +245,28 @@ func (s *Sync) startWorker(workerNum int) {
 			if err != nil {
 				logMsg := fmt.Sprintf("error processing video: " + err.Error())
 				log.Errorln(logMsg)
-
-				if s.StopOnError {
+				fatalErrors := []string{
+					":5279: read: connection reset by peer",
+					"net/http: request canceled (Client.Timeout exceeded while awaiting headers)",
+				}
+				if util.InSlice(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
 				} else if s.MaxTries > 1 {
-					if strings.Contains(err.Error(), "non 200 status code received") ||
-						strings.Contains(err.Error(), " reason: 'This video contains content from") ||
-						strings.Contains(err.Error(), "dont know which claim to update") ||
-						strings.Contains(err.Error(), "uploader has not made this video available in your country") ||
-						strings.Contains(err.Error(), "download error: AccessDenied: Access Denied") ||
-						strings.Contains(err.Error(), "Playback on other websites has been disabled by the video owner") {
+					errorsNoRetry := []string{
+						"non 200 status code received",
+						" reason: 'This video contains content from",
+						"dont know which claim to update",
+						"uploader has not made this video available in your country",
+						"download error: AccessDenied: Access Denied",
+						"Playback on other websites has been disabled by the video owner",
+						"Error in daemon: Cannot publish empty file",
+					}
+					if util.InSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
 						if strings.Contains(err.Error(), "The transaction was rejected by network rules.(258: txn-mempool-conflict)") ||
-							strings.Contains(err.Error(), "failed: Not enough funds") {
+							strings.Contains(err.Error(), "failed: Not enough funds") ||
+							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") {
 							log.Println("waiting for a block and refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {
