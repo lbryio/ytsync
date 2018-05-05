@@ -46,7 +46,7 @@ func (s *Sync) walletSetup() error {
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*publishAmount + channelClaimAmount
 	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
-	amountToAdd *= 1.5 // add 50% margin for fees, future publishes, etc
+	amountToAdd *= 2 // add 100% margin for fees, future publishes, etc
 
 	if s.Refill > 0 {
 		if amountToAdd < 0 {
@@ -98,7 +98,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		}
 	}
 
-	target := 60
+	target := 40
 	count := 0
 
 	for _, utxo := range *utxolist {
