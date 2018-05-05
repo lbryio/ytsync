@@ -92,7 +92,10 @@ func (s *Sync) ensureEnoughUTXOs() error {
 
 	if !allUTXOsConfirmed(utxolist) {
 		log.Println("Waiting for previous txns to confirm") // happens if you restarted the daemon soon after a previous publish run
-		s.waitUntilUTXOsConfirmed()
+		err := s.waitUntilUTXOsConfirmed()
+		if err != nil {
+			return err
+		}
 	}
 
 	target := 60
@@ -140,6 +143,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 }
 
 func (s *Sync) waitUntilUTXOsConfirmed() error {
+	origin := time.Now()
 	for {
 		r, err := s.daemon.UTXOList()
 		if err != nil {
@@ -151,7 +155,24 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 		if allUTXOsConfirmed(r) {
 			return nil
 		}
-
+		if time.Now().After(origin.Add(10 * time.Minute)) {
+			//lbryum is messing with us or something. restart the daemon
+			err := stopDaemonViaSystemd()
+			if err != nil {
+				logShutdownError(err)
+				return err
+			}
+			var waitTimeout time.Duration = 60 * 6
+			err = waitForDaemonProcess(waitTimeout)
+			if err != nil {
+				logShutdownError(err)
+				return err
+			}
+			err = startDaemonViaSystemd()
+			if err != nil {
+				return err
+			}
+		}
 		wait := 30 * time.Second
 		log.Println("Waiting " + wait.String() + "...")
 		time.Sleep(wait)

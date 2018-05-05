@@ -267,7 +267,9 @@ func (s *Sync) startWorker(workerNum int) {
 							log.Println("waiting for a block and refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {
-								log.Println(err.Error())
+								s.stop.Stop()
+								util.SendToSlackError("Failed to setup the wallet for a refill: %v", err)
+								break
 							}
 						}
 						log.Println("Retrying")
