@@ -63,7 +63,7 @@ func (v YoutubeVideo) getFilename() string {
 }
 
 func (v YoutubeVideo) getClaimName() string {
-	maxLen := 40
+	maxLen := 30
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
 	chunks := strings.Split(strings.ToLower(strings.Trim(reg.ReplaceAllString(v.title, "-"), "-")), "-")
@@ -209,15 +209,14 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	log.Debugln("Created thumbnail for " + v.id)
 
 	err = v.publish(daemon, claimAddress, amount, channelName)
-	if err != nil {
-		return errors.Prefix("publish error", err)
-	}
-
-	err = v.delete()
-	if err != nil {
+	//delete the video in all cases
+	if v.delete() != nil {
 		// the video was published anyway so it should be marked as published
 		// for that to happen, no errors should be returned any further than here
 		log.Debugln(errors.Prefix("delete error", err))
+	}
+	if err != nil {
+		return errors.Prefix("publish error", err)
 	}
 
 	return nil

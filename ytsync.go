@@ -177,11 +177,8 @@ WaitForDaemonStart:
 	return nil
 }
 func logShutdownError(shutdownErr error) {
-	errMsg := fmt.Sprintf("error shutting down daemon: %v", shutdownErr)
-	log.Errorf(errMsg)
-	util.SendToSlack(errMsg)
-	log.Errorf("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
-	util.SendToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+	util.SendToSlackError("error shutting down daemon: %v", shutdownErr)
+	util.SendToSlackError("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 }
 
 func (s *Sync) doSync() error {
@@ -276,9 +273,7 @@ func (s *Sync) startWorker(workerNum int) {
 						log.Println("Retrying")
 						continue
 					}
-					logMsg = fmt.Sprintf("Video failed after %d retries, skipping. Stack: %s", s.MaxTries, logMsg)
-					log.Printf(logMsg)
-					util.SendToSlack(logMsg)
+					util.SendToSlackInfo("Video failed after %d retries, skipping. Stack: %s", s.MaxTries, logMsg)
 				}
 			}
 			break
@@ -334,6 +329,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 
 		for _, item := range playlistResponse.Items {
 			// todo: there's thumbnail info here. why did we need lambda???
+			// because when videos are taken down from youtube, the thumb is gone too
 
 			// normally we'd send the video into the channel here, but youtube api doesn't have sorting
 			// so we have to get ALL the videos, then sort them, then send them in
@@ -445,7 +441,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if v.PlaylistPosition() > 3000 {
+	if v.PlaylistPosition() > 1000 {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
