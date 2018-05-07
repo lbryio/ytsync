@@ -110,7 +110,7 @@ func (s *Sync) FullCycle() error {
 		} else {
 			// the cli will return long before the daemon effectively stops. we must observe the processes running
 			// before moving the wallet
-			var waitTimeout time.Duration = 60 * 6
+			var waitTimeout time.Duration = 60 * 8
 			processDeathError := waitForDaemonProcess(waitTimeout)
 			if processDeathError != nil {
 				logShutdownError(processDeathError)
@@ -257,6 +257,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"download error: AccessDenied: Access Denied",
 						"Playback on other websites has been disabled by the video owner",
 						"Error in daemon: Cannot publish empty file",
+						"Error extracting sts from embedded url response",
 					}
 					if util.InSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
@@ -275,7 +276,7 @@ func (s *Sync) startWorker(workerNum int) {
 						log.Println("Retrying")
 						continue
 					}
-					util.SendToSlackInfo("Video failed after %d retries, skipping. Stack: %s", s.MaxTries, logMsg)
+					util.SendToSlackError("Video failed after %d retries, skipping. Stack: %s", s.MaxTries, logMsg)
 				}
 			}
 			break

@@ -8,6 +8,7 @@ import (
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/lbrycrd"
 
+	"github.com/lbryio/lbry.go/util"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
@@ -45,8 +46,12 @@ func (s *Sync) walletSetup() error {
 	log.Debugf("We already published %d videos", numPublished)
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*publishAmount + channelClaimAmount
+	if numPublished > numOnSource {
+		util.SendToSlackError("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
+		minBalance = 1 //since we ended up in this function it means some juice is still needed
+	}
 	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
-	amountToAdd *= 2 // add 100% margin for fees, future publishes, etc
+	amountToAdd *= 6 // add 600% margin for fees, future publishes, etc (insane i know)
 
 	if s.Refill > 0 {
 		if amountToAdd < 0 {
@@ -155,14 +160,15 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 		if allUTXOsConfirmed(r) {
 			return nil
 		}
-		if time.Now().After(origin.Add(10 * time.Minute)) {
+		if time.Now().After(origin.Add(15 * time.Minute)) {
 			//lbryum is messing with us or something. restart the daemon
+			//this could also be a very long block
 			err := stopDaemonViaSystemd()
 			if err != nil {
 				logShutdownError(err)
 				return err
 			}
-			var waitTimeout time.Duration = 60 * 6
+			var waitTimeout time.Duration = 60 * 8
 			err = waitForDaemonProcess(waitTimeout)
 			if err != nil {
 				logShutdownError(err)
@@ -171,6 +177,17 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 			err = startDaemonViaSystemd()
 			if err != nil {
 				return err
+			}
+			log.Infoln("Waiting for daemon to finish starting...")
+			s.daemon = jsonrpc.NewClient("")
+			s.daemon.SetRPCTimeout(5 * time.Minute)
+
+			for {
+				_, err := s.daemon.WalletBalance()
+				if err == nil {
+					break
+				}
+				time.Sleep(5 * time.Second)
 			}
 		}
 		wait := 30 * time.Second
