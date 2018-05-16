@@ -11,7 +11,3 @@ Running the sync command for a channel that was already started will resume the 
 content that was put on Youtube since the last sync.
 
 ---
-
-Add this to cron to delete synced videos that have been published:
-
-`*/10 * * * * (/bin/ls /tmp/ | /bin/grep -q ytsync && /usr/bin/find /tmp/ytsync* -mmin +20 -delete) || true`
