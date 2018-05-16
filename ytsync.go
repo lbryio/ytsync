@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -22,13 +23,11 @@ import (
 	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 
-	"fmt"
-
 	"github.com/lbryio/lbry.go/util"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
-	"google.golang.org/api/youtube/v3"
+	youtube "google.golang.org/api/youtube/v3"
 )
 
 const (
@@ -246,7 +245,7 @@ func (s *Sync) startWorker(workerNum int) {
 					":5279: read: connection reset by peer",
 					"net/http: request canceled (Client.Timeout exceeded while awaiting headers)",
 				}
-				if util.InSlice(err.Error(), fatalErrors) || s.StopOnError {
+				if util.InSliceContains(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
 				} else if s.MaxTries > 1 {
 					errorsNoRetry := []string{
@@ -259,12 +258,13 @@ func (s *Sync) startWorker(workerNum int) {
 						"Error in daemon: Cannot publish empty file",
 						"Error extracting sts from embedded url response",
 					}
-					if util.InSlice(err.Error(), errorsNoRetry) {
+					if util.InSliceContains(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
 						if strings.Contains(err.Error(), "The transaction was rejected by network rules.(258: txn-mempool-conflict)") ||
 							strings.Contains(err.Error(), "failed: Not enough funds") ||
-							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") {
+							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") ||
+							strings.Contains(err.Error(), "The transaction was rejected by network rules.(64: too-long-mempool-chain)") {
 							log.Println("waiting for a block and refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {
