@@ -72,6 +72,16 @@ type Sync struct {
 	queue chan video
 }
 
+// IsInterrupted can be queried to discover if the sync process was interrupted manually
+func (s *Sync) IsInterrupted() bool {
+	select {
+	case <-s.stop.Chan():
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Sync) FullCycle() error {
 	var err error
 	if os.Getenv("HOME") == "" {
