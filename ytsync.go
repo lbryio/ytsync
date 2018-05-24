@@ -22,7 +22,6 @@ import (
 	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 
-	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/youtube/v3"
@@ -152,7 +151,7 @@ func (s *Sync) FullCycle() error {
 WaitForDaemonStart:
 	for {
 		select {
-		case <-s.stop.Chan():
+		case <-s.stop.Ch():
 			return nil
 		default:
 			_, err := s.daemon.WalletBalance()
@@ -211,7 +210,7 @@ func (s *Sync) startWorker(workerNum int) {
 
 	for {
 		select {
-		case <-s.stop.Chan():
+		case <-s.stop.Ch():
 			log.Printf("Stopping worker %d", workerNum)
 			return
 		default:
@@ -222,7 +221,7 @@ func (s *Sync) startWorker(workerNum int) {
 			if !more {
 				return
 			}
-		case <-s.stop.Chan():
+		case <-s.stop.Ch():
 			log.Printf("Stopping worker %d", workerNum)
 			return
 		}
@@ -333,14 +332,14 @@ func (s *Sync) enqueueYoutubeVideos() error {
 Enqueue:
 	for _, v := range videos {
 		select {
-		case <-s.stop.Chan():
+		case <-s.stop.Ch():
 			break Enqueue
 		default:
 		}
 
 		select {
 		case s.queue <- v:
-		case <-s.stop.Chan():
+		case <-s.stop.Ch():
 			break Enqueue
 		}
 	}
@@ -382,14 +381,14 @@ func (s *Sync) enqueueUCBVideos() error {
 Enqueue:
 	for _, v := range videos {
 		select {
-		case <-s.stop.Chan():
+		case <-s.stop.Ch():
 			break Enqueue
 		default:
 		}
 
 		select {
 		case s.queue <- v:
-		case <-s.stop.Chan():
+		case <-s.stop.Ch():
 			break Enqueue
 		}
 	}
