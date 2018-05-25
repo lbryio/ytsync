@@ -210,10 +210,11 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 
 	err = v.publish(daemon, claimAddress, amount, channelName)
 	//delete the video in all cases
-	if v.delete() != nil {
+	dErr := v.delete()
+	if dErr != nil {
 		// the video was published anyway so it should be marked as published
 		// for that to happen, no errors should be returned any further than here
-		log.Debugln(errors.Prefix("delete error", err))
+		log.Debugln(errors.Prefix("delete error", dErr))
 	}
 	if err != nil {
 		return errors.Prefix("publish error", err)
