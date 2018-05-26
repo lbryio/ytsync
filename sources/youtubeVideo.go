@@ -179,13 +179,14 @@ func strPtr(s string) *string { return &s }
 
 func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
 	options := jsonrpc.PublishOptions{
-		Title:        &v.title,
-		Author:       &v.channelTitle,
-		Description:  strPtr(v.getAbbrevDescription() + "\nhttps://www.youtube.com/watch?v=" + v.id),
-		Language:     strPtr("en"),
-		ClaimAddress: &claimAddress,
-		Thumbnail:    strPtr("https://berk.ninja/thumbnails/" + v.id),
-		License:      strPtr("Copyrighted (contact author)"),
+		Title:         &v.title,
+		Author:        &v.channelTitle,
+		Description:   strPtr(v.getAbbrevDescription() + "\nhttps://www.youtube.com/watch?v=" + v.id),
+		Language:      strPtr("en"),
+		ClaimAddress:  &claimAddress,
+		Thumbnail:     strPtr("https://berk.ninja/thumbnails/" + v.id),
+		License:       strPtr("Copyrighted (contact author)"),
+		ChangeAddress: &claimAddress,
 	}
 	if channelName != "" {
 		options.ChannelName = &channelName

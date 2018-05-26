@@ -45,7 +45,7 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("We already published %d videos", numPublished)
 
-	minBalance := (float64(numOnSource)-float64(numPublished))*publishAmount + channelClaimAmount
+	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
 	if numPublished > numOnSource {
 		util.SendToSlackError("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
 		minBalance = 1 //since we ended up in this function it means some juice is still needed
