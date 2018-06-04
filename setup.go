@@ -51,7 +51,6 @@ func (s *Sync) walletSetup() error {
 		minBalance = 1 //since we ended up in this function it means some juice is still needed
 	}
 	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
-	amountToAdd *= 6 // add 600% margin for fees, future publishes, etc (insane i know)
 
 	if s.Refill > 0 {
 		if amountToAdd < 0 {

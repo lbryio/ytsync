@@ -272,10 +272,10 @@ func (s *Sync) startWorker(workerNum int) {
 					if util.InSliceContains(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
-						if strings.Contains(err.Error(), "The transaction was rejected by network rules.(258: txn-mempool-conflict)") ||
+						if strings.Contains(err.Error(), "258: txn-mempool-conflict") ||
 							strings.Contains(err.Error(), "failed: Not enough funds") ||
 							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") ||
-							strings.Contains(err.Error(), "The transaction was rejected by network rules.(64: too-long-mempool-chain)") {
+							strings.Contains(err.Error(), "64: too-long-mempool-chain") {
 							log.Println("waiting for a block and refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {

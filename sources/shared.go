@@ -1,10 +1,14 @@
 package sources
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"crypto/md5"
+	"encoding/hex"
 
 	"github.com/lbryio/lbry.go/jsonrpc"
 	log "github.com/sirupsen/logrus"
@@ -55,6 +59,12 @@ func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string
 		if exists {
 			log.Printf("name exists, retrying (%d attempts so far)\n", attempt)
 			continue
+		}
+		//if for some reasons the title can't be converted in a valid claim name (too short or not latin) then we use a hash
+		if len(name) < 2 {
+			hasher := md5.New()
+			hasher.Write([]byte(title))
+			name = fmt.Sprintf("%s-%d", hex.EncodeToString(hasher.Sum(nil))[:15], attempt)
 		}
 
 		_, err := daemon.Publish(name, filename, amount, options)
