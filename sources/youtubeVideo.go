@@ -126,6 +126,7 @@ func (v YoutubeVideo) delete() error {
 	videoPath := v.getFilename()
 	err := os.Remove(videoPath)
 	if err != nil {
+		log.Debugln(errors.Prefix("delete error", err))
 		return err
 	}
 	log.Debugln(v.id + " deleted from disk (" + videoPath + ")")
@@ -201,6 +202,16 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	}
 	log.Debugln("Downloaded " + v.id)
 
+	fi, err := os.Stat(v.getFilename())
+	if err != nil {
+		return err
+	}
+	if fi.Size() > 1*1024*1024*1024 {
+		//delete the video and ignore the error
+		_ = v.delete()
+		return errors.Err("video is bigger than 1GB, skipping for now")
+	}
+
 	err = v.triggerThumbnailSave()
 	if err != nil {
 		return errors.Prefix("thumbnail error", err)
@@ -208,13 +219,8 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	log.Debugln("Created thumbnail for " + v.id)
 
 	err = v.publish(daemon, claimAddress, amount, channelName)
-	//delete the video in all cases
-	dErr := v.delete()
-	if dErr != nil {
-		// the video was published anyway so it should be marked as published
-		// for that to happen, no errors should be returned any further than here
-		log.Debugln(errors.Prefix("delete error", dErr))
-	}
+	//delete the video in all cases (and ignore the error)
+	_ = v.delete()
 	if err != nil {
 		return errors.Prefix("publish error", err)
 	}

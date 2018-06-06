@@ -67,6 +67,7 @@ type Sync struct {
 
 	grp *stop.Group
 
+	mux   sync.Mutex
 	wg    sync.WaitGroup
 	queue chan video
 }
@@ -255,6 +256,7 @@ func (s *Sync) startWorker(workerNum int) {
 				fatalErrors := []string{
 					":5279: read: connection reset by peer",
 					"net/http: request canceled (Client.Timeout exceeded while awaiting headers)",
+					"no space left on device",
 				}
 				if util.InSliceContains(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
@@ -268,6 +270,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Playback on other websites has been disabled by the video owner",
 						"Error in daemon: Cannot publish empty file",
 						"Error extracting sts from embedded url response",
+						"Client.Timeout exceeded while awaiting headers)",
 					}
 					if util.InSliceContains(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")

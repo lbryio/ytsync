@@ -14,6 +14,9 @@ import (
 )
 
 func (s *Sync) walletSetup() error {
+	//prevent unnecessary concurrent execution
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	err := s.ensureChannelOwnership()
 	if err != nil {
 		return err
@@ -87,6 +90,7 @@ func (s *Sync) walletSetup() error {
 }
 
 func (s *Sync) ensureEnoughUTXOs() error {
+
 	utxolist, err := s.daemon.UTXOList()
 	if err != nil {
 		return err
@@ -162,32 +166,7 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 		if time.Now().After(origin.Add(15 * time.Minute)) {
 			//lbryum is messing with us or something. restart the daemon
 			//this could also be a very long block
-			err := stopDaemonViaSystemd()
-			if err != nil {
-				logShutdownError(err)
-				return err
-			}
-			var waitTimeout time.Duration = 60 * 8
-			err = waitForDaemonProcess(waitTimeout)
-			if err != nil {
-				logShutdownError(err)
-				return err
-			}
-			err = startDaemonViaSystemd()
-			if err != nil {
-				return err
-			}
-			log.Infoln("Waiting for daemon to finish starting...")
-			s.daemon = jsonrpc.NewClient("")
-			s.daemon.SetRPCTimeout(5 * time.Minute)
-
-			for {
-				_, err := s.daemon.WalletBalance()
-				if err == nil {
-					break
-				}
-				time.Sleep(5 * time.Second)
-			}
+			util.SendToSlackError("We've been waiting UTXOs confirmation for %s... and this isn't normal", time.Now().Sub(origin).String())
 		}
 		wait := 30 * time.Second
 		log.Println("Waiting " + wait.String() + "...")
