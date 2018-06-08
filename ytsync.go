@@ -26,7 +26,7 @@ import (
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
-	youtube "google.golang.org/api/youtube/v3"
+	"google.golang.org/api/youtube/v3"
 )
 
 const (
@@ -255,7 +255,6 @@ func (s *Sync) startWorker(workerNum int) {
 				log.Errorln(logMsg)
 				fatalErrors := []string{
 					":5279: read: connection reset by peer",
-					"net/http: request canceled (Client.Timeout exceeded while awaiting headers)",
 					"no space left on device",
 				}
 				if util.InSliceContains(err.Error(), fatalErrors) || s.StopOnError {
@@ -271,6 +270,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Error in daemon: Cannot publish empty file",
 						"Error extracting sts from embedded url response",
 						"Client.Timeout exceeded while awaiting headers)",
+						"video is bigger than 1GB, skipping for now",
 					}
 					if util.InSliceContains(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")

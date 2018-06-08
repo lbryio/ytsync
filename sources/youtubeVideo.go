@@ -82,7 +82,7 @@ func (v YoutubeVideo) getFilename() string {
 	if len(name) < 1 {
 		name = v.id
 	}
-	return v.dir + "/" + name + ".mp4"
+	return v.dir + "/" + v.id + "/" + name + ".mp4"
 }
 
 func (v YoutubeVideo) getAbbrevDescription() string {
@@ -97,7 +97,12 @@ func (v YoutubeVideo) getAbbrevDescription() string {
 func (v YoutubeVideo) download() error {
 	videoPath := v.getFilename()
 
-	_, err := os.Stat(videoPath)
+	err := os.Mkdir(v.dir+"/"+v.id, 0750)
+	if err != nil && !strings.Contains(err.Error(), "file exists") {
+		return errors.Wrap(err, 0)
+	}
+
+	_, err = os.Stat(videoPath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	} else if err == nil {
@@ -112,7 +117,7 @@ func (v YoutubeVideo) download() error {
 	}
 
 	var downloadedFile *os.File
-	downloadedFile, err = os.Create(v.getFilename())
+	downloadedFile, err = os.Create(videoPath)
 	if err != nil {
 		return err
 	}
