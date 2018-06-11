@@ -21,6 +21,7 @@ import (
 	"github.com/lbryio/lbry.go/stopOnce"
 	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
+	ps "github.com/old/mitchellh/go-ps"
 
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
