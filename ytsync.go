@@ -159,7 +159,7 @@ func (s *Sync) FullCycle() error {
 
 	log.Infoln("Waiting for daemon to finish starting...")
 	s.daemon = jsonrpc.NewClient("")
-	s.daemon.SetRPCTimeout(5 * time.Minute)
+	s.daemon.SetRPCTimeout(20 * time.Minute)
 
 WaitForDaemonStart:
 	for {
@@ -188,8 +188,8 @@ WaitForDaemonStart:
 	return nil
 }
 func logShutdownError(shutdownErr error) {
-	util.SendToSlackError("error shutting down daemon: %v", shutdownErr)
-	util.SendToSlackError("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+	util.SendErrorToSlack("error shutting down daemon: %v", shutdownErr)
+	util.SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 }
 
 func (s *Sync) doSync() error {
@@ -256,6 +256,7 @@ func (s *Sync) startWorker(workerNum int) {
 				fatalErrors := []string{
 					":5279: read: connection reset by peer",
 					"no space left on device",
+					"NotEnoughFunds",
 				}
 				if util.InSliceContains(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
@@ -283,14 +284,14 @@ func (s *Sync) startWorker(workerNum int) {
 							err = s.walletSetup()
 							if err != nil {
 								s.stop.Stop()
-								util.SendToSlackError("Failed to setup the wallet for a refill: %v", err)
+								util.SendErrorToSlack("Failed to setup the wallet for a refill: %v", err)
 								break
 							}
 						}
 						log.Println("Retrying")
 						continue
 					}
-					util.SendToSlackError("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
+					util.SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
 			}
 			break

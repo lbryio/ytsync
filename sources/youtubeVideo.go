@@ -211,7 +211,7 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	if err != nil {
 		return err
 	}
-	if fi.Size() > 1*1024*1024*1024 {
+	if fi.Size() > 2*1024*1024*1024 {
 		//delete the video and ignore the error
 		_ = v.delete()
 		return errors.Err("video is bigger than 1GB, skipping for now")

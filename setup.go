@@ -41,6 +41,9 @@ func (s *Sync) walletSetup() error {
 		}
 	}
 	log.Debugf("Source channel has %d videos", numOnSource)
+	if numOnSource == 0 {
+		return nil
+	}
 
 	numPublished, err := s.daemon.NumClaimsInChannel(s.LbryChannelName)
 	if err != nil {
@@ -50,7 +53,7 @@ func (s *Sync) walletSetup() error {
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
 	if numPublished > numOnSource {
-		util.SendToSlackError("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
+		util.SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
 		minBalance = 1 //since we ended up in this function it means some juice is still needed
 	}
 	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
@@ -166,7 +169,7 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 		if time.Now().After(origin.Add(15 * time.Minute)) {
 			//lbryum is messing with us or something. restart the daemon
 			//this could also be a very long block
-			util.SendToSlackError("We've been waiting UTXOs confirmation for %s... and this isn't normal", time.Now().Sub(origin).String())
+			util.SendErrorToSlack("We've been waiting UTXOs confirmation for %s... and this isn't normal", time.Now().Sub(origin).String())
 		}
 		wait := 30 * time.Second
 		log.Println("Waiting " + wait.String() + "...")
@@ -282,6 +285,7 @@ func (s *Sync) addCredits(amountToAdd float64) error {
 	log.Println("Waiting " + wait.String() + " for lbryum to let us know we have the new transaction")
 	time.Sleep(wait)
 
-	log.Println("Waiting for transaction to be confirmed")
-	return s.waitUntilUTXOsConfirmed()
+	return nil
+	//log.Println("Waiting for transaction to be confirmed")
+	//return s.waitUntilUTXOsConfirmed()
 }
