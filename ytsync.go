@@ -159,7 +159,7 @@ func (s *Sync) FullCycle() error {
 
 	log.Infoln("Waiting for daemon to finish starting...")
 	s.daemon = jsonrpc.NewClient("")
-	s.daemon.SetRPCTimeout(20 * time.Minute)
+	s.daemon.SetRPCTimeout(40 * time.Minute)
 
 WaitForDaemonStart:
 	for {
@@ -257,6 +257,7 @@ func (s *Sync) startWorker(workerNum int) {
 					":5279: read: connection reset by peer",
 					"no space left on device",
 					"NotEnoughFunds",
+					"Cannot publish using channel",
 				}
 				if util.InSliceContains(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
@@ -271,15 +272,15 @@ func (s *Sync) startWorker(workerNum int) {
 						"Error in daemon: Cannot publish empty file",
 						"Error extracting sts from embedded url response",
 						"Client.Timeout exceeded while awaiting headers)",
-						"video is bigger than 1GB, skipping for now",
+						"video is bigger than 2GB, skipping for now",
 					}
 					if util.InSliceContains(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
-						if strings.Contains(err.Error(), "258: txn-mempool-conflict") ||
+						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
 							strings.Contains(err.Error(), "failed: Not enough funds") ||
 							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") ||
-							strings.Contains(err.Error(), "64: too-long-mempool-chain") {
+							strings.Contains(err.Error(), "too-long-mempool-chain") {
 							log.Println("waiting for a block and refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {
