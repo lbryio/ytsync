@@ -75,7 +75,7 @@ type Sync struct {
 // IsInterrupted can be queried to discover if the sync process was interrupted manually
 func (s *Sync) IsInterrupted() bool {
 	select {
-	case <-s.stop.Ch():
+	case <-s.grp.Ch():
 		return true
 	default:
 		return false
@@ -284,7 +284,7 @@ func (s *Sync) startWorker(workerNum int) {
 							log.Println("waiting for a block and refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {
-								s.stop.Stop()
+								s.grp.Stop()
 								util.SendErrorToSlack("Failed to setup the wallet for a refill: %v", err)
 								break
 							}
