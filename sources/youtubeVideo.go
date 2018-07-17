@@ -131,7 +131,7 @@ func (v YoutubeVideo) delete() error {
 	videoPath := v.getFilename()
 	err := os.Remove(videoPath)
 	if err != nil {
-		log.Debugln(errors.Prefix("delete error", err))
+		log.Errorln(errors.Prefix("delete error", err))
 		return err
 	}
 	log.Debugln(v.id + " deleted from disk (" + videoPath + ")")

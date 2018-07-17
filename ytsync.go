@@ -100,7 +100,7 @@ func (s *Sync) FullCycle() (e error) {
 			noFailConditions := []string{
 				"this youtube channel is being managed by another server",
 			}
-			if util.InSliceContains(e.Error(), noFailConditions) {
+			if util.ContainedInSlice(e.Error(), noFailConditions) {
 				return
 			}
 			err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusFailed)
@@ -219,7 +219,7 @@ func (s *Sync) doSync() error {
 
 	err = s.walletSetup()
 	if err != nil {
-		return errors.Err("Initial wallet setup failed! Manual Intervention is required. Reason: %v", err)
+		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
 	}
 
 	if s.StopOnError {
@@ -281,7 +281,7 @@ func (s *Sync) startWorker(workerNum int) {
 					"NotEnoughFunds",
 					"Cannot publish using channel",
 				}
-				if util.InSliceContains(err.Error(), fatalErrors) || s.StopOnError {
+				if util.ContainedInSlice(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
 				} else if s.MaxTries > 1 {
 					errorsNoRetry := []string{
@@ -296,7 +296,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Client.Timeout exceeded while awaiting headers)",
 						"video is bigger than 2GB, skipping for now",
 					}
-					if util.InSliceContains(err.Error(), errorsNoRetry) {
+					if util.ContainedInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
 						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
@@ -369,9 +369,6 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		}
 
 		for _, item := range playlistResponse.Items {
-			// todo: there's thumbnail info here. why did we need lambda???
-			// because when videos are taken down from youtube, the thumb is gone too
-
 			// normally we'd send the video into the channel here, but youtube api doesn't have sorting
 			// so we have to get ALL the videos, then sort them, then send them in
 			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item.Snippet))

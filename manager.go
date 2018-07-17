@@ -12,6 +12,8 @@ import (
 
 	"time"
 
+	"syscall"
+
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/null"
 	"github.com/lbryio/lbry.go/util"
@@ -214,7 +216,7 @@ func (s SyncManager) Start() error {
 					"NotEnoughFunds",
 					"no space left on device",
 				}
-				if util.InSliceContains(err.Error(), fatalErrors) {
+				if util.ContainedInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
 				}
 				util.SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
@@ -243,7 +245,7 @@ func (s SyncManager) checkUsedSpace() error {
 	if err != nil {
 		return err
 	}
-	usedPctile, err := util.GetUsedSpace(usr.HomeDir + "/.lbrynet/blobfiles/")
+	usedPctile, err := GetUsedSpace(usr.HomeDir + "/.lbrynet/blobfiles/")
 	if err != nil {
 		return err
 	}
@@ -252,4 +254,19 @@ func (s SyncManager) checkUsedSpace() error {
 	}
 	util.SendInfoToSlack("disk usage: %.1f%%", usedPctile*100)
 	return nil
+}
+
+// GetUsedSpace returns a value between 0 and 1, with 0 being completely empty and 1 being full, for the disk that holds the provided path
+func GetUsedSpace(path string) (float32, error) {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(path, &stat)
+	if err != nil {
+		return 0, err
+	}
+	// Available blocks * size per block = available space in bytes
+	all := stat.Blocks * uint64(stat.Bsize)
+	free := stat.Bfree * uint64(stat.Bsize)
+	used := all - free
+
+	return float32(used) / float32(all), nil
 }
