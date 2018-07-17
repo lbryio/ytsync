@@ -59,6 +59,7 @@ type Sync struct {
 	ConcurrentVideos        int
 	TakeOverExistingChannel bool
 	Refill                  int
+	Manager                 *SyncManager
 
 	daemon         *jsonrpc.Client
 	claimAddress   string
@@ -82,19 +83,40 @@ func (s *Sync) IsInterrupted() bool {
 	}
 }
 
-func (s *Sync) FullCycle() error {
-	var err error
+func (s *Sync) FullCycle() (e error) {
 	if os.Getenv("HOME") == "" {
 		return errors.Err("no $HOME env var found")
 	}
-
 	if s.YoutubeChannelID == "" {
-		channelID, err := getChannelIDFromFile(s.LbryChannelName)
-		if err != nil {
-			return err
-		}
-		s.YoutubeChannelID = channelID
+		return errors.Err("channel ID not provided")
 	}
+	err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusSyncing)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if e != nil {
+			//conditions for which a channel shouldn't be marked as failed
+			noFailConditions := []string{
+				"this youtube channel is being managed by another server",
+			}
+			if util.InSliceContains(e.Error(), noFailConditions) {
+				return
+			}
+			err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusFailed)
+			if err != nil {
+				msg := fmt.Sprintf("Failed setting failed state for channel %s.", s.LbryChannelName)
+				err = errors.Prefix(msg, err)
+				e = errors.Prefix(err.Error(), e)
+			}
+		} else {
+			err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusSynced)
+			if err != nil {
+				e = err
+			}
+		}
+	}()
+
 	defaultWalletDir := os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
 	if os.Getenv("REGTEST") == "true" {
 		defaultWalletDir = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
@@ -491,26 +513,6 @@ func stopDaemonViaSystemd() error {
 		return errors.Err(err)
 	}
 	return nil
-}
-
-func getChannelIDFromFile(channelName string) (string, error) {
-	channelsJSON, err := ioutil.ReadFile("./channels")
-	if err != nil {
-		return "", errors.Wrap(err, 0)
-	}
-
-	var channels map[string]string
-	err = json.Unmarshal(channelsJSON, &channels)
-	if err != nil {
-		return "", errors.Wrap(err, 0)
-	}
-
-	channelID, ok := channels[channelName]
-	if !ok {
-		return "", errors.Err("channel not in list")
-	}
-
-	return channelID, nil
 }
 
 // waitForDaemonProcess observes the running processes and returns when the process is no longer running or when the timeout is up
