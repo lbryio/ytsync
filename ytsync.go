@@ -39,7 +39,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string) error
+	Sync(*jsonrpc.Client, string, float64, string) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -316,6 +316,10 @@ func (s *Sync) startWorker(workerNum int) {
 					}
 					util.SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
+				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoSStatusFailed, "", "", err.Error())
+				if err != nil {
+					util.SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
+				}
 			}
 			break
 		}
@@ -483,11 +487,14 @@ func (s *Sync) processVideo(v video) (err error) {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
-	err = v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
 	if err != nil {
 		return err
 	}
-
+	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "")
+	if err != nil {
+		util.SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
+	}
 	err = s.db.SetPublished(v.ID())
 	if err != nil {
 		return err

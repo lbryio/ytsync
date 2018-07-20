@@ -117,7 +117,49 @@ func (s SyncManager) setChannelSyncStatus(channelID string, status string) error
 	if !response.Data.IsNull() && response.Data.String == "ok" {
 		return nil
 	}
-	return errors.Err("invalid API response")
+	return errors.Err("invalid API response. Status code: %d", res.StatusCode)
+}
+
+const (
+	VideoStatusPublished = "published"
+	VideoSStatusFailed   = "failed"
+)
+
+func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, details string) error {
+	endpoint := s.apiURL + "/yt/track_video"
+
+	vals := url.Values{
+		"youtube_channel_id": {channelID},
+		"youtube_video_id":   {videoID},
+		"status":             {status},
+		"auth_token":         {s.apiToken},
+	}
+	if status == VideoStatusPublished {
+		if claimID == "" || claimName == "" {
+			return errors.Err("claimID or claimName missing")
+		}
+		vals.Add("published_at", strconv.FormatInt(time.Now().Unix(), 10))
+		vals.Add("claim_id", claimID)
+		vals.Add("claim_name", claimName)
+	}
+	if details != "" {
+		vals.Add("details", details)
+	}
+	res, _ := http.PostForm(endpoint, vals)
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+	var response apiSyncUpdateResponse
+	err := json.Unmarshal(body, &response)
+	if err != nil {
+		return err
+	}
+	if !response.Error.IsNull() {
+		return errors.Err(response.Error.String)
+	}
+	if !response.Data.IsNull() && response.Data.String == "ok" {
+		return nil
+	}
+	return errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
 
 func (s SyncManager) Start() error {

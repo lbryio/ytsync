@@ -181,7 +181,7 @@ func (v YoutubeVideo) triggerThumbnailSave() error {
 
 func strPtr(s string) *string { return &s }
 
-func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
+func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
 	options := jsonrpc.PublishOptions{
 		Title:         &v.title,
 		Author:        &v.channelTitle,
@@ -199,38 +199,38 @@ func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amoun
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
+func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
-		return errors.Prefix("download error", err)
+		return nil, errors.Prefix("download error", err)
 	}
 	log.Debugln("Downloaded " + v.id)
 
 	fi, err := os.Stat(v.getFilename())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if fi.Size() > 2*1024*1024*1024 {
 		//delete the video and ignore the error
 		_ = v.delete()
-		return errors.Err("video is bigger than 2GB, skipping for now")
+		return nil, errors.Err("video is bigger than 2GB, skipping for now")
 	}
 
 	err = v.triggerThumbnailSave()
 	if err != nil {
-		return errors.Prefix("thumbnail error", err)
+		return nil, errors.Prefix("thumbnail error", err)
 	}
 	log.Debugln("Created thumbnail for " + v.id)
 
-	err = v.publish(daemon, claimAddress, amount, channelName)
+	summary, err := v.publish(daemon, claimAddress, amount, channelName)
 	//delete the video in all cases (and ignore the error)
 	_ = v.delete()
 	if err != nil {
-		return errors.Prefix("publish error", err)
+		return nil, errors.Prefix("publish error", err)
 	}
 
-	return nil
+	return summary, nil
 }
 
 // sorting videos

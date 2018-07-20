@@ -170,7 +170,7 @@ func (v ucbVideo) saveThumbnail() error {
 	return err
 }
 
-func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
+func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
 	options := jsonrpc.PublishOptions{
 		Title:        &v.title,
 		Author:       strPtr("UC Berkeley"),
@@ -188,11 +188,11 @@ func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount fl
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) error {
+func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
-		return errors.Prefix("download error", err)
+		return nil, errors.Prefix("download error", err)
 	}
 	log.Debugln("Downloaded " + v.id)
 
@@ -202,10 +202,10 @@ func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float
 	//}
 	//log.Debugln("Created thumbnail for " + v.id)
 
-	err = v.publish(daemon, claimAddress, amount, channelName)
+	summary, err := v.publish(daemon, claimAddress, amount, channelName)
 	if err != nil {
-		return errors.Prefix("publish error", err)
+		return nil, errors.Prefix("publish error", err)
 	}
 
-	return nil
+	return summary, nil
 }
