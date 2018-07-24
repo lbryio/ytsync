@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
-	"os/user"
 	"strconv"
 
 	"time"
@@ -35,10 +33,10 @@ type SyncManager struct {
 	ConcurrentVideos        int
 	HostName                string
 	YoutubeChannelID        string
-
-	youtubeAPIKey string
-	apiURL        string
-	apiToken      string
+	YoutubeAPIKey           string
+	ApiURL                  string
+	ApiToken                string
+	BlobsDir                string
 }
 
 const (
@@ -65,9 +63,9 @@ type apiYoutubeChannel struct {
 }
 
 func (s SyncManager) fetchChannels(status string) ([]apiYoutubeChannel, error) {
-	endpoint := s.apiURL + "/yt/jobs"
+	endpoint := s.ApiURL + "/yt/jobs"
 	res, _ := http.PostForm(endpoint, url.Values{
-		"auth_token":  {s.apiToken},
+		"auth_token":  {s.ApiToken},
 		"sync_status": {status},
 		"min_videos":  {strconv.Itoa(1)},
 		"after":       {strconv.Itoa(int(s.SyncFrom))},
@@ -96,12 +94,12 @@ type apiSyncUpdateResponse struct {
 }
 
 func (s SyncManager) setChannelSyncStatus(channelID string, status string) error {
-	endpoint := s.apiURL + "/yt/sync_update"
+	endpoint := s.ApiURL + "/yt/sync_update"
 
 	res, _ := http.PostForm(endpoint, url.Values{
 		"channel_id":  {channelID},
 		"sync_server": {s.HostName},
-		"auth_token":  {s.apiToken},
+		"auth_token":  {s.ApiToken},
 		"sync_status": {status},
 	})
 	defer res.Body.Close()
@@ -126,13 +124,13 @@ const (
 )
 
 func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, details string) error {
-	endpoint := s.apiURL + "/yt/track_video"
+	endpoint := s.ApiURL + "/yt/track_video"
 
 	vals := url.Values{
 		"youtube_channel_id": {channelID},
 		"youtube_video_id":   {videoID},
 		"status":             {status},
-		"auth_token":         {s.apiToken},
+		"auth_token":         {s.ApiToken},
 	}
 	if status == VideoStatusPublished {
 		if claimID == "" || claimName == "" {
@@ -163,19 +161,6 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 }
 
 func (s SyncManager) Start() error {
-	s.apiURL = os.Getenv("LBRY_API")
-	s.apiToken = os.Getenv("LBRY_API_TOKEN")
-	s.youtubeAPIKey = os.Getenv("YOUTUBE_API_KEY")
-	if s.apiURL == "" {
-		return errors.Err("An API URL was not defined. Please set the environment variable LBRY_API")
-	}
-	if s.apiToken == "" {
-		return errors.Err("An API Token was not defined. Please set the environment variable LBRY_API_TOKEN")
-	}
-	if s.youtubeAPIKey == "" {
-		return errors.Err("A Youtube API key was not defined. Please set the environment variable YOUTUBE_API_KEY")
-	}
-
 	syncCount := 0
 	for {
 		err := s.checkUsedSpace()
@@ -201,7 +186,7 @@ func (s SyncManager) Start() error {
 			}
 			syncs = make([]Sync, 1)
 			syncs[0] = Sync{
-				YoutubeAPIKey:           s.youtubeAPIKey,
+				YoutubeAPIKey:           s.YoutubeAPIKey,
 				YoutubeChannelID:        s.YoutubeChannelID,
 				LbryChannelName:         lbryChannelName,
 				StopOnError:             s.StopOnError,
@@ -231,7 +216,7 @@ func (s SyncManager) Start() error {
 						continue
 					}
 					syncs = append(syncs, Sync{
-						YoutubeAPIKey:           s.youtubeAPIKey,
+						YoutubeAPIKey:           s.YoutubeAPIKey,
 						YoutubeChannelID:        c.ChannelId,
 						LbryChannelName:         c.DesiredChannelName,
 						StopOnError:             s.StopOnError,
@@ -249,7 +234,7 @@ func (s SyncManager) Start() error {
 			time.Sleep(5 * time.Minute)
 		}
 		for i, sync := range syncs {
-			util.SendInfoToSlack("Syncing %s to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, i, len(syncs), syncCount)
+			SendInfoToSlack("Syncing %s to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, i, len(syncs), syncCount)
 			err := sync.FullCycle()
 			if err != nil {
 				fatalErrors := []string{
@@ -258,12 +243,12 @@ func (s SyncManager) Start() error {
 					"NotEnoughFunds",
 					"no space left on device",
 				}
-				if util.ContainedInSlice(err.Error(), fatalErrors) {
+				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
 				}
-				util.SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
+				SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 			}
-			util.SendInfoToSlack("Syncing %s reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, i, len(syncs), syncCount)
+			SendInfoToSlack("Syncing %s reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, i, len(syncs), syncCount)
 			syncCount++
 			if sync.IsInterrupted() || (s.Limit != 0 && syncCount >= s.Limit) {
 				shouldInterruptLoop = true
@@ -283,18 +268,14 @@ func (s SyncManager) isWorthProcessing(channel apiYoutubeChannel) bool {
 }
 
 func (s SyncManager) checkUsedSpace() error {
-	usr, err := user.Current()
-	if err != nil {
-		return err
-	}
-	usedPctile, err := GetUsedSpace(usr.HomeDir + "/.lbrynet/blobfiles/")
+	usedPctile, err := GetUsedSpace(s.BlobsDir)
 	if err != nil {
 		return err
 	}
 	if usedPctile >= 0.90 && !s.SkipSpaceCheck {
 		return errors.Err(fmt.Sprintf("more than 90%% of the space has been used. use --skip-space-check to ignore. Used: %.1f%%", usedPctile*100))
 	}
-	util.SendInfoToSlack("disk usage: %.1f%%", usedPctile*100)
+	SendInfoToSlack("disk usage: %.1f%%", usedPctile*100)
 	return nil
 }
 

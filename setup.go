@@ -8,7 +8,6 @@ import (
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/lbrycrd"
 
-	"github.com/lbryio/lbry.go/util"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
@@ -51,9 +50,12 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("We already published %d videos", numPublished)
 
+	if float64(numOnSource)-float64(numPublished) > maximumVideosToPublish {
+		numOnSource = maximumVideosToPublish
+	}
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
 	if numPublished > numOnSource {
-		util.SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
+		SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
 		minBalance = 1 //since we ended up in this function it means some juice is still needed
 	}
 	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
@@ -169,7 +171,7 @@ func (s *Sync) waitUntilUTXOsConfirmed() error {
 		if time.Now().After(origin.Add(15 * time.Minute)) {
 			//lbryum is messing with us or something. restart the daemon
 			//this could also be a very long block
-			util.SendErrorToSlack("We've been waiting UTXOs confirmation for %s... and this isn't normal", time.Now().Sub(origin).String())
+			SendErrorToSlack("We've been waiting UTXOs confirmation for %s... and this isn't normal", time.Now().Sub(origin).String())
 		}
 		wait := 30 * time.Second
 		log.Println("Waiting " + wait.String() + "...")

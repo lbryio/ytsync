@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	channelClaimAmount = 0.01
-	publishAmount      = 0.01
+	channelClaimAmount     = 0.01
+	publishAmount          = 0.01
+	maximumVideosToPublish = 1000
 )
 
 type video interface {
@@ -73,6 +74,26 @@ type Sync struct {
 	queue chan video
 }
 
+// SendErrorToSlack Sends an error message to the default channel and to the process log.
+func SendErrorToSlack(format string, a ...interface{}) error {
+	message := format
+	if len(a) > 0 {
+		message = fmt.Sprintf(format, a...)
+	}
+	log.Errorln(message)
+	return util.SendToSlack(":sos: " + message)
+}
+
+// SendInfoToSlack Sends an info message to the default channel and to the process log.
+func SendInfoToSlack(format string, a ...interface{}) error {
+	message := format
+	if len(a) > 0 {
+		message = fmt.Sprintf(format, a...)
+	}
+	log.Infoln(message)
+	return util.SendToSlack(":information_source: " + message)
+}
+
 // IsInterrupted can be queried to discover if the sync process was interrupted manually
 func (s *Sync) IsInterrupted() bool {
 	select {
@@ -100,7 +121,7 @@ func (s *Sync) FullCycle() (e error) {
 			noFailConditions := []string{
 				"this youtube channel is being managed by another server",
 			}
-			if util.ContainedInSlice(e.Error(), noFailConditions) {
+			if util.SubstringInSlice(e.Error(), noFailConditions) {
 				return
 			}
 			err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusFailed)
@@ -109,7 +130,7 @@ func (s *Sync) FullCycle() (e error) {
 				err = errors.Prefix(msg, err)
 				e = errors.Prefix(err.Error(), e)
 			}
-		} else {
+		} else if !s.IsInterrupted() {
 			err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusSynced)
 			if err != nil {
 				e = err
@@ -210,8 +231,8 @@ WaitForDaemonStart:
 	return nil
 }
 func logShutdownError(shutdownErr error) {
-	util.SendErrorToSlack("error shutting down daemon: %v", shutdownErr)
-	util.SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+	SendErrorToSlack("error shutting down daemon: %v", shutdownErr)
+	SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 }
 
 func (s *Sync) doSync() error {
@@ -281,7 +302,7 @@ func (s *Sync) startWorker(workerNum int) {
 					"NotEnoughFunds",
 					"Cannot publish using channel",
 				}
-				if util.ContainedInSlice(err.Error(), fatalErrors) || s.StopOnError {
+				if util.SubstringInSlice(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
 				} else if s.MaxTries > 1 {
 					errorsNoRetry := []string{
@@ -296,7 +317,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Client.Timeout exceeded while awaiting headers)",
 						"video is bigger than 2GB, skipping for now",
 					}
-					if util.ContainedInSlice(err.Error(), errorsNoRetry) {
+					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
 						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
@@ -307,19 +328,19 @@ func (s *Sync) startWorker(workerNum int) {
 							err = s.walletSetup()
 							if err != nil {
 								s.grp.Stop()
-								util.SendErrorToSlack("Failed to setup the wallet for a refill: %v", err)
+								SendErrorToSlack("Failed to setup the wallet for a refill: %v", err)
 								break
 							}
 						}
 						log.Println("Retrying")
 						continue
 					}
-					util.SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
+					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
-				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoSStatusFailed, "", "", err.Error())
+				/*err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoSStatusFailed, "", "", err.Error())
 				if err != nil {
-					util.SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
-				}
+					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
+				}*/
 			}
 			break
 		}
@@ -483,18 +504,18 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if v.PlaylistPosition() > 1000 {
+	if v.PlaylistPosition() > maximumVideosToPublish {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
+	_, err = v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
 	if err != nil {
 		return err
 	}
-	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "")
+	/*err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "")
 	if err != nil {
-		util.SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
-	}
+		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
+	}*/
 	err = s.db.SetPublished(v.ID())
 	if err != nil {
 		return err
