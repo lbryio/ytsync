@@ -164,7 +164,7 @@ func (s *Sync) FullCycle() (e error) {
 		} else {
 			// the cli will return long before the daemon effectively stops. we must observe the processes running
 			// before moving the wallet
-			var waitTimeout time.Duration = 60 * 8
+			waitTimeout := 8 * time.Minute
 			processDeathError := waitForDaemonProcess(waitTimeout)
 			if processDeathError != nil {
 				logShutdownError(processDeathError)
@@ -337,10 +337,10 @@ func (s *Sync) startWorker(workerNum int) {
 					}
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
-				/*err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoSStatusFailed, "", "", err.Error())
+				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoSStatusFailed, "", "", err.Error())
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
-				}*/
+				}
 			}
 			break
 		}
@@ -508,14 +508,14 @@ func (s *Sync) processVideo(v video) (err error) {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
-	_, err = v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
 	if err != nil {
 		return err
 	}
-	/*err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "")
+	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "")
 	if err != nil {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
-	}*/
+	}
 	err = s.db.SetPublished(v.ID())
 	if err != nil {
 		return err

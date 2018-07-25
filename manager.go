@@ -94,7 +94,7 @@ type apiSyncUpdateResponse struct {
 }
 
 func (s SyncManager) setChannelSyncStatus(channelID string, status string) error {
-	endpoint := s.ApiURL + "/yt/sync_update"
+	endpoint := s.ApiURL + "/yt/channel_status"
 
 	res, _ := http.PostForm(endpoint, url.Values{
 		"channel_id":  {channelID},
@@ -123,12 +123,12 @@ const (
 	VideoSStatusFailed   = "failed"
 )
 
-func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, details string) error {
-	endpoint := s.ApiURL + "/yt/track_video"
+func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string) error {
+	endpoint := s.ApiURL + "/yt/video_status"
 
 	vals := url.Values{
 		"youtube_channel_id": {channelID},
-		"youtube_video_id":   {videoID},
+		"video_id":           {videoID},
 		"status":             {status},
 		"auth_token":         {s.ApiToken},
 	}
@@ -140,8 +140,8 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 		vals.Add("claim_id", claimID)
 		vals.Add("claim_name", claimName)
 	}
-	if details != "" {
-		vals.Add("details", details)
+	if failureReason != "" {
+		vals.Add("failure_reason", failureReason)
 	}
 	res, _ := http.PostForm(endpoint, vals)
 	defer res.Body.Close()
