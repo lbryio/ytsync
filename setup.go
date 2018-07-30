@@ -44,7 +44,8 @@ func (s *Sync) walletSetup() error {
 		return nil
 	}
 
-	numPublished, err := s.daemon.NumClaimsInChannel(s.LbryChannelName)
+	//numPublished, err := s.daemon.NumClaimsInChannel(s.LbryChannelName)
+	numPublished := uint64(len(s.syncedVideos)) //should we only count published videos? Credits are allocated even for failed ones...
 	if err != nil {
 		return err
 	}
@@ -52,6 +53,11 @@ func (s *Sync) walletSetup() error {
 
 	if float64(numOnSource)-float64(numPublished) > float64(s.Manager.VideosLimit) {
 		numOnSource = uint64(s.Manager.VideosLimit)
+	}
+
+	//TODO: get rid of this as soon as we compute this condition using the database in a more reliable way
+	if numPublished >= numOnSource {
+		return errors.Err("channel is already up to date")
 	}
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
 	if numPublished > numOnSource {

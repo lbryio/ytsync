@@ -96,7 +96,13 @@ type apiSyncUpdateResponse struct {
 	Data    null.String `json:"data"`
 }
 
-func (s SyncManager) setChannelSyncStatus(channelID string, status string) error {
+type syncedVideo struct {
+	VideoID       string
+	Published     bool
+	FailureReason string
+}
+
+func (s SyncManager) setChannelSyncStatus(channelID string, status string) (map[string]syncedVideo, error) {
 	endpoint := s.ApiURL + "/yt/channel_status"
 
 	res, _ := http.PostForm(endpoint, url.Values{
@@ -110,15 +116,28 @@ func (s SyncManager) setChannelSyncStatus(channelID string, status string) error
 	var response apiSyncUpdateResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !response.Error.IsNull() {
-		return errors.Err(response.Error.String)
+		return nil, errors.Err(response.Error.String)
 	}
-	if !response.Data.IsNull() && response.Data.String == "ok" {
-		return nil
+	if !response.Data.IsNull() {
+		if response.Data.String == "ok" {
+			return nil, nil
+		}
+		var sv []syncedVideo
+		err := json.Unmarshal([]byte(response.Data.String), &sv)
+		if err != nil {
+			return nil, errors.Err("could not parse synced videos")
+		}
+
+		svs := make(map[string]syncedVideo)
+		for _, v := range sv {
+			svs[v.VideoID] = v
+		}
+		return svs, nil
 	}
-	return errors.Err("invalid API response. Status code: %d", res.StatusCode)
+	return nil, errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
 
 const (
