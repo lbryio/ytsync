@@ -21,6 +21,7 @@ import (
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/stop"
 	"github.com/lbryio/lbry.go/util"
+	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
@@ -63,9 +64,9 @@ type Sync struct {
 	daemon         *jsonrpc.Client
 	claimAddress   string
 	videoDirectory string
-	//db             *redisdb.DB
-	syncedVideos map[string]syncedVideo
-	grp          *stop.Group
+	db             *redisdb.DB
+	syncedVideos   map[string]syncedVideo
+	grp            *stop.Group
 
 	mux   sync.Mutex
 	wg    sync.WaitGroup
@@ -109,10 +110,11 @@ func (s *Sync) FullCycle() (e error) {
 	if s.YoutubeChannelID == "" {
 		return errors.Err("channel ID not provided")
 	}
-	syncedVideos, err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusSyncing)
+	syncedVideos, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSyncing)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if e != nil {
 			//conditions for which a channel shouldn't be marked as failed
@@ -123,14 +125,14 @@ func (s *Sync) FullCycle() (e error) {
 			if util.SubstringInSlice(e.Error(), noFailConditions) {
 				return
 			}
-			_, err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusFailed)
+			_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusFailed)
 			if err != nil {
 				msg := fmt.Sprintf("Failed setting failed state for channel %s.", s.LbryChannelName)
 				err = errors.Prefix(msg, err)
 				e = errors.Prefix(err.Error(), e)
 			}
 		} else if !s.IsInterrupted() {
-			_, err := s.Manager.setChannelSyncStatus(s.YoutubeChannelID, StatusSynced)
+			_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSynced)
 			if err != nil {
 				e = err
 			}
@@ -181,7 +183,7 @@ func (s *Sync) FullCycle() (e error) {
 		return errors.Wrap(err, 0)
 	}
 
-	//s.db = redisdb.New()
+	s.db = redisdb.New()
 	s.syncedVideos = syncedVideos
 	s.grp = stop.New()
 	s.queue = make(chan video)
@@ -499,6 +501,18 @@ func (s *Sync) processVideo(v video) (err error) {
 
 	if ok && !sv.Published && strings.Contains(sv.FailureReason, "Error extracting sts from embedded url response") {
 		log.Println(v.ID() + " can't be published")
+		return nil
+	}
+
+	alreadyPublishedOld, err := s.db.IsPublished(v.ID())
+	if err != nil {
+		return err
+	}
+	//TODO: remove this after a few runs
+	if alreadyPublishedOld && !alreadyPublished {
+		//seems like something in the migration of blobs didn't go perfectly right so warn about it!
+		SendInfoToSlack("A video that was previously published is on the local database but isn't on the remote db! fix it @Nikooo777! \nchannelID: %s, videoID: %s",
+			s.YoutubeChannelID, v.ID())
 		return nil
 	}
 

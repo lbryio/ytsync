@@ -90,19 +90,19 @@ func (s SyncManager) fetchChannels(status string) ([]apiYoutubeChannel, error) {
 	return response.Data, nil
 }
 
-type apiSyncUpdateResponse struct {
-	Success bool        `json:"success"`
-	Error   null.String `json:"error"`
-	Data    null.String `json:"data"`
+type apiChannelStatusResponse struct {
+	Success bool          `json:"success"`
+	Error   null.String   `json:"error"`
+	Data    []syncedVideo `json:"data"`
 }
 
 type syncedVideo struct {
-	VideoID       string
-	Published     bool
-	FailureReason string
+	VideoID       string `json:"video_id"`
+	Published     bool   `json:"published"`
+	FailureReason string `json:"failure_reason"`
 }
 
-func (s SyncManager) setChannelSyncStatus(channelID string, status string) (map[string]syncedVideo, error) {
+func (s SyncManager) setChannelStatus(channelID string, status string) (map[string]syncedVideo, error) {
 	endpoint := s.ApiURL + "/yt/channel_status"
 
 	res, _ := http.PostForm(endpoint, url.Values{
@@ -113,7 +113,7 @@ func (s SyncManager) setChannelSyncStatus(channelID string, status string) (map[
 	})
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
-	var response apiSyncUpdateResponse
+	var response apiChannelStatusResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
 		return nil, err
@@ -121,18 +121,12 @@ func (s SyncManager) setChannelSyncStatus(channelID string, status string) (map[
 	if !response.Error.IsNull() {
 		return nil, errors.Err(response.Error.String)
 	}
-	if !response.Data.IsNull() {
-		if response.Data.String == "ok" {
+	if response.Data != nil {
+		if len(response.Data) == 0 {
 			return nil, nil
 		}
-		var sv []syncedVideo
-		err := json.Unmarshal([]byte(response.Data.String), &sv)
-		if err != nil {
-			return nil, errors.Err("could not parse synced videos")
-		}
-
 		svs := make(map[string]syncedVideo)
-		for _, v := range sv {
+		for _, v := range response.Data {
 			svs[v.VideoID] = v
 		}
 		return svs, nil
@@ -144,6 +138,12 @@ const (
 	VideoStatusPublished = "published"
 	VideoStatusFailed    = "failed"
 )
+
+type apiVideoStatusResponse struct {
+	Success bool        `json:"success"`
+	Error   null.String `json:"error"`
+	Data    null.String `json:"data"`
+}
 
 func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string) error {
 	endpoint := s.ApiURL + "/yt/video_status"
@@ -168,7 +168,7 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 	res, _ := http.PostForm(endpoint, vals)
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
-	var response apiSyncUpdateResponse
+	var response apiVideoStatusResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
 		return err
