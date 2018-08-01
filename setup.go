@@ -50,8 +50,8 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("We already published %d videos", numPublished)
 
-	if float64(numOnSource)-float64(numPublished) > maximumVideosToPublish {
-		numOnSource = maximumVideosToPublish
+	if float64(numOnSource)-float64(numPublished) > float64(s.Manager.VideosLimit) {
+		numOnSource = uint64(s.Manager.VideosLimit)
 	}
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
 	if numPublished > numOnSource {

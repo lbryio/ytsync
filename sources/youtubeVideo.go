@@ -203,7 +203,7 @@ func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amoun
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
+func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string, maxVideoSize int) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -215,10 +215,10 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	if err != nil {
 		return nil, err
 	}
-	if fi.Size() > 2*1024*1024*1024 {
+	if fi.Size() > int64(maxVideoSize)*1024*1024 {
 		//delete the video and ignore the error
 		_ = v.delete()
-		return nil, errors.Err("video is bigger than 2GB, skipping for now")
+		return nil, errors.Err("the video is too big to sync, skipping for now")
 	}
 
 	err = v.triggerThumbnailSave()

@@ -188,7 +188,7 @@ func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount fl
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
+func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string, maxVideoSize int) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {

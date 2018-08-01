@@ -37,6 +37,8 @@ type SyncManager struct {
 	ApiURL                  string
 	ApiToken                string
 	BlobsDir                string
+	VideosLimit             int
+	MaxVideoSize            int
 }
 
 const (

@@ -30,9 +30,8 @@ import (
 )
 
 const (
-	channelClaimAmount     = 0.01
-	publishAmount          = 0.01
-	maximumVideosToPublish = 1000
+	channelClaimAmount = 0.01
+	publishAmount      = 0.01
 )
 
 type video interface {
@@ -40,7 +39,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, string, float64, string, int) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -315,7 +314,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Error in daemon: Cannot publish empty file",
 						"Error extracting sts from embedded url response",
 						"Client.Timeout exceeded while awaiting headers)",
-						"video is bigger than 2GB, skipping for now",
+						"the video is too big to sync, skipping for now",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
@@ -504,11 +503,11 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if v.PlaylistPosition() > maximumVideosToPublish {
+	if v.PlaylistPosition() > s.Manager.VideosLimit {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName)
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName, s.Manager.MaxVideoSize)
 	if err != nil {
 		return err
 	}
