@@ -336,7 +336,7 @@ func (s *Sync) startWorker(workerNum int) {
 					}
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
-				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoSStatusFailed, "", "", err.Error())
+				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error())
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}

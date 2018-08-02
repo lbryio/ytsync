@@ -122,7 +122,7 @@ func (s SyncManager) setChannelSyncStatus(channelID string, status string) error
 
 const (
 	VideoStatusPublished = "published"
-	VideoSStatusFailed   = "failed"
+	VideoStatusFailed    = "failed"
 )
 
 func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string) error {
