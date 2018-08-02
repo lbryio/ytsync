@@ -499,16 +499,21 @@ func (s *Sync) processVideo(v video) (err error) {
 	sv, ok := s.syncedVideos[v.ID()]
 	alreadyPublished := ok && sv.Published
 
-	if ok && !sv.Published && strings.Contains(sv.FailureReason, "Error extracting sts from embedded url response") {
-		log.Println(v.ID() + " can't be published")
+	neverRetryFailures := []string{
+		"Error extracting sts from embedded url response",
+		"the video is too big to sync, skipping for now",
+	}
+	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
+		log.Println(v.ID() + " can't ever be published")
 		return nil
 	}
 
+	//TODO: remove this after a few runs...
 	alreadyPublishedOld, err := s.db.IsPublished(v.ID())
 	if err != nil {
 		return err
 	}
-	//TODO: remove this after a few runs
+	//TODO: remove this after a few runs...
 	if alreadyPublishedOld && !alreadyPublished {
 		//seems like something in the migration of blobs didn't go perfectly right so warn about it!
 		SendInfoToSlack("A video that was previously published is on the local database but isn't on the remote db! fix it @Nikooo777! \nchannelID: %s, videoID: %s",
@@ -533,7 +538,6 @@ func (s *Sync) processVideo(v video) (err error) {
 	if err != nil {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}
-	//err = s.db.SetPublished(v.ID())
 	if err != nil {
 		return err
 	}

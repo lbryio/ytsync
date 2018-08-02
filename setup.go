@@ -44,11 +44,7 @@ func (s *Sync) walletSetup() error {
 		return nil
 	}
 
-	//numPublished, err := s.daemon.NumClaimsInChannel(s.LbryChannelName)
 	numPublished := uint64(len(s.syncedVideos)) //should we only count published videos? Credits are allocated even for failed ones...
-	if err != nil {
-		return err
-	}
 	log.Debugf("We already published %d videos", numPublished)
 
 	if float64(numOnSource)-float64(numPublished) > float64(s.Manager.VideosLimit) {
