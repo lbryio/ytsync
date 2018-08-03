@@ -55,7 +55,7 @@ func (s *Sync) walletSetup() error {
 
 	//TODO: get rid of this as soon as we compute this condition using the database in a more reliable way
 	if numPublished >= numOnSource {
-		return errors.Err("channel is already up to date")
+		return nil
 	}
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
 	if numPublished > numOnSource {
@@ -107,14 +107,6 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		return errors.Err("no response")
 	}
 
-	if !allUTXOsConfirmed(utxolist) {
-		log.Println("Waiting for previous txns to confirm") // happens if you restarted the daemon soon after a previous publish run
-		err := s.waitUntilUTXOsConfirmed()
-		if err != nil {
-			return err
-		}
-	}
-
 	target := 40
 	count := 0
 
@@ -151,6 +143,12 @@ func (s *Sync) ensureEnoughUTXOs() error {
 
 		log.Println("Creating UTXOs and waiting for them to be confirmed")
 		err = s.waitUntilUTXOsConfirmed()
+		if err != nil {
+			return err
+		}
+	} else if !allUTXOsConfirmed(utxolist) {
+		log.Println("Waiting for previous txns to confirm")
+		err := s.waitUntilUTXOsConfirmed()
 		if err != nil {
 			return err
 		}

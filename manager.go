@@ -256,7 +256,7 @@ func (s SyncManager) Start() error {
 			time.Sleep(5 * time.Minute)
 		}
 		for i, sync := range syncs {
-			SendInfoToSlack("Syncing %s to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, i, len(syncs), syncCount)
+			SendInfoToSlack("Syncing %s to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, i+1, len(syncs), syncCount)
 			err := sync.FullCycle()
 			if err != nil {
 				fatalErrors := []string{
