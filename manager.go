@@ -122,9 +122,6 @@ func (s SyncManager) setChannelStatus(channelID string, status string) (map[stri
 		return nil, errors.Err(response.Error.String)
 	}
 	if response.Data != nil {
-		if len(response.Data) == 0 {
-			return nil, nil
-		}
 		svs := make(map[string]syncedVideo)
 		for _, v := range response.Data {
 			svs[v.VideoID] = v
@@ -256,7 +253,7 @@ func (s SyncManager) Start() error {
 			time.Sleep(5 * time.Minute)
 		}
 		for i, sync := range syncs {
-			SendInfoToSlack("Syncing %s to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, i+1, len(syncs), syncCount)
+			SendInfoToSlack("Syncing %s (%s) to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount)
 			err := sync.FullCycle()
 			if err != nil {
 				fatalErrors := []string{
@@ -270,7 +267,7 @@ func (s SyncManager) Start() error {
 				}
 				SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 			}
-			SendInfoToSlack("Syncing %s reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, i+1, len(syncs), syncCount)
+			SendInfoToSlack("Syncing %s (%s) reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount)
 			syncCount++
 			if sync.IsInterrupted() || (s.Limit != 0 && syncCount >= s.Limit) {
 				shouldInterruptLoop = true

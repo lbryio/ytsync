@@ -185,7 +185,10 @@ func (v YoutubeVideo) triggerThumbnailSave() error {
 
 func strPtr(s string) *string { return &s }
 
-func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
+func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
+	if channelID == "" {
+		return nil, errors.Err("a claim_id for the channel wasn't provided") //TODO: this is probably not needed?
+	}
 	options := jsonrpc.PublishOptions{
 		Title:         &v.title,
 		Author:        &v.channelTitle,
@@ -195,15 +198,12 @@ func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amoun
 		Thumbnail:     strPtr("https://berk.ninja/thumbnails/" + v.id),
 		License:       strPtr("Copyrighted (contact author)"),
 		ChangeAddress: &claimAddress,
+		ChannelID:     &channelID,
 	}
-	if channelName != "" {
-		options.ChannelName = &channelName
-	}
-
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string, maxVideoSize int) (*SyncSummary, error) {
+func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -227,7 +227,7 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	}
 	log.Debugln("Created thumbnail for " + v.id)
 
-	summary, err := v.publish(daemon, claimAddress, amount, channelName)
+	summary, err := v.publish(daemon, claimAddress, amount, channelID)
 	//delete the video in all cases (and ignore the error)
 	_ = v.delete()
 	if err != nil {

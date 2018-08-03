@@ -67,6 +67,7 @@ type Sync struct {
 	db             *redisdb.DB
 	syncedVideos   map[string]syncedVideo
 	grp            *stop.Group
+	lbryChannelID  string
 
 	videosMapMux sync.Mutex
 	mux          sync.Mutex
@@ -352,11 +353,11 @@ func (s *Sync) startWorker(workerNum int) {
 					}
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
+				s.AppendSyncedVideo(v.ID(), false, err.Error())
 				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error())
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
-				s.AppendSyncedVideo(v.ID(), false, err.Error())
 			}
 			break
 		}
@@ -546,7 +547,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.LbryChannelName, s.Manager.MaxVideoSize)
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.MaxVideoSize)
 	if err != nil {
 		return err
 	}

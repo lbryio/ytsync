@@ -170,25 +170,23 @@ func (v ucbVideo) saveThumbnail() error {
 	return err
 }
 
-func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string) (*SyncSummary, error) {
+func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
 	options := jsonrpc.PublishOptions{
-		Title:        &v.title,
-		Author:       strPtr("UC Berkeley"),
-		Description:  strPtr(v.getAbbrevDescription()),
-		Language:     strPtr("en"),
-		ClaimAddress: &claimAddress,
-		Thumbnail:    strPtr("https://berk.ninja/thumbnails/" + v.id),
-		License:      strPtr("see description"),
-	}
-
-	if channelName != "" {
-		options.ChannelName = &channelName
+		Title:         &v.title,
+		Author:        strPtr("UC Berkeley"),
+		Description:   strPtr(v.getAbbrevDescription()),
+		Language:      strPtr("en"),
+		ClaimAddress:  &claimAddress,
+		Thumbnail:     strPtr("https://berk.ninja/thumbnails/" + v.id),
+		License:       strPtr("see description"),
+		ChannelID:     &channelID,
+		ChangeAddress: &claimAddress,
 	}
 
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelName string, maxVideoSize int) (*SyncSummary, error) {
+func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -202,7 +200,7 @@ func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float
 	//}
 	//log.Debugln("Created thumbnail for " + v.id)
 
-	summary, err := v.publish(daemon, claimAddress, amount, channelName)
+	summary, err := v.publish(daemon, claimAddress, amount, channelID)
 	if err != nil {
 		return nil, errors.Prefix("publish error", err)
 	}
