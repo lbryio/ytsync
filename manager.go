@@ -42,14 +42,15 @@ type SyncManager struct {
 }
 
 const (
-	StatusPending = "pending" // waiting for permission to sync
-	StatusQueued  = "queued"  // in sync queue. will be synced soon
-	StatusSyncing = "syncing" // syncing now
-	StatusSynced  = "synced"  // done
-	StatusFailed  = "failed"
+	StatusPending   = "pending" // waiting for permission to sync
+	StatusQueued    = "queued"  // in sync queue. will be synced soon
+	StatusSyncing   = "syncing" // syncing now
+	StatusSynced    = "synced"  // done
+	StatusFailed    = "failed"
+	StatusFinalized = "finalized" // no more changes allowed
 )
 
-var SyncStatuses = []string{StatusPending, StatusQueued, StatusSyncing, StatusSynced, StatusFailed}
+var SyncStatuses = []string{StatusPending, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized}
 
 type apiJobsResponse struct {
 	Success bool                `json:"success"`
