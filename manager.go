@@ -270,7 +270,7 @@ func (s SyncManager) Start() error {
 				}
 				SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 			}
-			SendInfoToSlack("Syncing %s reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, i, len(syncs), syncCount)
+			SendInfoToSlack("Syncing %s reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, i+1, len(syncs), syncCount)
 			syncCount++
 			if sync.IsInterrupted() || (s.Limit != 0 && syncCount >= s.Limit) {
 				shouldInterruptLoop = true

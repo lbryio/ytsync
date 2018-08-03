@@ -68,9 +68,20 @@ type Sync struct {
 	syncedVideos   map[string]syncedVideo
 	grp            *stop.Group
 
-	mux   sync.Mutex
-	wg    sync.WaitGroup
-	queue chan video
+	videosMapMux sync.Mutex
+	mux          sync.Mutex
+	wg           sync.WaitGroup
+	queue        chan video
+}
+
+func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string) {
+	s.videosMapMux.Lock()
+	defer s.videosMapMux.Unlock()
+	s.syncedVideos[videoID] = syncedVideo{
+		VideoID:       videoID,
+		Published:     published,
+		FailureReason: failureReason,
+	}
 }
 
 // SendErrorToSlack Sends an error message to the default channel and to the process log.
@@ -184,7 +195,9 @@ func (s *Sync) FullCycle() (e error) {
 	}
 
 	s.db = redisdb.New()
+	s.videosMapMux.Lock()
 	s.syncedVideos = syncedVideos
+	s.videosMapMux.Unlock()
 	s.grp = stop.New()
 	s.queue = make(chan video)
 
@@ -343,6 +356,7 @@ func (s *Sync) startWorker(workerNum int) {
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
+				s.AppendSyncedVideo(v.ID(), false, err.Error())
 			}
 			break
 		}
@@ -496,7 +510,9 @@ func (s *Sync) processVideo(v video) (err error) {
 		log.Println(v.ID() + " took " + time.Since(start).String())
 	}(time.Now())
 
+	s.videosMapMux.Lock()
 	sv, ok := s.syncedVideos[v.ID()]
+	s.videosMapMux.Unlock()
 	alreadyPublished := ok && sv.Published
 
 	neverRetryFailures := []string{
@@ -536,11 +552,9 @@ func (s *Sync) processVideo(v video) (err error) {
 	}
 	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "")
 	if err != nil {
-		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
-	}
-	if err != nil {
 		return err
 	}
+	s.AppendSyncedVideo(v.ID(), true, "")
 
 	return nil
 }
