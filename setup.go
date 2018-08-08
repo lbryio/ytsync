@@ -104,6 +104,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	}
 
 	target := 40
+	slack := target - int(float32(0.05)*float32(target))
 	count := 0
 
 	for _, utxo := range *utxolist {
@@ -112,7 +113,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		}
 	}
 
-	if count < target {
+	if count < target-slack {
 		newAddresses := target - count
 
 		balance, err := s.daemon.WalletBalance()
@@ -257,9 +258,18 @@ func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {
 
 func (s *Sync) addCredits(amountToAdd float64) error {
 	log.Printf("Adding %f credits", amountToAdd)
-	lbrycrdd, err := lbrycrd.NewWithDefaultURL()
-	if err != nil {
-		return err
+	var lbrycrdd *lbrycrd.Client
+	var err error
+	if s.LbrycrdString == "" {
+		lbrycrdd, err = lbrycrd.NewWithDefaultURL()
+		if err != nil {
+			return err
+		}
+	} else {
+		lbrycrdd, err = lbrycrd.New(s.LbrycrdString)
+		if err != nil {
+			return err
+		}
 	}
 
 	addressResp, err := s.daemon.WalletUnusedAddress()
@@ -280,6 +290,4 @@ func (s *Sync) addCredits(amountToAdd float64) error {
 	time.Sleep(wait)
 
 	return nil
-	//log.Println("Waiting for transaction to be confirmed")
-	//return s.waitUntilUTXOsConfirmed()
 }

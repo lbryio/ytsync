@@ -39,6 +39,7 @@ type SyncManager struct {
 	BlobsDir                string
 	VideosLimit             int
 	MaxVideoSize            int
+	LbrycrdString           string
 }
 
 const (
@@ -212,6 +213,7 @@ func (s SyncManager) Start() error {
 				TakeOverExistingChannel: s.TakeOverExistingChannel,
 				Refill:                  s.Refill,
 				Manager:                 &s,
+				LbrycrdString:           s.LbrycrdString,
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -242,6 +244,7 @@ func (s SyncManager) Start() error {
 						TakeOverExistingChannel: s.TakeOverExistingChannel,
 						Refill:                  s.Refill,
 						Manager:                 &s,
+						LbrycrdString:           s.LbrycrdString,
 					})
 				}
 			}

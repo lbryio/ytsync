@@ -60,6 +60,7 @@ type Sync struct {
 	TakeOverExistingChannel bool
 	Refill                  int
 	Manager                 *SyncManager
+	LbrycrdString           string
 
 	daemon          *jsonrpc.Client
 	claimAddress    string
@@ -169,6 +170,7 @@ func (s *Sync) FullCycle() (e error) {
 		defaultWalletDir = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
 	}
 	walletBackupDir := os.Getenv("HOME") + "/wallets/" + strings.Replace(s.LbryChannelName, "@", "", 1)
+	newWalletBackupDir := os.Getenv("HOME") + "/renamed_wallets/" + s.YoutubeChannelID
 
 	if _, err := os.Stat(defaultWalletDir); !os.IsNotExist(err) {
 		return errors.Err("default_wallet already exists")
@@ -176,6 +178,12 @@ func (s *Sync) FullCycle() (e error) {
 
 	if _, err = os.Stat(walletBackupDir); !os.IsNotExist(err) {
 		err = os.Rename(walletBackupDir, defaultWalletDir)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+		log.Println("Continuing previous upload")
+	} else if _, err = os.Stat(newWalletBackupDir); !os.IsNotExist(err) {
+		err = os.Rename(newWalletBackupDir, defaultWalletDir)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -195,7 +203,7 @@ func (s *Sync) FullCycle() (e error) {
 			if processDeathError != nil {
 				logShutdownError(processDeathError)
 			} else {
-				walletErr := os.Rename(defaultWalletDir, walletBackupDir)
+				walletErr := os.Rename(defaultWalletDir, newWalletBackupDir)
 				if walletErr != nil {
 					log.Errorf("error moving wallet to backup dir: %v", walletErr)
 				}
