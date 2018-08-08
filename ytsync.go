@@ -132,7 +132,6 @@ func (s *Sync) FullCycle() (e error) {
 			//conditions for which a channel shouldn't be marked as failed
 			noFailConditions := []string{
 				"this youtube channel is being managed by another server",
-				"channel is already up to date",
 			}
 			if util.SubstringInSlice(e.Error(), noFailConditions) {
 				return
