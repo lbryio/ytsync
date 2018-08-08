@@ -53,12 +53,8 @@ func (s *Sync) walletSetup() error {
 		numOnSource = uint64(s.Manager.VideosLimit)
 	}
 
-	//TODO: get rid of this as soon as we compute this condition using the database in a more reliable way
-	if numPublished >= numOnSource {
-		return nil
-	}
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
-	if numPublished > numOnSource {
+	if numPublished > numOnSource && balance.LessThan(decimal.NewFromFloat(1)) {
 		SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
 		minBalance = 1 //since we ended up in this function it means some juice is still needed
 	}
