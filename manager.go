@@ -40,6 +40,10 @@ type SyncManager struct {
 	VideosLimit             int
 	MaxVideoSize            int
 	LbrycrdString           string
+	AwsS3ID                 string
+	AwsS3Secret             string
+	AwsS3Region             string
+	AwsS3Bucket             string
 }
 
 const (
@@ -214,6 +218,10 @@ func (s SyncManager) Start() error {
 				Refill:                  s.Refill,
 				Manager:                 &s,
 				LbrycrdString:           s.LbrycrdString,
+				AwsS3ID:                 s.AwsS3ID,
+				AwsS3Secret:             s.AwsS3Secret,
+				AwsS3Region:             s.AwsS3Region,
+				AwsS3Bucket:             s.AwsS3Bucket,
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -245,6 +253,10 @@ func (s SyncManager) Start() error {
 						Refill:                  s.Refill,
 						Manager:                 &s,
 						LbrycrdString:           s.LbrycrdString,
+						AwsS3ID:                 s.AwsS3ID,
+						AwsS3Secret:             s.AwsS3Secret,
+						AwsS3Region:             s.AwsS3Region,
+						AwsS3Bucket:             s.AwsS3Bucket,
 					})
 				}
 			}
