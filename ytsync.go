@@ -445,14 +445,21 @@ func (s *Sync) startWorker(workerNum int) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
 						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
-							strings.Contains(err.Error(), "failed: Not enough funds") ||
-							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") ||
 							strings.Contains(err.Error(), "too-long-mempool-chain") {
-							log.Println("waiting for a block and refilling addresses before retrying")
+							log.Println("waiting for a block before retrying")
+							err = s.waitForNewBlock()
+							if err != nil {
+								s.grp.Stop()
+								SendErrorToSlack("something went wrong while waiting for a block: %v", err)
+								break
+							}
+						} else if strings.Contains(err.Error(), "failed: Not enough funds") ||
+							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") {
+							log.Println("refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {
 								s.grp.Stop()
-								SendErrorToSlack("Failed to setup the wallet for a refill: %v", err)
+								SendErrorToSlack("failed to setup the wallet for a refill: %v", err)
 								break
 							}
 						}

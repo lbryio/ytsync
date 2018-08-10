@@ -159,6 +159,10 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 		vals.Add("claim_name", claimName)
 	}
 	if failureReason != "" {
+		maxReasonLength := 500
+		if len(failureReason) > maxReasonLength {
+			failureReason = failureReason[:500]
+		}
 		vals.Add("failure_reason", failureReason)
 	}
 	res, _ := http.PostForm(endpoint, vals)
