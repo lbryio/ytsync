@@ -104,7 +104,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	}
 
 	target := 40
-	slack := target - int(float32(0.05)*float32(target))
+	slack := int(float32(0.1) * float32(target))
 	count := 0
 
 	for _, utxo := range *utxolist {
