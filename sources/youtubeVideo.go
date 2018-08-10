@@ -66,7 +66,7 @@ func (v YoutubeVideo) getFilename() string {
 
 	name := chunks[0]
 	if len(name) > maxLen {
-		return name[:maxLen]
+		name = name[:maxLen]
 	}
 
 	for _, chunk := range chunks[1:] {
