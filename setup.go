@@ -153,15 +153,15 @@ func (s *Sync) waitForNewBlock() error {
 		return err
 	}
 
-	for status.BlockchainStatus.Blocks == 0 || status.BlockchainStatus.BlocksBehind != 0 {
+	for status.Wallet.Blocks == 0 || status.Wallet.BlocksBehind != 0 {
 		time.Sleep(5 * time.Second)
 		status, err = s.daemon.Status()
 		if err != nil {
 			return err
 		}
 	}
-	currentBlock := status.BlockchainStatus.Blocks
-	for i := 0; status.BlockchainStatus.Blocks <= currentBlock; i++ {
+	currentBlock := status.Wallet.Blocks
+	for i := 0; status.Wallet.Blocks <= currentBlock; i++ {
 		if i%3 == 0 {
 			log.Printf("Waiting for new block (%d)...", currentBlock+1)
 		}
