@@ -61,23 +61,22 @@ type Sync struct {
 	Refill                  int
 	Manager                 *SyncManager
 
-	daemon         *jsonrpc.Client
-	claimAddress   string
-	videoDirectory string
-	db             *redisdb.DB
-	syncedVideos   map[string]syncedVideo
-	grp            *stop.Group
-	lbryChannelID  string
+	daemon          *jsonrpc.Client
+	claimAddress    string
+	videoDirectory  string
+	db              *redisdb.DB
+	syncedVideos    map[string]syncedVideo
+	syncedVideosMux *sync.Mutex
+	grp             *stop.Group
+	lbryChannelID   string
 
-	videosMapMux sync.Mutex
-	mux          sync.Mutex
-	wg           sync.WaitGroup
-	queue        chan video
+	walletMux *sync.Mutex
+	queue     chan video
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string) {
-	s.videosMapMux.Lock()
-	defer s.videosMapMux.Unlock()
+	s.syncedVideosMux.Lock()
+	defer s.syncedVideosMux.Unlock()
 	s.syncedVideos[videoID] = syncedVideo{
 		VideoID:       videoID,
 		Published:     published,
@@ -122,10 +121,25 @@ func (s *Sync) FullCycle() (e error) {
 	if s.YoutubeChannelID == "" {
 		return errors.Err("channel ID not provided")
 	}
+	s.syncedVideosMux = &sync.Mutex{}
+	s.walletMux = &sync.Mutex{}
+	s.db = redisdb.New()
+	s.grp = stop.New()
+	s.queue = make(chan video)
+	interruptChan := make(chan os.Signal, 1)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-interruptChan
+		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
+		s.grp.Stop()
+	}()
 	syncedVideos, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSyncing)
 	if err != nil {
 		return err
 	}
+	s.syncedVideosMux.Lock()
+	s.syncedVideos = syncedVideos
+	s.syncedVideosMux.Unlock()
 
 	defer func() {
 		if e != nil {
@@ -194,21 +208,6 @@ func (s *Sync) FullCycle() (e error) {
 		return errors.Wrap(err, 0)
 	}
 
-	s.db = redisdb.New()
-	s.videosMapMux.Lock()
-	s.syncedVideos = syncedVideos
-	s.videosMapMux.Unlock()
-	s.grp = stop.New()
-	s.queue = make(chan video)
-
-	interruptChan := make(chan os.Signal, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-interruptChan
-		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
-		s.grp.Stop()
-	}()
-
 	log.Printf("Starting daemon")
 	err = startDaemonViaSystemd()
 	if err != nil {
@@ -263,7 +262,11 @@ func (s *Sync) doSync() error {
 	}
 
 	for i := 0; i < s.ConcurrentVideos; i++ {
-		go s.startWorker(i)
+		s.grp.Add(1)
+		go func() {
+			defer s.grp.Done()
+			s.startWorker(i)
+		}()
 	}
 
 	if s.LbryChannelName == "@UCBerkeley" {
@@ -272,14 +275,11 @@ func (s *Sync) doSync() error {
 		err = s.enqueueYoutubeVideos()
 	}
 	close(s.queue)
-	s.wg.Wait()
+	s.grp.Wait()
 	return err
 }
 
 func (s *Sync) startWorker(workerNum int) {
-	s.wg.Add(1)
-	defer s.wg.Done()
-
 	var v video
 	var more bool
 
@@ -510,9 +510,9 @@ func (s *Sync) processVideo(v video) (err error) {
 		log.Println(v.ID() + " took " + time.Since(start).String())
 	}(time.Now())
 
-	s.videosMapMux.Lock()
+	s.syncedVideosMux.Lock()
 	sv, ok := s.syncedVideos[v.ID()]
-	s.videosMapMux.Unlock()
+	s.syncedVideosMux.Unlock()
 	alreadyPublished := ok && sv.Published
 
 	neverRetryFailures := []string{

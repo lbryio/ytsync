@@ -136,12 +136,6 @@ const (
 	VideoStatusFailed    = "failed"
 )
 
-type apiVideoStatusResponse struct {
-	Success bool        `json:"success"`
-	Error   null.String `json:"error"`
-	Data    null.String `json:"data"`
-}
-
 func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string) error {
 	endpoint := s.ApiURL + "/yt/video_status"
 
@@ -165,7 +159,11 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 	res, _ := http.PostForm(endpoint, vals)
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
-	var response apiVideoStatusResponse
+	var response struct {
+		Success bool        `json:"success"`
+		Error   null.String `json:"error"`
+		Data    null.String `json:"data"`
+	}
 	err := json.Unmarshal(body, &response)
 	if err != nil {
 		return err

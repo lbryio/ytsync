@@ -14,8 +14,8 @@ import (
 
 func (s *Sync) walletSetup() error {
 	//prevent unnecessary concurrent execution
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	s.walletMux.Lock()
+	defer s.walletMux.Unlock()
 	err := s.ensureChannelOwnership()
 	if err != nil {
 		return err
@@ -30,27 +30,28 @@ func (s *Sync) walletSetup() error {
 	balance := decimal.Decimal(*balanceResp)
 	log.Debugf("Starting balance is %s", balance.String())
 
-	var numOnSource uint64
+	var numOnSource int
 	if s.LbryChannelName == "@UCBerkeley" {
 		numOnSource = 10104
 	} else {
-		numOnSource, err = s.CountVideos()
+		n, err := s.CountVideos()
 		if err != nil {
 			return err
 		}
+		numOnSource = int(n)
 	}
 	log.Debugf("Source channel has %d videos", numOnSource)
 	if numOnSource == 0 {
 		return nil
 	}
 
-	s.videosMapMux.Lock()
-	numPublished := uint64(len(s.syncedVideos)) //should we only count published videos? Credits are allocated even for failed ones...
-	s.videosMapMux.Unlock()
+	s.syncedVideosMux.Lock()
+	numPublished := len(s.syncedVideos) //should we only count published videos? Credits are allocated even for failed ones...
+	s.syncedVideosMux.Unlock()
 	log.Debugf("We already published %d videos", numPublished)
 
-	if float64(numOnSource)-float64(numPublished) > float64(s.Manager.VideosLimit) {
-		numOnSource = uint64(s.Manager.VideosLimit)
+	if numOnSource-numPublished > s.Manager.VideosLimit {
+		numOnSource = s.Manager.VideosLimit
 	}
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
