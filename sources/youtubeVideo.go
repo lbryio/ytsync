@@ -25,6 +25,7 @@ type YoutubeVideo struct {
 	title            string
 	description      string
 	playlistPosition int64
+	size             *int64
 	publishedAt      time.Time
 	dir              string
 }
@@ -203,6 +204,10 @@ func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amoun
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
+func (v YoutubeVideo) Size() *int64 {
+	return v.size
+}
+
 func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
@@ -215,6 +220,8 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	if err != nil {
 		return nil, err
 	}
+	*v.size = fi.Size()
+
 	if fi.Size() > int64(maxVideoSize)*1024*1024 {
 		//delete the video and ignore the error
 		_ = v.delete()

@@ -41,6 +41,7 @@ const (
 )
 
 type video interface {
+	Size() *int64
 	ID() string
 	IDAndNum() string
 	PlaylistPosition() int
@@ -470,7 +471,7 @@ func (s *Sync) startWorker(workerNum int) {
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
 				s.AppendSyncedVideo(v.ID(), false, err.Error())
-				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error())
+				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error(), v.Size())
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
@@ -671,10 +672,11 @@ func (s *Sync) processVideo(v video) (err error) {
 	if err != nil {
 		return err
 	}
-	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "")
+	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size())
 	if err != nil {
-		return err
+		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}
+
 	s.AppendSyncedVideo(v.ID(), true, "")
 
 	return nil

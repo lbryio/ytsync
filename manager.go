@@ -141,7 +141,7 @@ const (
 	VideoStatusFailed    = "failed"
 )
 
-func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string) error {
+func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64) error {
 	endpoint := s.ApiURL + "/yt/video_status"
 
 	vals := url.Values{
@@ -157,6 +157,9 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 		vals.Add("published_at", strconv.FormatInt(time.Now().Unix(), 10))
 		vals.Add("claim_id", claimID)
 		vals.Add("claim_name", claimName)
+		if size != nil {
+			vals.Add("size", strconv.FormatInt(*size, 10))
+		}
 	}
 	if failureReason != "" {
 		maxReasonLength := 500
