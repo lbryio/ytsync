@@ -30,9 +30,9 @@ type YoutubeVideo struct {
 	dir              string
 }
 
-func NewYoutubeVideo(directory string, snippet *youtube.PlaylistItemSnippet) YoutubeVideo {
+func NewYoutubeVideo(directory string, snippet *youtube.PlaylistItemSnippet) *YoutubeVideo {
 	publishedAt, _ := time.Parse(time.RFC3339Nano, snippet.PublishedAt) // ignore parse errors
-	return YoutubeVideo{
+	return &YoutubeVideo{
 		id:               snippet.ResourceId.VideoId,
 		title:            snippet.Title,
 		description:      snippet.Description,
@@ -43,23 +43,23 @@ func NewYoutubeVideo(directory string, snippet *youtube.PlaylistItemSnippet) You
 	}
 }
 
-func (v YoutubeVideo) ID() string {
+func (v *YoutubeVideo) ID() string {
 	return v.id
 }
 
-func (v YoutubeVideo) PlaylistPosition() int {
+func (v *YoutubeVideo) PlaylistPosition() int {
 	return int(v.playlistPosition)
 }
 
-func (v YoutubeVideo) IDAndNum() string {
+func (v *YoutubeVideo) IDAndNum() string {
 	return v.ID() + " (" + strconv.Itoa(int(v.playlistPosition)) + " in channel)"
 }
 
-func (v YoutubeVideo) PublishedAt() time.Time {
+func (v *YoutubeVideo) PublishedAt() time.Time {
 	return v.publishedAt
 }
 
-func (v YoutubeVideo) getFilename() string {
+func (v *YoutubeVideo) getFilename() string {
 	maxLen := 30
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
@@ -86,7 +86,7 @@ func (v YoutubeVideo) getFilename() string {
 	return v.videoDir() + "/" + name + ".mp4"
 }
 
-func (v YoutubeVideo) getAbbrevDescription() string {
+func (v *YoutubeVideo) getAbbrevDescription() string {
 	maxLines := 10
 	description := strings.TrimSpace(v.description)
 	if strings.Count(description, "\n") < maxLines {
@@ -95,7 +95,7 @@ func (v YoutubeVideo) getAbbrevDescription() string {
 	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..."
 }
 
-func (v YoutubeVideo) download() error {
+func (v *YoutubeVideo) download() error {
 	videoPath := v.getFilename()
 
 	err := os.Mkdir(v.videoDir(), 0750)
@@ -128,11 +128,11 @@ func (v YoutubeVideo) download() error {
 	return videoInfo.Download(videoInfo.Formats.Best(ytdl.FormatAudioEncodingKey)[0], downloadedFile)
 }
 
-func (v YoutubeVideo) videoDir() string {
+func (v *YoutubeVideo) videoDir() string {
 	return v.dir + "/" + v.id
 }
 
-func (v YoutubeVideo) delete() error {
+func (v *YoutubeVideo) delete() error {
 	videoPath := v.getFilename()
 	err := os.Remove(videoPath)
 	if err != nil {
@@ -143,7 +143,7 @@ func (v YoutubeVideo) delete() error {
 	return nil
 }
 
-func (v YoutubeVideo) triggerThumbnailSave() error {
+func (v *YoutubeVideo) triggerThumbnailSave() error {
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	params, err := json.Marshal(map[string]string{"videoid": v.id})
@@ -186,7 +186,7 @@ func (v YoutubeVideo) triggerThumbnailSave() error {
 
 func strPtr(s string) *string { return &s }
 
-func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
+func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
 	if channelID == "" {
 		return nil, errors.Err("a claim_id for the channel wasn't provided") //TODO: this is probably not needed?
 	}
@@ -204,11 +204,11 @@ func (v YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amoun
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v YoutubeVideo) Size() *int64 {
+func (v *YoutubeVideo) Size() *int64 {
 	return v.size
 }
 
-func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -220,9 +220,10 @@ func (v YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount f
 	if err != nil {
 		return nil, err
 	}
-	*v.size = fi.Size()
+	videoSize := fi.Size()
+	v.size = &videoSize
 
-	if fi.Size() > int64(maxVideoSize)*1024*1024 {
+	if videoSize > int64(maxVideoSize)*1024*1024 {
 		//delete the video and ignore the error
 		_ = v.delete()
 		return nil, errors.Err("the video is too big to sync, skipping for now")

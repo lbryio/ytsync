@@ -28,9 +28,9 @@ type ucbVideo struct {
 	dir         string
 }
 
-func NewUCBVideo(id, title, channel, description, publishedAt, dir string) ucbVideo {
+func NewUCBVideo(id, title, channel, description, publishedAt, dir string) *ucbVideo {
 	p, _ := time.Parse(time.RFC3339Nano, publishedAt) // ignore parse errors
-	return ucbVideo{
+	return &ucbVideo{
 		id:          id,
 		title:       title,
 		description: description,
@@ -40,19 +40,19 @@ func NewUCBVideo(id, title, channel, description, publishedAt, dir string) ucbVi
 	}
 }
 
-func (v ucbVideo) ID() string {
+func (v *ucbVideo) ID() string {
 	return v.id
 }
 
-func (v ucbVideo) PlaylistPosition() int {
+func (v *ucbVideo) PlaylistPosition() int {
 	return 0
 }
 
-func (v ucbVideo) IDAndNum() string {
+func (v *ucbVideo) IDAndNum() string {
 	return v.ID() + " (?)"
 }
 
-func (v ucbVideo) PublishedAt() time.Time {
+func (v *ucbVideo) PublishedAt() time.Time {
 	return v.publishedAt
 	//r := regexp.MustCompile(`(\d\d\d\d)-(\d\d)-(\d\d)`)
 	//matches := r.FindStringSubmatch(v.title)
@@ -65,11 +65,11 @@ func (v ucbVideo) PublishedAt() time.Time {
 	//return time.Now()
 }
 
-func (v ucbVideo) getFilename() string {
+func (v *ucbVideo) getFilename() string {
 	return v.dir + "/" + v.id + ".mp4"
 }
 
-func (v ucbVideo) getClaimName(attempt int) string {
+func (v *ucbVideo) getClaimName(attempt int) string {
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 	suffix := ""
 	if attempt > 1 {
@@ -98,7 +98,7 @@ func (v ucbVideo) getClaimName(attempt int) string {
 	return name + suffix
 }
 
-func (v ucbVideo) getAbbrevDescription() string {
+func (v *ucbVideo) getAbbrevDescription() string {
 	maxLines := 10
 	description := strings.TrimSpace(v.description)
 	if strings.Count(description, "\n") < maxLines {
@@ -107,7 +107,7 @@ func (v ucbVideo) getAbbrevDescription() string {
 	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..."
 }
 
-func (v ucbVideo) download() error {
+func (v *ucbVideo) download() error {
 	videoPath := v.getFilename()
 
 	_, err := os.Stat(videoPath)
@@ -146,7 +146,7 @@ func (v ucbVideo) download() error {
 	return nil
 }
 
-func (v ucbVideo) saveThumbnail() error {
+func (v *ucbVideo) saveThumbnail() error {
 	resp, err := http.Get("https://s3.us-east-2.amazonaws.com/lbry-niko2/thumbnails/" + v.id)
 	if err != nil {
 		return err
@@ -170,7 +170,7 @@ func (v ucbVideo) saveThumbnail() error {
 	return err
 }
 
-func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
+func (v *ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
 	options := jsonrpc.PublishOptions{
 		Title:         &v.title,
 		Author:        strPtr("UC Berkeley"),
@@ -186,11 +186,11 @@ func (v ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount fl
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
 }
 
-func (v ucbVideo) Size() *int64 {
+func (v *ucbVideo) Size() *int64 {
 	return nil
 }
 
-func (v ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
+func (v *ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {

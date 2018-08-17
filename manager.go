@@ -70,7 +70,7 @@ type apiYoutubeChannel struct {
 	SyncServer         null.String `json:"sync_server"`
 }
 
-func (s SyncManager) fetchChannels(status string) ([]apiYoutubeChannel, error) {
+func (s *SyncManager) fetchChannels(status string) ([]apiYoutubeChannel, error) {
 	endpoint := s.ApiURL + "/yt/jobs"
 	res, _ := http.PostForm(endpoint, url.Values{
 		"auth_token":  {s.ApiToken},
@@ -107,14 +107,17 @@ type syncedVideo struct {
 	FailureReason string `json:"failure_reason"`
 }
 
-func (s SyncManager) setChannelStatus(channelID string, status string) (map[string]syncedVideo, error) {
+func (s *SyncManager) setChannelStatus(channelID string, status string, failureReason string) (map[string]syncedVideo, error) {
 	endpoint := s.ApiURL + "/yt/channel_status"
-
+	if len(failureReason) > maxReasonLength {
+		failureReason = failureReason[:maxReasonLength]
+	}
 	res, _ := http.PostForm(endpoint, url.Values{
-		"channel_id":  {channelID},
-		"sync_server": {s.HostName},
-		"auth_token":  {s.ApiToken},
-		"sync_status": {status},
+		"channel_id":     {channelID},
+		"sync_server":    {s.HostName},
+		"auth_token":     {s.ApiToken},
+		"sync_status":    {status},
+		"failure_reason": {failureReason},
 	})
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
@@ -141,9 +144,11 @@ const (
 	VideoStatusFailed    = "failed"
 )
 
-func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64) error {
+func (s *SyncManager) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64) error {
 	endpoint := s.ApiURL + "/yt/video_status"
-
+	if len(failureReason) > maxReasonLength {
+		failureReason = failureReason[:maxReasonLength]
+	}
 	vals := url.Values{
 		"youtube_channel_id": {channelID},
 		"video_id":           {videoID},
@@ -162,10 +167,6 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 		}
 	}
 	if failureReason != "" {
-		maxReasonLength := 500
-		if len(failureReason) > maxReasonLength {
-			failureReason = failureReason[:500]
-		}
 		vals.Add("failure_reason", failureReason)
 	}
 	res, _ := http.PostForm(endpoint, vals)
@@ -189,7 +190,7 @@ func (s SyncManager) MarkVideoStatus(channelID string, videoID string, status st
 	return errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
 
-func (s SyncManager) Start() error {
+func (s *SyncManager) Start() error {
 	syncCount := 0
 	for {
 		err := s.checkUsedSpace()
@@ -223,7 +224,7 @@ func (s SyncManager) Start() error {
 				ConcurrentVideos:        s.ConcurrentVideos,
 				TakeOverExistingChannel: s.TakeOverExistingChannel,
 				Refill:                  s.Refill,
-				Manager:                 &s,
+				Manager:                 s,
 				LbrycrdString:           s.LbrycrdString,
 				AwsS3ID:                 s.AwsS3ID,
 				AwsS3Secret:             s.AwsS3Secret,
@@ -258,7 +259,7 @@ func (s SyncManager) Start() error {
 						ConcurrentVideos:        s.ConcurrentVideos,
 						TakeOverExistingChannel: s.TakeOverExistingChannel,
 						Refill:                  s.Refill,
-						Manager:                 &s,
+						Manager:                 s,
 						LbrycrdString:           s.LbrycrdString,
 						AwsS3ID:                 s.AwsS3ID,
 						AwsS3Secret:             s.AwsS3Secret,
@@ -308,11 +309,11 @@ func (s SyncManager) Start() error {
 	return nil
 }
 
-func (s SyncManager) isWorthProcessing(channel apiYoutubeChannel) bool {
+func (s *SyncManager) isWorthProcessing(channel apiYoutubeChannel) bool {
 	return channel.TotalVideos > 0 && (channel.SyncServer.IsNull() || channel.SyncServer.String == s.HostName)
 }
 
-func (s SyncManager) checkUsedSpace() error {
+func (s *SyncManager) checkUsedSpace() error {
 	usedPctile, err := GetUsedSpace(s.BlobsDir)
 	if err != nil {
 		return err

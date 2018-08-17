@@ -38,6 +38,7 @@ import (
 const (
 	channelClaimAmount = 0.01
 	publishAmount      = 0.01
+	maxReasonLength    = 500
 )
 
 type video interface {
@@ -237,7 +238,7 @@ func (s *Sync) FullCycle() (e error) {
 		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
 		s.grp.Stop()
 	}()
-	syncedVideos, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSyncing)
+	syncedVideos, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSyncing, "")
 	if err != nil {
 		return err
 	}
@@ -299,14 +300,15 @@ func (s *Sync) updateChannelStatus(e *error) {
 		if util.SubstringInSlice((*e).Error(), noFailConditions) {
 			return
 		}
-		_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusFailed)
+		failureReason := (*e).Error()
+		_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
 		if err != nil {
 			msg := fmt.Sprintf("Failed setting failed state for channel %s.", s.LbryChannelName)
 			err = errors.Prefix(msg, err)
 			*e = errors.Prefix(err.Error(), *e)
 		}
 	} else if !s.IsInterrupted() {
-		_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSynced)
+		_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSynced, "")
 		if err != nil {
 			*e = err
 		}
@@ -344,7 +346,7 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 			err := s.uploadWallet()
 			if err != nil {
 				if *e == nil {
-					e = &err
+					e = &err //not 100% sure
 					return
 				} else {
 					*e = errors.Prefix("failure uploading wallet: ", *e)
