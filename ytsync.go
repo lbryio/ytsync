@@ -316,6 +316,7 @@ func (s *Sync) startWorker(workerNum int) {
 					"no space left on device",
 					"NotEnoughFunds",
 					"Cannot publish using channel",
+					"more than 90% of the space has been used.",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
@@ -545,6 +546,10 @@ func (s *Sync) processVideo(v video) (err error) {
 	if v.PlaylistPosition() > s.Manager.VideosLimit {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
+	}
+	err = s.Manager.checkUsedSpace()
+	if err != nil {
+		return err
 	}
 	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.MaxVideoSize)
 	if err != nil {
