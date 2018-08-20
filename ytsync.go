@@ -318,8 +318,8 @@ func (s *Sync) waitForDaemonStart() error {
 		case <-s.grp.Ch():
 			return errors.Err("interrupted during daemon startup")
 		default:
-			_, err := s.daemon.WalletBalance()
-			if err == nil {
+			s, err := s.daemon.Status()
+			if err == nil && s.StartupStatus.Wallet {
 				return nil
 			}
 			time.Sleep(5 * time.Second)
