@@ -230,6 +230,7 @@ func (s *Sync) FullCycle() (e error) {
 	s.queue = make(chan video)
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(interruptChan)
 	go func() {
 		<-interruptChan
 		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
@@ -345,7 +346,7 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 					e = &err
 					return
 				} else {
-					*e = errors.Prefix("failure uploading wallet: ", e)
+					*e = errors.Prefix("failure uploading wallet: ", *e)
 				}
 			}
 		}

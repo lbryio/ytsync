@@ -7,10 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-
-	"time"
-
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/null"
@@ -44,6 +43,7 @@ type SyncManager struct {
 	AwsS3Secret             string
 	AwsS3Region             string
 	AwsS3Bucket             string
+	SingleRun               bool
 }
 
 const (
@@ -270,6 +270,7 @@ func (s SyncManager) Start() error {
 			time.Sleep(5 * time.Minute)
 		}
 		for i, sync := range syncs {
+			shouldNotCount := false
 			SendInfoToSlack("Syncing %s (%s) to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
 			err := sync.FullCycle()
 			if err != nil {
@@ -278,21 +279,25 @@ func (s SyncManager) Start() error {
 					"WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR",
 					"NotEnoughFunds",
 					"no space left on device",
+					"failure uploading wallet",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
 				}
 				SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
+				shouldNotCount = strings.Contains(err.Error(), "this youtube channel is being managed by another server")
 			}
 			SendInfoToSlack("Syncing %s (%s) reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
-			syncCount++
+			if !shouldNotCount {
+				syncCount++
+			}
 			if sync.IsInterrupted() || (s.Limit != 0 && syncCount >= s.Limit) {
 				shouldInterruptLoop = true
 				break
 			}
 
 		}
-		if shouldInterruptLoop {
+		if shouldInterruptLoop || s.SingleRun {
 			break
 		}
 	}
