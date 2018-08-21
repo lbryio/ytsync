@@ -316,7 +316,7 @@ func (s SyncManager) checkUsedSpace() error {
 	if usedPctile >= 0.90 && !s.SkipSpaceCheck {
 		return errors.Err(fmt.Sprintf("more than 90%% of the space has been used. use --skip-space-check to ignore. Used: %.1f%%", usedPctile*100))
 	}
-	SendInfoToSlack("disk usage: %.1f%%", usedPctile*100)
+	log.Infof("disk usage: %.1f%%", usedPctile*100)
 	return nil
 }
 
