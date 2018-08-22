@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"sync"
+
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 
@@ -28,6 +30,8 @@ type YoutubeVideo struct {
 	size             *int64
 	publishedAt      time.Time
 	dir              string
+	claimNames       map[string]bool
+	syncedVideosMux  *sync.RWMutex
 }
 
 func NewYoutubeVideo(directory string, snippet *youtube.PlaylistItemSnippet) *YoutubeVideo {
@@ -201,14 +205,16 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 		ChangeAddress: &claimAddress,
 		ChannelID:     &channelID,
 	}
-	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
+	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, v.claimNames, v.syncedVideosMux)
 }
 
 func (v *YoutubeVideo) Size() *int64 {
 	return v.size
 }
 
-func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, claimNames map[string]bool, syncedVideosMux *sync.RWMutex) (*SyncSummary, error) {
+	v.claimNames = claimNames
+	v.syncedVideosMux = syncedVideosMux
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {

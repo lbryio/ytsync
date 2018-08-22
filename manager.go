@@ -105,9 +105,10 @@ type syncedVideo struct {
 	VideoID       string `json:"video_id"`
 	Published     bool   `json:"published"`
 	FailureReason string `json:"failure_reason"`
+	ClaimName     string `json:"claim_name"`
 }
 
-func (s *SyncManager) setChannelStatus(channelID string, status string, failureReason string) (map[string]syncedVideo, error) {
+func (s *SyncManager) setChannelStatus(channelID string, status string, failureReason string) (map[string]syncedVideo, map[string]bool, error) {
 	endpoint := s.ApiURL + "/yt/channel_status"
 	if len(failureReason) > maxReasonLength {
 		failureReason = failureReason[:maxReasonLength]
@@ -124,19 +125,21 @@ func (s *SyncManager) setChannelStatus(channelID string, status string, failureR
 	var response apiChannelStatusResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !response.Error.IsNull() {
-		return nil, errors.Err(response.Error.String)
+		return nil, nil, errors.Err(response.Error.String)
 	}
 	if response.Data != nil {
 		svs := make(map[string]syncedVideo)
+		claimNames := make(map[string]bool)
 		for _, v := range response.Data {
 			svs[v.VideoID] = v
+			claimNames[v.ClaimName] = v.Published
 		}
-		return svs, nil
+		return svs, claimNames, nil
 	}
-	return nil, errors.Err("invalid API response. Status code: %d", res.StatusCode)
+	return nil, nil, errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
 
 const (

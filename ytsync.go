@@ -47,7 +47,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string, int) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, string, float64, string, int, map[string]bool, *sync.RWMutex) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -78,8 +78,9 @@ type Sync struct {
 	claimAddress    string
 	videoDirectory  string
 	db              *redisdb.DB
+	syncedVideosMux *sync.RWMutex
 	syncedVideos    map[string]syncedVideo
-	syncedVideosMux *sync.Mutex
+	claimNames      map[string]bool
 	grp             *stop.Group
 	lbryChannelID   string
 
@@ -87,7 +88,7 @@ type Sync struct {
 	queue     chan video
 }
 
-func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string) {
+func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string) {
 	s.syncedVideosMux.Lock()
 	defer s.syncedVideosMux.Unlock()
 	s.syncedVideos[videoID] = syncedVideo{
@@ -95,6 +96,7 @@ func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason s
 		Published:     published,
 		FailureReason: failureReason,
 	}
+	s.claimNames[claimName] = true
 }
 
 // SendErrorToSlack Sends an error message to the default channel and to the process log.
@@ -225,7 +227,7 @@ func (s *Sync) FullCycle() (e error) {
 	if s.YoutubeChannelID == "" {
 		return errors.Err("channel ID not provided")
 	}
-	s.syncedVideosMux = &sync.Mutex{}
+	s.syncedVideosMux = &sync.RWMutex{}
 	s.walletMux = &sync.Mutex{}
 	s.db = redisdb.New()
 	s.grp = stop.New()
@@ -238,12 +240,13 @@ func (s *Sync) FullCycle() (e error) {
 		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
 		s.grp.Stop()
 	}()
-	syncedVideos, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSyncing, "")
+	syncedVideos, claimNames, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSyncing, "")
 	if err != nil {
 		return err
 	}
 	s.syncedVideosMux.Lock()
 	s.syncedVideos = syncedVideos
+	s.claimNames = claimNames
 	s.syncedVideosMux.Unlock()
 
 	defer s.updateChannelStatus(&e)
@@ -301,14 +304,14 @@ func (s *Sync) updateChannelStatus(e *error) {
 			return
 		}
 		failureReason := (*e).Error()
-		_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
+		_, _, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
 		if err != nil {
 			msg := fmt.Sprintf("Failed setting failed state for channel %s.", s.LbryChannelName)
 			err = errors.Prefix(msg, err)
 			*e = errors.Prefix(err.Error(), *e)
 		}
 	} else if !s.IsInterrupted() {
-		_, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSynced, "")
+		_, _, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSynced, "")
 		if err != nil {
 			*e = err
 		}
@@ -472,7 +475,7 @@ func (s *Sync) startWorker(workerNum int) {
 					}
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
-				s.AppendSyncedVideo(v.ID(), false, err.Error())
+				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
 				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error(), v.Size())
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
@@ -630,9 +633,9 @@ func (s *Sync) processVideo(v video) (err error) {
 		log.Println(v.ID() + " took " + time.Since(start).String())
 	}(time.Now())
 
-	s.syncedVideosMux.Lock()
+	s.syncedVideosMux.RLock()
 	sv, ok := s.syncedVideos[v.ID()]
-	s.syncedVideosMux.Unlock()
+	s.syncedVideosMux.RUnlock()
 	alreadyPublished := ok && sv.Published
 
 	neverRetryFailures := []string{
@@ -670,7 +673,7 @@ func (s *Sync) processVideo(v video) (err error) {
 	if err != nil {
 		return err
 	}
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.MaxVideoSize)
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.MaxVideoSize, s.claimNames, s.syncedVideosMux)
 	if err != nil {
 		return err
 	}
@@ -679,7 +682,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}
 
-	s.AppendSyncedVideo(v.ID(), true, "")
+	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName)
 
 	return nil
 }

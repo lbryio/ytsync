@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"sync"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -20,12 +22,14 @@ import (
 )
 
 type ucbVideo struct {
-	id          string
-	title       string
-	channel     string
-	description string
-	publishedAt time.Time
-	dir         string
+	id              string
+	title           string
+	channel         string
+	description     string
+	publishedAt     time.Time
+	dir             string
+	claimNames      map[string]bool
+	syncedVideosMux *sync.RWMutex
 }
 
 func NewUCBVideo(id, title, channel, description, publishedAt, dir string) *ucbVideo {
@@ -183,14 +187,16 @@ func (v *ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount f
 		ChangeAddress: &claimAddress,
 	}
 
-	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options)
+	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, v.claimNames, v.syncedVideosMux)
 }
 
 func (v *ucbVideo) Size() *int64 {
 	return nil
 }
 
-func (v *ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int) (*SyncSummary, error) {
+func (v *ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, claimNames map[string]bool, syncedVideosMux *sync.RWMutex) (*SyncSummary, error) {
+	v.claimNames = claimNames
+	v.syncedVideosMux = syncedVideosMux
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {

@@ -45,9 +45,9 @@ func (s *Sync) walletSetup() error {
 		return nil
 	}
 
-	s.syncedVideosMux.Lock()
+	s.syncedVideosMux.RLock()
 	numPublished := len(s.syncedVideos) //should we only count published videos? Credits are allocated even for failed ones...
-	s.syncedVideosMux.Unlock()
+	s.syncedVideosMux.RUnlock()
 	log.Debugf("We already published %d videos", numPublished)
 
 	if numOnSource-numPublished > s.Manager.VideosLimit {

@@ -49,22 +49,22 @@ func getClaimNameFromTitle(title string, attempt int) string {
 	return name + suffix
 }
 
-var publishedNamesMutex sync.RWMutex
-var publishedNames = map[string]bool{}
-
-func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string, amount float64, options jsonrpc.PublishOptions) (*SyncSummary, error) {
+func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string, amount float64, options jsonrpc.PublishOptions, claimNames map[string]bool, syncedVideosMux *sync.RWMutex) (*SyncSummary, error) {
 	attempt := 0
 	for {
 		attempt++
 		name := getClaimNameFromTitle(title, attempt)
 
-		publishedNamesMutex.RLock()
-		_, exists := publishedNames[name]
-		publishedNamesMutex.RUnlock()
+		syncedVideosMux.Lock()
+		_, exists := claimNames[name]
 		if exists {
-			log.Printf("name exists, retrying (%d attempts so far)\n", attempt)
+			log.Printf("name exists, retrying (%d attempts so far)", attempt)
+			syncedVideosMux.Unlock()
 			continue
 		}
+		claimNames[name] = false
+		syncedVideosMux.Unlock()
+
 		//if for some reasons the title can't be converted in a valid claim name (too short or not latin) then we use a hash
 		if len(name) < 2 {
 			hasher := md5.New()
@@ -74,13 +74,13 @@ func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string
 
 		response, err := daemon.Publish(name, filename, amount, options)
 		if err == nil || strings.Contains(err.Error(), "failed: Multiple claims (") {
-			publishedNamesMutex.Lock()
-			publishedNames[name] = true
-			publishedNamesMutex.Unlock()
+			syncedVideosMux.Lock()
+			claimNames[name] = true
+			syncedVideosMux.Unlock()
 			if err == nil {
 				return &SyncSummary{ClaimID: response.ClaimID, ClaimName: name}, nil
 			} else {
-				log.Printf("name exists, retrying (%d attempts so far)\n", attempt)
+				log.Printf("name exists, retrying (%d attempts so far)", attempt)
 				continue
 			}
 		} else {
