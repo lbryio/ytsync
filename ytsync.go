@@ -96,7 +96,9 @@ func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason s
 		Published:     published,
 		FailureReason: failureReason,
 	}
-	s.claimNames[claimName] = true
+	if claimName != "" {
+		s.claimNames[claimName] = true
+	}
 }
 
 // SendErrorToSlack Sends an error message to the default channel and to the process log.
