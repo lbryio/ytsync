@@ -271,7 +271,7 @@ func (s SyncManager) Start() error {
 		}
 		for i, sync := range syncs {
 			shouldNotCount := false
-			SendInfoToSlack("Syncing %s (%s) to LBRY! (iteration %d/%d - total session iterations: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
+			SendInfoToSlack("Syncing %s (%s) to LBRY! (iteration %d/%d - total processed channels: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
 			err := sync.FullCycle()
 			if err != nil {
 				fatalErrors := []string{
@@ -284,10 +284,12 @@ func (s SyncManager) Start() error {
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
 				}
-				SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 				shouldNotCount = strings.Contains(err.Error(), "this youtube channel is being managed by another server")
+				if !shouldNotCount {
+					SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
+				}
 			}
-			SendInfoToSlack("Syncing %s (%s) reached an end. (Iteration %d/%d - total session iterations: %d))", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
+			SendInfoToSlack("Syncing %s (%s) reached an end. (iteration %d/%d - total processed channels: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
 			if !shouldNotCount {
 				syncCount++
 			}
@@ -295,7 +297,6 @@ func (s SyncManager) Start() error {
 				shouldInterruptLoop = true
 				break
 			}
-
 		}
 		if shouldInterruptLoop || s.SingleRun {
 			break
