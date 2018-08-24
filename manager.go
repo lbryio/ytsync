@@ -78,8 +78,8 @@ func (s *SyncManager) fetchChannels(status string) ([]apiYoutubeChannel, error) 
 		"min_videos":  {strconv.Itoa(1)},
 		"after":       {strconv.Itoa(int(s.SyncFrom))},
 		"before":      {strconv.Itoa(int(s.SyncUntil))},
-		//"sync_server": {s.HostName},
-		"channel_id": {s.YoutubeChannelID},
+		"sync_server": {s.HostName},
+		"channel_id":  {s.YoutubeChannelID},
 	})
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)

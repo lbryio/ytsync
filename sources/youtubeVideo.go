@@ -16,7 +16,7 @@ import (
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 
-	"github.com/nikooo777/ytdl"
+	"github.com/rylio/ytdl"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
 )
