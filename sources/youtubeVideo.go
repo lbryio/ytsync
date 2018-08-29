@@ -128,8 +128,7 @@ func (v *YoutubeVideo) download() error {
 	}
 
 	defer downloadedFile.Close()
-
-	return videoInfo.Download(videoInfo.Formats.Best(ytdl.FormatAudioEncodingKey)[0], downloadedFile)
+	return videoInfo.Download(videoInfo.Formats.Best(ytdl.FormatAudioEncodingKey)[1], downloadedFile)
 }
 
 func (v *YoutubeVideo) videoDir() string {
