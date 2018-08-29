@@ -509,6 +509,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Playback on other websites has been disabled by the video owner",
 						"Error in daemon: Cannot publish empty file",
 						"Error extracting sts from embedded url response",
+						"Unable to extract signature tokens",
 						"Client.Timeout exceeded while awaiting headers)",
 						"the video is too big to sync, skipping for now",
 					}
@@ -704,6 +705,7 @@ func (s *Sync) processVideo(v video) (err error) {
 
 	neverRetryFailures := []string{
 		"Error extracting sts from embedded url response",
+		"Unable to extract signature tokens",
 		"the video is too big to sync, skipping for now",
 	}
 	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
