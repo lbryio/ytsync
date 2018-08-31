@@ -365,9 +365,71 @@ func logShutdownError(shutdownErr error) {
 	SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 }
 
+func hasDupes(claims []jsonrpc.Claim) (bool, error) {
+	videoIDs := make(map[string]interface{})
+	for _, c := range claims {
+		if !util.InSlice(c.Category, []string{"claim", "update"}) || c.Value.Stream == nil {
+			continue
+		}
+		if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
+			return false, errors.Err("something is wrong with the this claim: %s", c.ClaimID)
+		}
+		tn := *c.Value.Stream.Metadata.Thumbnail
+		videoID := tn[:strings.LastIndex(tn, "/")+1]
+		_, ok := videoIDs[videoID]
+		if !ok {
+			videoIDs[videoID] = nil
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+//publishesCount counts the amount of videos published so far
+func publishesCount(claims []jsonrpc.Claim) (int, error) {
+	count := 0
+	for _, c := range claims {
+		if !util.InSlice(c.Category, []string{"claim", "update"}) || c.Value.Stream == nil {
+			continue
+		}
+		if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
+			return count, errors.Err("something is wrong with the this claim: %s", c.ClaimID)
+		}
+		count++
+	}
+	return count, nil
+}
+
 func (s *Sync) doSync() error {
 	var err error
-
+	claims, err := s.daemon.ClaimListMine()
+	if err != nil {
+		return errors.Prefix("cannot list claims: ", err)
+	}
+	hasDupes, err := hasDupes(claims.Claims)
+	if err != nil {
+		return errors.Prefix("error checking for duplicates: ", err)
+	}
+	if hasDupes {
+		return errors.Err("channel has duplicates! Manual fix required")
+	}
+	pubsOnWallet, err := publishesCount(claims.Claims)
+	if err != nil {
+		return errors.Prefix("error counting claims: ", err)
+	}
+	pubsOnDB := 0
+	for _, sv := range s.syncedVideos {
+		if sv.Published {
+			pubsOnDB++
+		}
+	}
+	if pubsOnWallet > pubsOnDB {
+		return errors.Err("not all published videos are in the database")
+	}
+	if pubsOnWallet < pubsOnDB {
+		SendInfoToSlack("We're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.lbryChannelID)
+	}
 	err = s.walletSetup()
 	if err != nil {
 		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
@@ -379,10 +441,10 @@ func (s *Sync) doSync() error {
 
 	for i := 0; i < s.ConcurrentVideos; i++ {
 		s.grp.Add(1)
-		go func() {
+		go func(i int) {
 			defer s.grp.Done()
 			s.startWorker(i)
-		}()
+		}(i)
 	}
 
 	if s.LbryChannelName == "@UCBerkeley" {
