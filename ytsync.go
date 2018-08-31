@@ -407,14 +407,14 @@ func (s *Sync) doSync() error {
 	if err != nil {
 		return errors.Prefix("cannot list claims: ", err)
 	}
-	hasDupes, err := hasDupes(claims.Claims)
+	hasDupes, err := hasDupes(*claims)
 	if err != nil {
 		return errors.Prefix("error checking for duplicates: ", err)
 	}
 	if hasDupes {
 		return errors.Err("channel has duplicates! Manual fix required")
 	}
-	pubsOnWallet, err := publishesCount(claims.Claims)
+	pubsOnWallet, err := publishesCount(*claims)
 	if err != nil {
 		return errors.Prefix("error counting claims: ", err)
 	}
@@ -428,7 +428,7 @@ func (s *Sync) doSync() error {
 		return errors.Err("not all published videos are in the database")
 	}
 	if pubsOnWallet < pubsOnDB {
-		SendInfoToSlack("We're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.lbryChannelID)
+		SendInfoToSlack("We're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
 	}
 	err = s.walletSetup()
 	if err != nil {
