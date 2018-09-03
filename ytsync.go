@@ -366,19 +366,21 @@ func logShutdownError(shutdownErr error) {
 }
 
 func hasDupes(claims []jsonrpc.Claim) (bool, error) {
-	videoIDs := make(map[string]interface{})
+	videoIDs := make(map[string]string)
 	for _, c := range claims {
 		if !util.InSlice(c.Category, []string{"claim", "update"}) || c.Value.Stream == nil {
 			continue
 		}
 		if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
-			return false, errors.Err("something is wrong with the this claim: %s", c.ClaimID)
+			return false, errors.Err("something is wrong with this claim: %s", c.ClaimID)
 		}
 		tn := *c.Value.Stream.Metadata.Thumbnail
-		videoID := tn[:strings.LastIndex(tn, "/")+1]
-		_, ok := videoIDs[videoID]
-		if !ok {
-			videoIDs[videoID] = nil
+		videoID := tn[strings.LastIndex(tn, "/")+1:]
+
+		log.Infof("claimid: %s, claimName: %s, videoID: %s", c.ClaimID, c.Name, videoID)
+		cID, ok := videoIDs[videoID]
+		if !ok || cID == c.ClaimID {
+			videoIDs[videoID] = c.ClaimID
 			continue
 		}
 		return true, nil
@@ -425,6 +427,7 @@ func (s *Sync) doSync() error {
 		}
 	}
 	if pubsOnWallet > pubsOnDB {
+		SendInfoToSlack("We're claiming to have published %d videos but in reality we published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
 		return errors.Err("not all published videos are in the database")
 	}
 	if pubsOnWallet < pubsOnDB {
