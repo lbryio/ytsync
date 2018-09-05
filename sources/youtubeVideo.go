@@ -123,11 +123,11 @@ func (v *YoutubeVideo) download() error {
 
 	var downloadedFile *os.File
 	downloadedFile, err = os.Create(videoPath)
+	defer downloadedFile.Close()
 	if err != nil {
 		return err
 	}
 
-	defer downloadedFile.Close()
 	return videoInfo.Download(videoInfo.Formats.Best(ytdl.FormatAudioEncodingKey)[1], downloadedFile)
 }
 
@@ -171,17 +171,17 @@ func (v *YoutubeVideo) triggerThumbnailSave() error {
 	}
 
 	var decoded struct {
-		error   int    `json:"error"`
-		url     string `json:"url,omitempty"`
-		message string `json:"message,omitempty"`
+		Error   int    `json:"error"`
+		Url     string `json:"url,omitempty"`
+		Message string `json:"message,omitempty"`
 	}
 	err = json.Unmarshal(contents, &decoded)
 	if err != nil {
 		return err
 	}
 
-	if decoded.error != 0 {
-		return errors.Err("error creating thumbnail: " + decoded.message)
+	if decoded.Error != 0 {
+		return errors.Err("error creating thumbnail: " + decoded.Message)
 	}
 
 	return nil
