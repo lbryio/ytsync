@@ -6,15 +6,15 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
-
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
+	"github.com/lbryio/lbry.go/ytsync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -174,7 +174,7 @@ func (v *ucbVideo) saveThumbnail() error {
 	return err
 }
 
-func (v *ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
+func (v *ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *ytsync.Namer) (*SyncSummary, error) {
 	options := jsonrpc.PublishOptions{
 		Title:         &v.title,
 		Author:        strPtr("UC Berkeley"),
@@ -187,7 +187,7 @@ func (v *ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount f
 		ChangeAddress: &claimAddress,
 	}
 
-	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, v.claimNames, v.syncedVideosMux)
+	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, namer)
 }
 
 func (v *ucbVideo) Size() *int64 {

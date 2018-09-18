@@ -46,7 +46,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string, int, map[string]bool, *sync.RWMutex) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, string, float64, string, int, *Namer) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -81,6 +81,7 @@ type Sync struct {
 	claimNames      map[string]bool
 	grp             *stop.Group
 	lbryChannelID   string
+	namer           *Namer
 
 	walletMux *sync.Mutex
 	queue     chan video
@@ -778,10 +779,12 @@ func (s *Sync) processVideo(v video) (err error) {
 	if err != nil {
 		return err
 	}
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.MaxVideoSize, s.claimNames, s.syncedVideosMux)
+
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.MaxVideoSize, s.namer)
 	if err != nil {
 		return err
 	}
+
 	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size())
 	if err != nil {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())

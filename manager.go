@@ -35,6 +35,13 @@ type SyncManager struct {
 	SingleRun               bool
 	ChannelProperties       *sdk.ChannelProperties
 	APIConfig               *sdk.APIConfig
+	namer                   *Namer
+}
+
+func NewSyncManager() *SyncManager {
+	return &SyncManager{
+		namer: NewNamer(),
+	}
 }
 
 const (
@@ -85,6 +92,11 @@ const (
 )
 
 func (s *SyncManager) Start() error {
+	if s.namer == nil {
+		// TODO: fix me, use NewSyncManager instead
+		s.namer = NewNamer()
+	}
+
 	syncCount := 0
 	for {
 		err := s.checkUsedSpace()
@@ -121,6 +133,7 @@ func (s *SyncManager) Start() error {
 				AwsS3Secret:             s.AwsS3Secret,
 				AwsS3Region:             s.AwsS3Region,
 				AwsS3Bucket:             s.AwsS3Bucket,
+				namer:                   s.namer,
 			}
 			shouldInterruptLoop = true
 		} else {

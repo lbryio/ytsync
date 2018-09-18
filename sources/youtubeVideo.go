@@ -9,12 +9,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
-
 	"sync"
+	"time"
 
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
+	"github.com/lbryio/lbry.go/ytsync"
 
 	"github.com/rylio/ytdl"
 	log "github.com/sirupsen/logrus"
@@ -234,7 +234,7 @@ func (v *YoutubeVideo) triggerThumbnailSave() error {
 
 func strPtr(s string) *string { return &s }
 
-func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string) (*SyncSummary, error) {
+func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *ytsync.Namer) (*SyncSummary, error) {
 	if channelID == "" {
 		return nil, errors.Err("a claim_id for the channel wasn't provided") //TODO: this is probably not needed?
 	}
@@ -249,18 +249,16 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 		ChangeAddress: &claimAddress,
 		ChannelID:     &channelID,
 	}
-	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, v.claimNames, v.syncedVideosMux)
+
+	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, namer)
 }
 
 func (v *YoutubeVideo) Size() *int64 {
 	return v.size
 }
 
-func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, claimNames map[string]bool, syncedVideosMux *sync.RWMutex) (*SyncSummary, error) {
-	v.claimNames = claimNames
-	v.syncedVideosMux = syncedVideosMux
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *ytsync.Namer) (*SyncSummary, error) {
 	v.maxVideoSize = int64(maxVideoSize) * 1024 * 1024
-
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -274,7 +272,7 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount 
 	}
 	log.Debugln("Created thumbnail for " + v.id)
 
-	summary, err := v.publish(daemon, claimAddress, amount, channelID)
+	summary, err := v.publish(daemon, claimAddress, amount, channelID, namer)
 	//delete the video in all cases (and ignore the error)
 	_ = v.delete()
 	if err != nil {
