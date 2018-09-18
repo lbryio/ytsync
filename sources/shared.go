@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/lbryio/lbry.go/jsonrpc"
-	"github.com/lbryio/lbry.go/ytsync"
+	"github.com/lbryio/lbry.go/ytsync/namer"
 )
 
 type SyncSummary struct {
@@ -12,7 +12,7 @@ type SyncSummary struct {
 	ClaimName string
 }
 
-func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string, amount float64, options jsonrpc.PublishOptions, namer *ytsync.Namer) (*SyncSummary, error) {
+func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string, amount float64, options jsonrpc.PublishOptions, namer *namer.Namer) (*SyncSummary, error) {
 	for {
 		name := namer.GetNextName(title)
 		response, err := daemon.Publish(name, filename, amount, options)

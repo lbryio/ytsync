@@ -1,4 +1,4 @@
-package ytsync
+package namer
 
 import (
 	"crypto/md5"
@@ -40,7 +40,8 @@ func (n *Namer) GetNextName(prefix string) string {
 
 	//if for some reasons the title can't be converted in a valid claim name (too short or not latin) then we use a hash
 	if len(name) < 2 {
-		name = fmt.Sprintf("%s-%d", hex.EncodeToString(md5.Sum([]byte(prefix))[:])[:15], attempt)
+		sum := md5.Sum([]byte(prefix))
+		name = fmt.Sprintf("%s-%d", hex.EncodeToString(sum[:])[:15], attempt)
 	}
 
 	n.names[name] = true

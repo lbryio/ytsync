@@ -27,6 +27,7 @@ import (
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/stop"
 	"github.com/lbryio/lbry.go/util"
+	"github.com/lbryio/lbry.go/ytsync/namer"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
@@ -46,7 +47,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string, int, *Namer) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, string, float64, string, int, *namer.Namer) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -81,7 +82,7 @@ type Sync struct {
 	claimNames      map[string]bool
 	grp             *stop.Group
 	lbryChannelID   string
-	namer           *Namer
+	namer           *namer.Namer
 
 	walletMux *sync.Mutex
 	queue     chan video

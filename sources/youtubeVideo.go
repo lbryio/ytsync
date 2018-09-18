@@ -14,7 +14,7 @@ import (
 
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
-	"github.com/lbryio/lbry.go/ytsync"
+	"github.com/lbryio/lbry.go/ytsync/namer"
 
 	"github.com/rylio/ytdl"
 	log "github.com/sirupsen/logrus"
@@ -234,7 +234,7 @@ func (v *YoutubeVideo) triggerThumbnailSave() error {
 
 func strPtr(s string) *string { return &s }
 
-func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *ytsync.Namer) (*SyncSummary, error) {
+func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *namer.Namer) (*SyncSummary, error) {
 	if channelID == "" {
 		return nil, errors.Err("a claim_id for the channel wasn't provided") //TODO: this is probably not needed?
 	}
@@ -257,7 +257,7 @@ func (v *YoutubeVideo) Size() *int64 {
 	return v.size
 }
 
-func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *ytsync.Namer) (*SyncSummary, error) {
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *namer.Namer) (*SyncSummary, error) {
 	v.maxVideoSize = int64(maxVideoSize) * 1024 * 1024
 	//download and thumbnail can be done in parallel
 	err := v.download()

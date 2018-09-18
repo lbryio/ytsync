@@ -9,6 +9,7 @@ import (
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/null"
 	"github.com/lbryio/lbry.go/util"
+	"github.com/lbryio/lbry.go/ytsync/namer"
 	"github.com/lbryio/lbry.go/ytsync/sdk"
 	log "github.com/sirupsen/logrus"
 )
@@ -35,12 +36,12 @@ type SyncManager struct {
 	SingleRun               bool
 	ChannelProperties       *sdk.ChannelProperties
 	APIConfig               *sdk.APIConfig
-	namer                   *Namer
+	namer                   *namer.Namer
 }
 
 func NewSyncManager() *SyncManager {
 	return &SyncManager{
-		namer: NewNamer(),
+		namer: namer.NewNamer(),
 	}
 }
 
@@ -94,7 +95,7 @@ const (
 func (s *SyncManager) Start() error {
 	if s.namer == nil {
 		// TODO: fix me, use NewSyncManager instead
-		s.namer = NewNamer()
+		s.namer = namer.NewNamer()
 	}
 
 	syncCount := 0
