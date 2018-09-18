@@ -27,7 +27,6 @@ import (
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/stop"
 	"github.com/lbryio/lbry.go/util"
-	"github.com/lbryio/lbry.go/ytsync/redisdb"
 	"github.com/lbryio/lbry.go/ytsync/sources"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
@@ -77,7 +76,6 @@ type Sync struct {
 	daemon          *jsonrpc.Client
 	claimAddress    string
 	videoDirectory  string
-	db              *redisdb.DB
 	syncedVideosMux *sync.RWMutex
 	syncedVideos    map[string]syncedVideo
 	claimNames      map[string]bool
@@ -231,7 +229,6 @@ func (s *Sync) FullCycle() (e error) {
 	}
 	s.syncedVideosMux = &sync.RWMutex{}
 	s.walletMux = &sync.Mutex{}
-	s.db = redisdb.New()
 	s.grp = stop.New()
 	s.queue = make(chan video)
 	interruptChan := make(chan os.Signal, 1)
@@ -426,10 +423,10 @@ func (s *Sync) doSync() error {
 			pubsOnDB++
 		}
 	}
-	if pubsOnWallet > pubsOnDB {
-		SendInfoToSlack("We're claiming to have published %d videos but in reality we published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
-		return errors.Err("not all published videos are in the database")
-	}
+	//if pubsOnWallet > pubsOnDB {
+	//		SendInfoToSlack("We're claiming to have published %d videos but in reality we published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
+	//		return errors.Err("not all published videos are in the database")
+	//	}
 	if pubsOnWallet < pubsOnDB {
 		SendInfoToSlack("We're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
 	}
@@ -713,19 +710,6 @@ func (s *Sync) processVideo(v video) (err error) {
 	}
 	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
 		log.Println(v.ID() + " can't ever be published")
-		return nil
-	}
-
-	//TODO: remove this after a few runs...
-	alreadyPublishedOld, err := s.db.IsPublished(v.ID())
-	if err != nil {
-		return err
-	}
-	//TODO: remove this after a few runs...
-	if alreadyPublishedOld && !alreadyPublished {
-		//seems like something in the migration of blobs didn't go perfectly right so warn about it!
-		SendInfoToSlack("A video that was previously published is on the local database but isn't on the remote db! fix it @Nikooo777! \nchannelID: %s, videoID: %s",
-			s.YoutubeChannelID, v.ID())
 		return nil
 	}
 

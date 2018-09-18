@@ -28,6 +28,7 @@ type YoutubeVideo struct {
 	description      string
 	playlistPosition int64
 	size             *int64
+	maxVideoSize     int64
 	publishedAt      time.Time
 	dir              string
 	claimNames       map[string]bool
@@ -121,14 +122,58 @@ func (v *YoutubeVideo) download() error {
 		return err
 	}
 
-	var downloadedFile *os.File
-	downloadedFile, err = os.Create(videoPath)
-	defer downloadedFile.Close()
-	if err != nil {
-		return err
+	codec := []string{"H.264"}
+	ext := []string{"mp4"}
+
+	//Filter requires a [] interface{}
+	codecFilter := make([]interface{}, len(codec))
+	for i, v := range codec {
+		codecFilter[i] = v
 	}
 
-	return videoInfo.Download(videoInfo.Formats.Best(ytdl.FormatAudioEncodingKey)[1], downloadedFile)
+	//Filter requires a [] interface{}
+	extFilter := make([]interface{}, len(ext))
+	for i, v := range ext {
+		extFilter[i] = v
+	}
+
+	formats := videoInfo.Formats.Filter(ytdl.FormatVideoEncodingKey, codecFilter).Filter(ytdl.FormatExtensionKey, extFilter)
+	if len(formats) == 0 {
+		return errors.Err("no compatible format available for this video")
+	}
+	maxRetryAttempts := 5
+	for i := 0; i < len(formats) && i < maxRetryAttempts; i++ {
+		formatIndex := i
+		if i == maxRetryAttempts-1 {
+			formatIndex = len(formats) - 1
+		}
+		var downloadedFile *os.File
+		downloadedFile, err = os.Create(videoPath)
+		if err != nil {
+			return err
+		}
+		err = videoInfo.Download(formats[formatIndex], downloadedFile)
+		downloadedFile.Close()
+		if err != nil {
+			break
+		}
+		fi, err := os.Stat(v.getFilename())
+		if err != nil {
+			return err
+		}
+		videoSize := fi.Size()
+		v.size = &videoSize
+
+		if videoSize > v.maxVideoSize {
+			//delete the video and ignore the error
+			_ = v.delete()
+			err = errors.Err("file is too big and there is no other format available")
+		} else {
+			break
+		}
+	}
+
+	return err
 }
 
 func (v *YoutubeVideo) videoDir() string {
@@ -214,25 +259,14 @@ func (v *YoutubeVideo) Size() *int64 {
 func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, claimNames map[string]bool, syncedVideosMux *sync.RWMutex) (*SyncSummary, error) {
 	v.claimNames = claimNames
 	v.syncedVideosMux = syncedVideosMux
+	v.maxVideoSize = int64(maxVideoSize) * 1024 * 1024
+
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
 		return nil, errors.Prefix("download error", err)
 	}
 	log.Debugln("Downloaded " + v.id)
-
-	fi, err := os.Stat(v.getFilename())
-	if err != nil {
-		return nil, err
-	}
-	videoSize := fi.Size()
-	v.size = &videoSize
-
-	if videoSize > int64(maxVideoSize)*1024*1024 {
-		//delete the video and ignore the error
-		_ = v.delete()
-		return nil, errors.Err("the video is too big to sync, skipping for now")
-	}
 
 	err = v.triggerThumbnailSave()
 	if err != nil {
