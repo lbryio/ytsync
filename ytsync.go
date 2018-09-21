@@ -326,20 +326,20 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 }
 
 func (s *Sync) waitForDaemonStart() error {
-
 	for {
 		select {
 		case <-s.grp.Ch():
 			return errors.Err("interrupted during daemon startup")
 		default:
 			s, err := s.daemon.Status()
-			if err == nil && s.StartupStatus.Wallet {
+			if err == nil && s.StartupStatus.Wallet && s.StartupStatus.FileManager {
 				return nil
 			}
 			time.Sleep(5 * time.Second)
 		}
 	}
 }
+
 func (s *Sync) stopAndUploadWallet(e *error) {
 	log.Printf("Stopping daemon")
 	shutdownErr := stopDaemonViaSystemd()
@@ -446,6 +446,10 @@ func (s *Sync) doSync() error {
 	}
 	if hasDupes {
 		SendInfoToSlack("Channel had dupes and was fixed!")
+		err = s.waitForNewBlock()
+		if err != nil {
+			return err
+		}
 		claims, err = s.daemon.ClaimListMine()
 		if err != nil {
 			return errors.Prefix("cannot list claims: ", err)
