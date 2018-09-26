@@ -11,7 +11,7 @@ import (
 
 func (s *Sync) CountVideos() (uint64, error) {
 	client := &http.Client{
-		Transport: &transport.APIKey{Key: s.YoutubeAPIKey},
+		Transport: &transport.APIKey{Key: s.APIConfig.YoutubeAPIKey},
 	}
 
 	service, err := youtube.New(client)

@@ -50,8 +50,8 @@ func (s *Sync) walletSetup() error {
 	s.syncedVideosMux.RUnlock()
 	log.Debugf("We already allocated credits for %d videos", numPublished)
 
-	if numOnSource-numPublished > s.Manager.VideosLimit {
-		numOnSource = s.Manager.VideosLimit
+	if numOnSource-numPublished > s.Manager.videosLimit {
+		numOnSource = s.Manager.videosLimit
 	}
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount

@@ -24,7 +24,7 @@ type APIConfig struct {
 	HostName      string
 }
 
-type ChannelProperties struct {
+type SyncProperties struct {
 	SyncFrom         int64
 	SyncUntil        int64
 	YoutubeChannelID string
@@ -42,7 +42,7 @@ type YoutubeChannel struct {
 	} `json:"fee"`
 }
 
-func (a *APIConfig) FetchChannels(status string, cp *ChannelProperties) ([]YoutubeChannel, error) {
+func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeChannel, error) {
 	type apiJobsResponse struct {
 		Success bool             `json:"success"`
 		Error   null.String      `json:"error"`
@@ -79,7 +79,7 @@ type SyncedVideo struct {
 	ClaimName     string `json:"claim_name"`
 }
 
-func (a *APIConfig) setChannelStatus(channelID string, status string, failureReason string) (map[string]SyncedVideo, map[string]bool, error) {
+func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string) (map[string]SyncedVideo, map[string]bool, error) {
 	type apiChannelStatusResponse struct {
 		Success bool          `json:"success"`
 		Error   null.String   `json:"error"`

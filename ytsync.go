@@ -17,18 +17,20 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lbryio/lbry.go/errors"
+	"github.com/lbryio/lbry.go/jsonrpc"
+	"github.com/lbryio/lbry.go/stop"
+	"github.com/lbryio/lbry.go/util"
+	"github.com/lbryio/lbry.go/ytsync/namer"
+	"github.com/lbryio/lbry.go/ytsync/sdk"
+	"github.com/lbryio/lbry.go/ytsync/sources"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/lbryio/lbry.go/errors"
-	"github.com/lbryio/lbry.go/jsonrpc"
-	"github.com/lbryio/lbry.go/stop"
-	"github.com/lbryio/lbry.go/util"
-	"github.com/lbryio/lbry.go/ytsync/namer"
-	"github.com/lbryio/lbry.go/ytsync/sources"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
@@ -59,7 +61,7 @@ func (a byPublishedAt) Less(i, j int) bool { return a[i].PublishedAt().Before(a[
 
 // Sync stores the options that control how syncing happens
 type Sync struct {
-	YoutubeAPIKey           string
+	APIConfig               *sdk.APIConfig
 	YoutubeChannelID        string
 	LbryChannelName         string
 	StopOnError             bool
@@ -78,8 +80,7 @@ type Sync struct {
 	claimAddress    string
 	videoDirectory  string
 	syncedVideosMux *sync.RWMutex
-	syncedVideos    map[string]syncedVideo
-	claimNames      map[string]bool
+	syncedVideos    map[string]sdk.SyncedVideo
 	grp             *stop.Group
 	lbryChannelID   string
 	namer           *namer.Namer
@@ -91,13 +92,10 @@ type Sync struct {
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string) {
 	s.syncedVideosMux.Lock()
 	defer s.syncedVideosMux.Unlock()
-	s.syncedVideos[videoID] = syncedVideo{
+	s.syncedVideos[videoID] = sdk.SyncedVideo{
 		VideoID:       videoID,
 		Published:     published,
 		FailureReason: failureReason,
-	}
-	if claimName != "" {
-		s.claimNames[claimName] = true
 	}
 }
 
@@ -223,13 +221,13 @@ func (s *Sync) uploadWallet() error {
 }
 
 func (s *Sync) setStatusSyncing() error {
-	syncedVideos, claimNames, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSyncing, "")
+	syncedVideos, claimNames, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSyncing, "")
 	if err != nil {
 		return err
 	}
 	s.syncedVideosMux.Lock()
 	s.syncedVideos = syncedVideos
-	s.claimNames = claimNames
+	s.Manager.namer.SetNames(claimNames)
 	s.syncedVideosMux.Unlock()
 	return nil
 }
@@ -313,14 +311,14 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 			return
 		}
 		failureReason := (*e).Error()
-		_, _, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
+		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
 		if err != nil {
 			msg := fmt.Sprintf("Failed setting failed state for channel %s.", s.LbryChannelName)
 			err = errors.Prefix(msg, err)
 			*e = errors.Prefix(err.Error(), *e)
 		}
 	} else if !s.IsInterrupted() {
-		_, _, err := s.Manager.setChannelStatus(s.YoutubeChannelID, StatusSynced, "")
+		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSynced, "")
 		if err != nil {
 			*e = err
 		}
@@ -426,7 +424,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 		pv, ok := s.syncedVideos[videoID]
 		if !ok || pv.ClaimName != c.Name {
 			fixed++
-			err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", nil)
+			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", nil)
 			if err != nil {
 				return total, fixed, err
 			}
@@ -595,7 +593,7 @@ func (s *Sync) startWorker(workerNum int) {
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
 				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
-				err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error(), v.Size())
+				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error(), v.Size())
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
@@ -607,7 +605,7 @@ func (s *Sync) startWorker(workerNum int) {
 
 func (s *Sync) enqueueYoutubeVideos() error {
 	client := &http.Client{
-		Transport: &transport.APIKey{Key: s.YoutubeAPIKey},
+		Transport: &transport.APIKey{Key: s.APIConfig.YoutubeAPIKey},
 	}
 
 	service, err := youtube.New(client)
@@ -772,7 +770,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if v.PlaylistPosition() > s.Manager.VideosLimit {
+	if v.PlaylistPosition() > s.Manager.videosLimit {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
@@ -781,12 +779,12 @@ func (s *Sync) processVideo(v video) (err error) {
 		return err
 	}
 
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.MaxVideoSize, s.namer)
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.maxVideoSize, s.namer)
 	if err != nil {
 		return err
 	}
 
-	err = s.Manager.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size())
+	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size())
 	if err != nil {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}

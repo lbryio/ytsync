@@ -24,6 +24,10 @@ func NewNamer() *Namer {
 	}
 }
 
+func (n *Namer) SetNames(names map[string]bool) {
+	n.names = names
+}
+
 func (n *Namer) GetNextName(prefix string) string {
 	n.mu.Lock()
 	defer n.mu.Unlock()
