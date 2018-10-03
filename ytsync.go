@@ -260,7 +260,7 @@ func (s *Sync) FullCycle() (e error) {
 
 	err = s.downloadWallet()
 	if err != nil && err.Error() != "wallet not on S3" {
-		return errors.Prefix("failure in downloading wallet: ", err)
+		return errors.Prefix("failure in downloading wallet", err)
 	} else if err == nil {
 		log.Println("Continuing previous upload")
 	} else {
@@ -313,9 +313,8 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 		failureReason := (*e).Error()
 		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
 		if err != nil {
-			msg := fmt.Sprintf("Failed setting failed state for channel %s.", s.LbryChannelName)
-			err = errors.Prefix(msg, err)
-			*e = errors.Prefix(err.Error(), *e)
+			msg := fmt.Sprintf("Failed setting failed state for channel %s", s.LbryChannelName)
+			*e = errors.Prefix(msg+err.Error(), *e)
 		}
 	} else if !s.IsInterrupted() {
 		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSynced, "")
@@ -359,7 +358,7 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 					e = &err //not 100% sure
 					return
 				} else {
-					*e = errors.Prefix("failure uploading wallet: ", *e)
+					*e = errors.Prefix("failure uploading wallet", *e)
 				}
 			}
 		}
@@ -438,11 +437,11 @@ func (s *Sync) doSync() error {
 	var err error
 	claims, err := s.daemon.ClaimListMine()
 	if err != nil {
-		return errors.Prefix("cannot list claims: ", err)
+		return errors.Prefix("cannot list claims", err)
 	}
 	hasDupes, err := s.fixDupes(*claims)
 	if err != nil {
-		return errors.Prefix("error checking for duplicates: ", err)
+		return errors.Prefix("error checking for duplicates", err)
 	}
 	if hasDupes {
 		SendInfoToSlack("Channel had dupes and was fixed!")
@@ -452,13 +451,13 @@ func (s *Sync) doSync() error {
 		}
 		claims, err = s.daemon.ClaimListMine()
 		if err != nil {
-			return errors.Prefix("cannot list claims: ", err)
+			return errors.Prefix("cannot list claims", err)
 		}
 	}
 
 	pubsOnWallet, nFixed, err := s.updateRemoteDB(*claims)
 	if err != nil {
-		return errors.Prefix("error counting claims: ", err)
+		return errors.Prefix("error counting claims", err)
 	}
 	if nFixed > 0 {
 		err := s.setStatusSyncing()
@@ -466,7 +465,6 @@ func (s *Sync) doSync() error {
 			return err
 		}
 		SendInfoToSlack("%d claims were not on the remote database and were fixed", nFixed)
-
 	}
 	pubsOnDB := 0
 	for _, sv := range s.syncedVideos {

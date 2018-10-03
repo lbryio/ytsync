@@ -155,6 +155,8 @@ func (v *YoutubeVideo) download() error {
 		err = videoInfo.Download(formats[formatIndex], downloadedFile)
 		downloadedFile.Close()
 		if err != nil {
+			//delete the video and ignore the error
+			_ = v.delete()
 			break
 		}
 		fi, err := os.Stat(v.getFilename())
@@ -172,7 +174,6 @@ func (v *YoutubeVideo) download() error {
 			break
 		}
 	}
-
 	return err
 }
 
@@ -275,11 +276,8 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount 
 	summary, err := v.publish(daemon, claimAddress, amount, channelID, namer)
 	//delete the video in all cases (and ignore the error)
 	_ = v.delete()
-	if err != nil {
-		return nil, errors.Prefix("publish error", err)
-	}
 
-	return summary, nil
+	return summary, errors.Prefix("publish error", err)
 }
 
 // sorting videos
