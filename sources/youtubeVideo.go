@@ -14,7 +14,7 @@ import (
 
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
-	"github.com/lbryio/lbry.go/ytsync/namer"
+	"github.com/lbryio/ytsync/namer"
 
 	"github.com/rylio/ytdl"
 	log "github.com/sirupsen/logrus"

@@ -1,4 +1,4 @@
-package ytsync
+package main
 
 import (
 	"fmt"
@@ -6,10 +6,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lbryio/ytsync/namer"
+	"github.com/lbryio/ytsync/sdk"
+
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/util"
-	"github.com/lbryio/lbry.go/ytsync/namer"
-	"github.com/lbryio/lbry.go/ytsync/sdk"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -1,4 +1,4 @@
-package ytsync
+package main
 
 import (
 	"strings"

@@ -1,4 +1,4 @@
-package ytsync
+package main
 
 import (
 	"bufio"
@@ -17,13 +17,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lbryio/ytsync/namer"
+	"github.com/lbryio/ytsync/sdk"
+	"github.com/lbryio/ytsync/sources"
+
 	"github.com/lbryio/lbry.go/errors"
 	"github.com/lbryio/lbry.go/jsonrpc"
 	"github.com/lbryio/lbry.go/stop"
 	"github.com/lbryio/lbry.go/util"
-	"github.com/lbryio/lbry.go/ytsync/namer"
-	"github.com/lbryio/lbry.go/ytsync/sdk"
-	"github.com/lbryio/lbry.go/ytsync/sources"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
