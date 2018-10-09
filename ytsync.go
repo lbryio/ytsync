@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -228,7 +229,7 @@ func (s *Sync) setStatusSyncing() error {
 	}
 	s.syncedVideosMux.Lock()
 	s.syncedVideos = syncedVideos
-	s.Manager.namer.SetNames(claimNames)
+	s.namer.SetNames(claimNames)
 	s.syncedVideosMux.Unlock()
 	return nil
 }
@@ -735,6 +736,7 @@ Enqueue:
 func (s *Sync) processVideo(v video) (err error) {
 	defer func() {
 		if p := recover(); p != nil {
+			log.Printf("stack: %s", debug.Stack())
 			var ok bool
 			err, ok = p.(error)
 			if !ok {

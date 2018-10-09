@@ -64,7 +64,7 @@ func (v *YoutubeVideo) PublishedAt() time.Time {
 	return v.publishedAt
 }
 
-func (v *YoutubeVideo) getFilename() string {
+func (v *YoutubeVideo) getFullPath() string {
 	maxLen := 30
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
@@ -101,7 +101,7 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 }
 
 func (v *YoutubeVideo) download() error {
-	videoPath := v.getFilename()
+	videoPath := v.getFullPath()
 
 	err := os.Mkdir(v.videoDir(), 0750)
 	if err != nil && !strings.Contains(err.Error(), "file exists") {
@@ -159,7 +159,7 @@ func (v *YoutubeVideo) download() error {
 			_ = v.delete()
 			break
 		}
-		fi, err := os.Stat(v.getFilename())
+		fi, err := os.Stat(v.getFullPath())
 		if err != nil {
 			return err
 		}
@@ -182,7 +182,7 @@ func (v *YoutubeVideo) videoDir() string {
 }
 
 func (v *YoutubeVideo) delete() error {
-	videoPath := v.getFilename()
+	videoPath := v.getFullPath()
 	err := os.Remove(videoPath)
 	if err != nil {
 		log.Errorln(errors.Prefix("delete error", err))
@@ -251,7 +251,7 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 		ChannelID:     &channelID,
 	}
 
-	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, namer)
+	return publishAndRetryExistingNames(daemon, v.title, v.getFullPath(), amount, options, namer)
 }
 
 func (v *YoutubeVideo) Size() *int64 {

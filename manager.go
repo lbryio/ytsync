@@ -36,7 +36,6 @@ type SyncManager struct {
 	singleRun               bool
 	syncProperties          *sdk.SyncProperties
 	apiConfig               *sdk.APIConfig
-	namer                   *namer.Namer
 }
 
 func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool, refill int, limit int,
@@ -65,7 +64,6 @@ func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool
 		singleRun:               singleRun,
 		syncProperties:          syncProperties,
 		apiConfig:               apiConfig,
-		namer:                   namer.NewNamer(),
 	}
 }
 
@@ -123,7 +121,7 @@ func (s *SyncManager) Start() error {
 				AwsS3Secret:             s.awsS3Secret,
 				AwsS3Region:             s.awsS3Region,
 				AwsS3Bucket:             s.awsS3Bucket,
-				namer:                   s.namer,
+				namer:                   namer.NewNamer(),
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -156,6 +154,7 @@ func (s *SyncManager) Start() error {
 						AwsS3Secret:             s.awsS3Secret,
 						AwsS3Region:             s.awsS3Region,
 						AwsS3Bucket:             s.awsS3Bucket,
+						namer:                   namer.NewNamer(),
 					})
 				}
 			}
