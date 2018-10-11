@@ -142,6 +142,10 @@ func (v *YoutubeVideo) download() error {
 		return errors.Err("no compatible format available for this video")
 	}
 	maxRetryAttempts := 5
+	if videoInfo.Duration.Hours() > 2 {
+		return errors.Err("video is too long to process")
+	}
+
 	for i := 0; i < len(formats) && i < maxRetryAttempts; i++ {
 		formatIndex := i
 		if i == maxRetryAttempts-1 {

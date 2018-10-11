@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	MaxReasonLength = 500
+	MaxReasonLength = 490
 )
 
 type APIConfig struct {

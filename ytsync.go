@@ -564,6 +564,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Unable to extract signature tokens",
 						"Client.Timeout exceeded while awaiting headers)",
 						"the video is too big to sync, skipping for now",
+						"video is too long to process",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
@@ -760,6 +761,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		"Error extracting sts from embedded url response",
 		"Unable to extract signature tokens",
 		"the video is too big to sync, skipping for now",
+		"video is too long to process",
 	}
 	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
 		log.Println(v.ID() + " can't ever be published")
