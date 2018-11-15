@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strings"
 	"time"
 
 	"github.com/lbryio/lbry.go/errors"
@@ -201,22 +200,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return nil
 	}
 
-	resolveResp, err := s.daemon.Resolve(s.LbryChannelName)
-	if err != nil {
-		return err
-	}
-
-	channel := (*resolveResp)[s.LbryChannelName]
 	channelBidAmount := channelClaimAmount
-
-	channelNotFound := channel.Error != nil && strings.Contains(*(channel.Error), "cannot be resolved")
-	if !channelNotFound {
-		if !s.TakeOverExistingChannel {
-			return errors.Err("Channel exists and we don't own it. Pick another channel.")
-		}
-		log.Println("Channel exists and we don't own it. Outbidding existing claim.")
-		channelBidAmount, _ = channel.Certificate.Amount.Add(decimal.NewFromFloat(channelClaimAmount)).Float64()
-	}
 
 	balanceResp, err := s.daemon.WalletBalance()
 	if err != nil {
