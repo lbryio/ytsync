@@ -31,10 +31,9 @@ type SyncProperties struct {
 }
 
 type YoutubeChannel struct {
-	ChannelId          string      `json:"channel_id"`
-	TotalVideos        uint        `json:"total_videos"`
-	DesiredChannelName string      `json:"desired_channel_name"`
-	SyncServer         null.String `json:"sync_server"`
+	ChannelId          string `json:"channel_id"`
+	TotalVideos        uint   `json:"total_videos"`
+	DesiredChannelName string `json:"desired_channel_name"`
 	Fee                *struct {
 		Amount   string `json:"amount"`
 		Address  string `json:"address"`
