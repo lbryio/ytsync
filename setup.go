@@ -190,6 +190,10 @@ func (s *Sync) ensureChannelOwnership() error {
 	isChannelMine := false
 	for _, channel := range *channels {
 		if channel.Name == s.LbryChannelName {
+			//TODO: eventually get rid of this when the whole db is filled
+			if s.lbryChannelID == "" {
+				err = s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, s.lbryChannelID)
+			}
 			s.lbryChannelID = channel.ClaimID
 			isChannelMine = true
 		} else {
@@ -197,7 +201,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		}
 	}
 	if isChannelMine {
-		return nil
+		return err
 	}
 
 	channelBidAmount := channelClaimAmount
@@ -211,7 +215,10 @@ func (s *Sync) ensureChannelOwnership() error {
 	balance := decimal.Decimal(*balanceResp)
 
 	if balance.LessThan(decimal.NewFromFloat(channelBidAmount)) {
-		s.addCredits(channelBidAmount + 0.1)
+		err = s.addCredits(channelBidAmount + 0.1)
+		if err != nil {
+			return err
+		}
 	}
 
 	c, err := s.daemon.ChannelNew(s.LbryChannelName, channelBidAmount)
@@ -219,7 +226,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return err
 	}
 	s.lbryChannelID = c.ClaimID
-	return nil
+	return s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, s.lbryChannelID)
 }
 
 func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {

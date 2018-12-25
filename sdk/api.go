@@ -39,6 +39,7 @@ type YoutubeChannel struct {
 		Address  string `json:"address"`
 		Currency string `json:"currency"`
 	} `json:"fee"`
+	ChannelClaimID string `json:"channel_claim_id"`
 }
 
 func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeChannel, error) {
@@ -115,6 +116,34 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 		return svs, claimNames, nil
 	}
 	return nil, nil, errors.Err("invalid API response. Status code: %d", res.StatusCode)
+}
+
+func (a *APIConfig) SetChannelClaimID(channelID string, channelClaimID string) error {
+	type apiChannelStatusResponse struct {
+		Success bool        `json:"success"`
+		Error   null.String `json:"error"`
+		Data    string      `json:"data"`
+	}
+	endpoint := a.ApiURL + "/yt/set_channel_claim_id"
+	res, _ := http.PostForm(endpoint, url.Values{
+		"channel_id":       {channelID},
+		"auth_token":       {a.ApiToken},
+		"channel_claim_id": {channelClaimID},
+	})
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+	var response apiChannelStatusResponse
+	err := json.Unmarshal(body, &response)
+	if err != nil {
+		return err
+	}
+	if !response.Error.IsNull() {
+		return errors.Err(response.Error.String)
+	}
+	if response.Data != "ok" {
+		return errors.Err("Unexpected API response")
+	}
+	return nil
 }
 
 const (
