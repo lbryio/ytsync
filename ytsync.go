@@ -539,7 +539,7 @@ func (s *Sync) startWorker(workerNum int) {
 			err := s.processVideo(v)
 
 			if err != nil {
-				logMsg := fmt.Sprintf("error processing video: " + err.Error())
+				logMsg := "error processing video: " + err.Error()
 				log.Errorln(logMsg)
 				fatalErrors := []string{
 					":5279: read: connection reset by peer",

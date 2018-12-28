@@ -192,7 +192,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		if channel.Name == s.LbryChannelName {
 			//TODO: eventually get rid of this when the whole db is filled
 			if s.lbryChannelID == "" {
-				err = s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, s.lbryChannelID)
+				err = s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, channel.ClaimID)
 			}
 			s.lbryChannelID = channel.ClaimID
 			isChannelMine = true
