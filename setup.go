@@ -193,6 +193,11 @@ func (s *Sync) ensureChannelOwnership() error {
 			//TODO: eventually get rid of this when the whole db is filled
 			if s.lbryChannelID == "" {
 				err = s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, channel.ClaimID)
+			} else if channel.ClaimID != s.lbryChannelID {
+				return errors.Err("the channel in the wallet is different than the channel in the database")
+			}
+			if channel.Name != s.LbryChannelName {
+				return errors.Err("the channel in the wallet is different than the channel in the database")
 			}
 			s.lbryChannelID = channel.ClaimID
 			isChannelMine = true

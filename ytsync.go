@@ -383,6 +383,10 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			return false, errors.Err("something is wrong with this claim: %s", c.ClaimID)
 		}
 		tn := *c.Value.Stream.Metadata.Thumbnail
+		if !strings.Contains(tn, "https://berk.ninja/thumbnails/") {
+			//we're dealing with something that wasn't published by us!
+			continue
+		}
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 
 		log.Infof("claimid: %s, claimName: %s, videoID: %s", c.ClaimID, c.Name, videoID)

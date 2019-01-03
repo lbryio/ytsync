@@ -176,6 +176,7 @@ func (s *SyncManager) Start() error {
 					"NotEnoughFunds",
 					"no space left on device",
 					"failure uploading wallet",
+					"the channel in the wallet is different than the channel in the database",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
