@@ -186,9 +186,25 @@ func (s *Sync) ensureChannelOwnership() error {
 	} else if channels == nil {
 		return errors.Err("no channel response")
 	}
-
-	isChannelMine := false
-	for _, channel := range *channels {
+	//special case for wallets we don't retain full control anymore
+	if len(*channels) > 1 {
+		// This wallet is probably not under our control anymore but we still want to publish to it
+		// here we shall check if within all the channels there is one that was created by ytsync
+		SendInfoToSlack("we are dealing with a wallet that has multiple channels. This indicates that the wallet was probably transferred but we still want to sync their content. YoutubeID: %s", s.YoutubeChannelID)
+		if s.lbryChannelID == "" {
+			return errors.Err("this channel does not have a recorded claimID in the database. To prevent failures, updates are not supported until an entry is manually added in the database")
+		}
+		for _, c := range *channels {
+			if c.ClaimID != s.lbryChannelID {
+				if c.Name != s.LbryChannelName {
+					return errors.Err("the channel in the wallet is different than the channel in the database")
+				}
+				return nil // we have the ytsync channel and both the claimID and the channelName from the database are correct
+			}
+		}
+	}
+	if len(*channels) == 1 {
+		channel := (*channels)[0]
 		if channel.Name == s.LbryChannelName {
 			//TODO: eventually get rid of this when the whole db is filled
 			if s.lbryChannelID == "" {
@@ -196,17 +212,11 @@ func (s *Sync) ensureChannelOwnership() error {
 			} else if channel.ClaimID != s.lbryChannelID {
 				return errors.Err("the channel in the wallet is different than the channel in the database")
 			}
-			if channel.Name != s.LbryChannelName {
-				return errors.Err("the channel in the wallet is different than the channel in the database")
-			}
 			s.lbryChannelID = channel.ClaimID
-			isChannelMine = true
+			return err
 		} else {
-			return errors.Err("this wallet has multiple channels. maybe something went wrong during setup?")
+			return errors.Err("this channel does not belong to this wallet! Expected: %s, found: %s", s.LbryChannelName, channel.Name)
 		}
-	}
-	if isChannelMine {
-		return err
 	}
 
 	channelBidAmount := channelClaimAmount

@@ -135,7 +135,7 @@ func (a *APIConfig) SetChannelClaimID(channelID string, channelClaimID string) e
 	var response apiChannelStatusResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
-		return err
+		return errors.Err(err)
 	}
 	if !response.Error.IsNull() {
 		return errors.Err(response.Error.String)

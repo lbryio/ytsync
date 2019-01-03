@@ -95,13 +95,13 @@
   branch = "master"
   name = "github.com/lbryio/lbry.go"
   packages = ["errors","jsonrpc","lbrycrd","null","stop","util"]
-  revision = "7a6eb5728093ff8da4bc6d9691308acf10fb9a53"
+  revision = "f986bd3066b9044ae1a44534908bdf4b381bbd1b"
 
 [[projects]]
   branch = "master"
-  name = "github.com/lbryio/lbryschema.go"
-  packages = ["pb"]
-  revision = "185433f2fd0c732547654749b98b37e56223dd22"
+  name = "github.com/lbryio/types"
+  packages = ["go"]
+  revision = "594241d24e0025d769d2cb58168536b6963d51cf"
 
 [[projects]]
   branch = "master"
@@ -131,7 +131,7 @@
   branch = "master"
   name = "github.com/rylio/ytdl"
   packages = ["."]
-  revision = "0227c2bacb82a434f2332d7d8c64093615c08a40"
+  revision = "44fe64bba886b85c00fc7045e092d796484d6f90"
 
 [[projects]]
   branch = "master"

@@ -102,23 +102,29 @@ func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason s
 }
 
 // SendErrorToSlack Sends an error message to the default channel and to the process log.
-func SendErrorToSlack(format string, a ...interface{}) error {
+func SendErrorToSlack(format string, a ...interface{}) {
 	message := format
 	if len(a) > 0 {
 		message = fmt.Sprintf(format, a...)
 	}
 	log.Errorln(message)
-	return util.SendToSlack(":sos: " + message)
+	err := util.SendToSlack(":sos: " + message)
+	if err != nil {
+		log.Errorln(err)
+	}
 }
 
 // SendInfoToSlack Sends an info message to the default channel and to the process log.
-func SendInfoToSlack(format string, a ...interface{}) error {
+func SendInfoToSlack(format string, a ...interface{}) {
 	message := format
 	if len(a) > 0 {
 		message = fmt.Sprintf(format, a...)
 	}
 	log.Infoln(message)
-	return util.SendToSlack(":information_source: " + message)
+	err := util.SendToSlack(":information_source: " + message)
+	if err != nil {
+		log.Errorln(err)
+	}
 }
 
 // IsInterrupted can be queried to discover if the sync process was interrupted manually
@@ -371,22 +377,28 @@ func logShutdownError(shutdownErr error) {
 	SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 }
 
+func isYtsyncClaim(c jsonrpc.Claim) bool {
+	if !util.InSlice(c.Category, []string{"claim", "update"}) || c.Value.Stream == nil {
+		return false
+	}
+	if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
+		//most likely a claim created outside of ytsync, ignore!
+		return false
+	}
+
+	//we're dealing with something that wasn't published by us!
+	return !strings.Contains(*c.Value.Stream.Metadata.Thumbnail, "https://berk.ninja/thumbnails/")
+}
+
 // fixDupes abandons duplicate claims
 func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 	abandonedClaims := false
 	videoIDs := make(map[string]jsonrpc.Claim)
 	for _, c := range claims {
-		if !util.InSlice(c.Category, []string{"claim", "update"}) || c.Value.Stream == nil {
+		if !isYtsyncClaim(c) {
 			continue
-		}
-		if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
-			return false, errors.Err("something is wrong with this claim: %s", c.ClaimID)
 		}
 		tn := *c.Value.Stream.Metadata.Thumbnail
-		if !strings.Contains(tn, "https://berk.ninja/thumbnails/") {
-			//we're dealing with something that wasn't published by us!
-			continue
-		}
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 
 		log.Infof("claimid: %s, claimName: %s, videoID: %s", c.ClaimID, c.Name, videoID)
@@ -402,11 +414,11 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			claimToAbandon = cl
 			videoIDs[videoID] = c
 		}
+		log.Debugf("abandoning %+v", claimToAbandon)
 		_, err := s.daemon.ClaimAbandon(claimToAbandon.Txid, claimToAbandon.Nout)
 		if err != nil {
 			return true, err
 		}
-		log.Debugf("abandoning %+v", claimToAbandon)
 		abandonedClaims = true
 		//return true, nil
 	}
@@ -417,12 +429,10 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err error) {
 	count := 0
 	for _, c := range claims {
-		if !util.InSlice(c.Category, []string{"claim", "update"}) || c.Value.Stream == nil {
+		if !isYtsyncClaim(c) {
 			continue
 		}
-		if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
-			return count, fixed, errors.Err("something is wrong with the this claim: %s", c.ClaimID)
-		}
+		count++
 		//check if claimID is in remote db
 		tn := *c.Value.Stream.Metadata.Thumbnail
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
@@ -431,12 +441,11 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 			fixed++
 			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", nil)
 			if err != nil {
-				return total, fixed, err
+				return count, fixed, err
 			}
 		}
-		total++
 	}
-	return total, fixed, nil
+	return count, fixed, nil
 }
 
 func (s *Sync) doSync() error {
