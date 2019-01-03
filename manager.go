@@ -27,6 +27,7 @@ type SyncManager struct {
 	blobsDir                string
 	videosLimit             int
 	maxVideoSize            int
+	maxVideoLength          float64
 	lbrycrdString           string
 	awsS3ID                 string
 	awsS3Secret             string
@@ -41,7 +42,7 @@ type SyncManager struct {
 func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool, refill int, limit int,
 	skipSpaceCheck bool, syncUpdate bool, concurrentJobs int, concurrentVideos int, blobsDir string, videosLimit int,
 	maxVideoSize int, lbrycrdString string, awsS3ID string, awsS3Secret string, awsS3Region string, awsS3Bucket string,
-	syncStatus string, singleRun bool, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig) *SyncManager {
+	syncStatus string, singleRun bool, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64) *SyncManager {
 	return &SyncManager{
 		stopOnError:             stopOnError,
 		maxTries:                maxTries,
@@ -55,6 +56,7 @@ func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool
 		blobsDir:                blobsDir,
 		videosLimit:             videosLimit,
 		maxVideoSize:            maxVideoSize,
+		maxVideoLength:          maxVideoLength,
 		lbrycrdString:           lbrycrdString,
 		awsS3ID:                 awsS3ID,
 		awsS3Secret:             awsS3Secret,
@@ -177,6 +179,7 @@ func (s *SyncManager) Start() error {
 					"no space left on device",
 					"failure uploading wallet",
 					"the channel in the wallet is different than the channel in the database",
+					"this channel does not belong to this wallet!",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)

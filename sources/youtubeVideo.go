@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lbryio/lbry.go/errors"
@@ -29,10 +28,9 @@ type YoutubeVideo struct {
 	playlistPosition int64
 	size             *int64
 	maxVideoSize     int64
+	maxVideoLength   float64
 	publishedAt      time.Time
 	dir              string
-	claimNames       map[string]bool
-	syncedVideosMux  *sync.RWMutex
 }
 
 func NewYoutubeVideo(directory string, snippet *youtube.PlaylistItemSnippet) *YoutubeVideo {
@@ -142,7 +140,8 @@ func (v *YoutubeVideo) download() error {
 		return errors.Err("no compatible format available for this video")
 	}
 	maxRetryAttempts := 5
-	if videoInfo.Duration.Hours() > 2 {
+	isLengthLimitSet := v.maxVideoLength > 0.01
+	if isLengthLimitSet && videoInfo.Duration.Hours() > v.maxVideoLength {
 		return errors.Err("video is too long to process")
 	}
 
@@ -170,7 +169,8 @@ func (v *YoutubeVideo) download() error {
 		videoSize := fi.Size()
 		v.size = &videoSize
 
-		if videoSize > v.maxVideoSize {
+		isVideoSizeLimitSet := v.maxVideoSize > 0
+		if isVideoSizeLimitSet && videoSize > v.maxVideoSize {
 			//delete the video and ignore the error
 			_ = v.delete()
 			err = errors.Err("file is too big and there is no other format available")
@@ -262,8 +262,9 @@ func (v *YoutubeVideo) Size() *int64 {
 	return v.size
 }
 
-func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *namer.Namer) (*SyncSummary, error) {
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *namer.Namer, maxVideoLength float64) (*SyncSummary, error) {
 	v.maxVideoSize = int64(maxVideoSize) * 1024 * 1024
+	v.maxVideoLength = maxVideoLength
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -283,16 +284,3 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount 
 
 	return summary, errors.Prefix("publish error", err)
 }
-
-// sorting videos
-//type ByPublishedAt []YoutubeVideo
-//
-//func (a ByPublishedAt) Len() int           { return len(a) }
-//func (a ByPublishedAt) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-//func (a ByPublishedAt) Less(i, j int) bool { return a[i].publishedAt.Before(a[j].publishedAt) }
-//
-//type ByPlaylistPosition []YoutubeVideo
-//
-//func (a ByPlaylistPosition) Len() int           { return len(a) }
-//func (a ByPlaylistPosition) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-//func (a ByPlaylistPosition) Less(i, j int) bool { return a[i].playlistPosition < a[j].playlistPosition }

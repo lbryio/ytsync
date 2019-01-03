@@ -51,7 +51,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string, int, *namer.Namer) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, string, float64, string, int, *namer.Namer, float64) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -240,6 +240,13 @@ func (s *Sync) setStatusSyncing() error {
 	return nil
 }
 
+func (s *Sync) setExceptions() {
+	if s.YoutubeChannelID == "UCwjQfNRW6sGYb__pd7d4nUg" { //@FreeTalkLive
+		s.Manager.maxVideoLength = 0.0 // skips max length checks
+		s.Manager.maxVideoSize = 0
+	}
+}
+
 func (s *Sync) FullCycle() (e error) {
 	if os.Getenv("HOME") == "" {
 		return errors.Err("no $HOME env var found")
@@ -247,6 +254,9 @@ func (s *Sync) FullCycle() (e error) {
 	if s.YoutubeChannelID == "" {
 		return errors.Err("channel ID not provided")
 	}
+
+	s.setExceptions()
+
 	s.syncedVideosMux = &sync.RWMutex{}
 	s.walletMux = &sync.Mutex{}
 	s.grp = stop.New()
@@ -386,8 +396,7 @@ func isYtsyncClaim(c jsonrpc.Claim) bool {
 		return false
 	}
 
-	//we're dealing with something that wasn't published by us!
-	return !strings.Contains(*c.Value.Stream.Metadata.Thumbnail, "https://berk.ninja/thumbnails/")
+	return strings.Contains(*c.Value.Stream.Metadata.Thumbnail, "https://berk.ninja/thumbnails/")
 }
 
 // fixDupes abandons duplicate claims
@@ -439,6 +448,8 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 		pv, ok := s.syncedVideos[videoID]
 		if !ok || pv.ClaimName != c.Name {
 			fixed++
+			log.Debugf("adding %s to the database", c.Name)
+
 			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", nil)
 			if err != nil {
 				return count, fixed, err
@@ -450,6 +461,11 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 
 func (s *Sync) doSync() error {
 	var err error
+	err = s.walletSetup()
+	if err != nil {
+		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
+	}
+
 	claims, err := s.daemon.ClaimListMine()
 	if err != nil {
 		return errors.Prefix("cannot list claims", err)
@@ -494,10 +510,6 @@ func (s *Sync) doSync() error {
 	}
 	if pubsOnWallet < pubsOnDB {
 		SendInfoToSlack("we're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
-	}
-	err = s.walletSetup()
-	if err != nil {
-		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
 	}
 
 	if s.StopOnError {
@@ -795,7 +807,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		return err
 	}
 
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.maxVideoSize, s.namer)
+	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.maxVideoSize, s.namer, s.Manager.maxVideoLength)
 	if err != nil {
 		return err
 	}

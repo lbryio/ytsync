@@ -194,7 +194,7 @@ func (v *ucbVideo) Size() *int64 {
 	return nil
 }
 
-func (v *ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *namer.Namer) (*SyncSummary, error) {
+func (v *ucbVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *namer.Namer, maxVideoLength float64) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
