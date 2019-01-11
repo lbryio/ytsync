@@ -11,6 +11,7 @@ import (
 	"github.com/lbryio/ytsync/sdk"
 	"github.com/spf13/cobra"
 
+	"github.com/lbryio/ytsync/manager"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -83,8 +84,8 @@ func ytSync(cmd *cobra.Command, args []string) {
 		util.InitSlack(os.Getenv("SLACK_TOKEN"), os.Getenv("SLACK_CHANNEL"), hostname)
 	}
 
-	if syncStatus != "" && !util.InSlice(syncStatus, SyncStatuses) {
-		log.Errorf("status must be one of the following: %v\n", SyncStatuses)
+	if syncStatus != "" && !util.InSlice(syncStatus, manager.SyncStatuses) {
+		log.Errorf("status must be one of the following: %v\n", manager.SyncStatuses)
 		return
 	}
 
@@ -162,7 +163,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 		ApiToken:      apiToken,
 		HostName:      hostname,
 	}
-	sm := NewSyncManager(
+	sm := manager.NewSyncManager(
 		stopOnError,
 		maxTries,
 		takeOverExistingChannel,
@@ -187,7 +188,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 	)
 	err := sm.Start()
 	if err != nil {
-		SendErrorToSlack(err.Error())
+		manager.SendErrorToSlack(err.Error())
 	}
-	SendInfoToSlack("Syncing process terminated!")
+	manager.SendInfoToSlack("Syncing process terminated!")
 }
