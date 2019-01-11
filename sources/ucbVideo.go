@@ -12,8 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/lbryio/lbry.go/errors"
-	"github.com/lbryio/lbry.go/jsonrpc"
+	"github.com/lbryio/lbry.go/extras/errors"
+	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/ytsync/namer"
 
 	"github.com/aws/aws-sdk-go/aws"

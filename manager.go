@@ -9,8 +9,8 @@ import (
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
 
-	"github.com/lbryio/lbry.go/errors"
-	"github.com/lbryio/lbry.go/util"
+	"github.com/lbryio/lbry.go/extras/errors"
+	"github.com/lbryio/lbry.go/extras/util"
 	log "github.com/sirupsen/logrus"
 )
 

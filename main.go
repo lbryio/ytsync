@@ -7,7 +7,7 @@ import (
 	"os/user"
 	"time"
 
-	"github.com/lbryio/lbry.go/util"
+	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/ytsync/sdk"
 	"github.com/spf13/cobra"
 

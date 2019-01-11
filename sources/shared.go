@@ -3,7 +3,7 @@ package sources
 import (
 	"strings"
 
-	"github.com/lbryio/lbry.go/jsonrpc"
+	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/ytsync/namer"
 )
 
