@@ -3,8 +3,8 @@ package main
 import (
 	"time"
 
-	"github.com/lbryio/lbry.go/errors"
-	"github.com/lbryio/lbry.go/jsonrpc"
+	"github.com/lbryio/lbry.go/extras/errors"
+	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/lbrycrd"
 
 	"github.com/shopspring/decimal"
