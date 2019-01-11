@@ -108,7 +108,7 @@ func (v *YoutubeVideo) download() error {
 
 	_, err = os.Stat(videoPath)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return errors.Err(err)
 	} else if err == nil {
 		log.Debugln(v.id + " already exists at " + videoPath)
 		return nil
@@ -117,7 +117,7 @@ func (v *YoutubeVideo) download() error {
 	videoUrl := "https://www.youtube.com/watch?v=" + v.id
 	videoInfo, err := ytdl.GetVideoInfo(videoUrl)
 	if err != nil {
-		return err
+		return errors.Err(err)
 	}
 
 	codec := []string{"H.264"}
@@ -153,7 +153,7 @@ func (v *YoutubeVideo) download() error {
 		var downloadedFile *os.File
 		downloadedFile, err = os.Create(videoPath)
 		if err != nil {
-			return err
+			return errors.Err(err)
 		}
 		err = videoInfo.Download(formats[formatIndex], downloadedFile)
 		downloadedFile.Close()
@@ -164,7 +164,7 @@ func (v *YoutubeVideo) download() error {
 		}
 		fi, err := os.Stat(v.getFullPath())
 		if err != nil {
-			return err
+			return errors.Err(err)
 		}
 		videoSize := fi.Size()
 		v.size = &videoSize
@@ -178,7 +178,7 @@ func (v *YoutubeVideo) download() error {
 			break
 		}
 	}
-	return err
+	return errors.Err(err)
 }
 
 func (v *YoutubeVideo) videoDir() string {

@@ -672,6 +672,12 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		}
 
 		if len(playlistResponse.Items) < 1 {
+			// If there are 50+ videos in a playlist but less than 50 are actually returned by the API, youtube will still redirect
+			// clients to a next page. Such next page will however be empty. This logic prevents ytsync from failing.
+			youtubeIsLying := len(videos) > 0
+			if youtubeIsLying {
+				break
+			}
 			return errors.Err("playlist items not found")
 		}
 
