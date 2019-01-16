@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lbryio/lbry.go/errors"
-	"github.com/lbryio/lbry.go/null"
+	"github.com/lbryio/lbry.go/extras/errors"
+	"github.com/lbryio/lbry.go/extras/null"
 )
 
 const (
