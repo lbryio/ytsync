@@ -76,9 +76,10 @@ const (
 	StatusSynced    = "synced"  // done
 	StatusFailed    = "failed"
 	StatusFinalized = "finalized" // no more changes allowed
+	StatusAbandoned = "abandoned" // deleted on youtube or banned
 )
 
-var SyncStatuses = []string{StatusPending, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized}
+var SyncStatuses = []string{StatusPending, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
 
 const (
 	VideoStatusPublished = "published"
