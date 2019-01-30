@@ -1,6 +1,9 @@
 package manager
 
 import (
+	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/lbryio/lbry.go/extras/errors"
@@ -20,14 +23,17 @@ func (s *Sync) walletSetup() error {
 		return err
 	}
 
-	balanceResp, err := s.daemon.WalletBalance()
+	balanceResp, err := s.daemon.AccountBalance(nil)
 	if err != nil {
 		return err
 	} else if balanceResp == nil {
 		return errors.Err("no response")
 	}
-	balance := decimal.Decimal(*balanceResp)
-	log.Debugf("Starting balance is %s", balance.String())
+	balance, err := strconv.ParseFloat((string)(*balanceResp), 64)
+	if err != nil {
+		return errors.Err(err)
+	}
+	log.Debugf("Starting balance is %.4f", balance)
 
 	var numOnSource int
 	if s.LbryChannelName == "@UCBerkeley" {
@@ -54,11 +60,11 @@ func (s *Sync) walletSetup() error {
 	}
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
-	if numPublished > numOnSource && balance.LessThan(decimal.NewFromFloat(1)) {
+	if numPublished > numOnSource && balance < 1 {
 		SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
 		minBalance = 1 //since we ended up in this function it means some juice is still needed
 	}
-	amountToAdd, _ := decimal.NewFromFloat(minBalance).Sub(balance).Float64()
+	amountToAdd := minBalance - balance
 
 	if s.Refill > 0 {
 		if amountToAdd < 0 {
@@ -72,16 +78,19 @@ func (s *Sync) walletSetup() error {
 		if amountToAdd < 1 {
 			amountToAdd = 1 // no reason to bother adding less than 1 credit
 		}
-		s.addCredits(amountToAdd)
+		err := s.addCredits(amountToAdd)
+		if err != nil {
+			return errors.Err(err)
+		}
 	}
 
-	claimAddress, err := s.daemon.WalletUnusedAddress()
+	claimAddress, err := s.daemon.AddressList(nil)
 	if err != nil {
 		return err
 	} else if claimAddress == nil {
 		return errors.Err("could not get unused address")
 	}
-	s.claimAddress = string(*claimAddress)
+	s.claimAddress = string((*claimAddress)[0])
 	if s.claimAddress == "" {
 		return errors.Err("found blank claim address")
 	}
@@ -95,7 +104,26 @@ func (s *Sync) walletSetup() error {
 }
 
 func (s *Sync) ensureEnoughUTXOs() error {
-	utxolist, err := s.daemon.UTXOList()
+	accounts, err := s.daemon.AccountList()
+	if err != nil {
+		return errors.Err(err)
+	}
+	accountsNet := (*accounts).LBCMainnet
+	if os.Getenv("REGTEST") == "true" {
+		accountsNet = (*accounts).LBCRegtest
+	}
+	defaultAccount := ""
+	for _, account := range accountsNet {
+		if account.IsDefaultAccount {
+			defaultAccount = account.ID
+			break
+		}
+	}
+	if defaultAccount == "" {
+		return errors.Err("No default account found")
+	}
+
+	utxolist, err := s.daemon.UTXOList(&defaultAccount)
 	if err != nil {
 		return err
 	} else if utxolist == nil {
@@ -107,26 +135,30 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	count := 0
 
 	for _, utxo := range *utxolist {
-		if !utxo.IsClaim && !utxo.IsSupport && !utxo.IsUpdate && utxo.Amount.Cmp(decimal.New(0, 0)) == 1 {
+		amount, _ := strconv.ParseFloat(utxo.Amount, 64)
+		if !utxo.IsClaim && !utxo.IsSupport && !utxo.IsUpdate && amount != 0.0 {
 			count++
 		}
 	}
-
+	log.Infof("utxo count: %d", count)
 	if count < target-slack {
-		newAddresses := target - count
-
-		balance, err := s.daemon.WalletBalance()
+		balance, err := s.daemon.AccountBalance(&defaultAccount)
 		if err != nil {
 			return err
 		} else if balance == nil {
 			return errors.Err("no response")
 		}
 
-		log.Println("balance is " + decimal.Decimal(*balance).String())
+		balanceAmount, err := strconv.ParseFloat((string)(*balance), 64)
+		if err != nil {
+			return errors.Err(err)
+		}
+		broadcastFee := 0.001
+		amountToSplit := fmt.Sprintf("%.6f", balanceAmount-broadcastFee)
 
-		amountPerAddress := decimal.Decimal(*balance).Div(decimal.NewFromFloat(float64(target)))
-		log.Infof("Putting %s credits into each of %d new addresses", amountPerAddress.String(), newAddresses)
-		prefillTx, err := s.daemon.WalletPrefillAddresses(newAddresses, amountPerAddress, true)
+		log.Infof("Splitting balance of %s evenly between 40 UTXOs", *balance)
+
+		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, amountToSplit, uint64(target))
 		if err != nil {
 			return err
 		} else if prefillTx == nil {
@@ -180,21 +212,21 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Err("no channel name set")
 	}
 
-	channels, err := s.daemon.ChannelList()
+	channels, err := s.daemon.ChannelList(nil, 1, 50)
 	if err != nil {
 		return err
 	} else if channels == nil {
 		return errors.Err("no channel response")
 	}
 	//special case for wallets we don't retain full control anymore
-	if len(*channels) > 1 {
+	if len((*channels).Items) > 1 {
 		// This wallet is probably not under our control anymore but we still want to publish to it
 		// here we shall check if within all the channels there is one that was created by ytsync
 		SendInfoToSlack("we are dealing with a wallet that has multiple channels. This indicates that the wallet was probably transferred but we still want to sync their content. YoutubeID: %s", s.YoutubeChannelID)
 		if s.lbryChannelID == "" {
 			return errors.Err("this channel does not have a recorded claimID in the database. To prevent failures, updates are not supported until an entry is manually added in the database")
 		}
-		for _, c := range *channels {
+		for _, c := range (*channels).Items {
 			if c.ClaimID != s.lbryChannelID {
 				if c.Name != s.LbryChannelName {
 					return errors.Err("the channel in the wallet is different than the channel in the database")
@@ -203,8 +235,8 @@ func (s *Sync) ensureChannelOwnership() error {
 			}
 		}
 	}
-	if len(*channels) == 1 {
-		channel := (*channels)[0]
+	if len((*channels).Items) == 1 {
+		channel := ((*channels).Items)[0]
 		if channel.Name == s.LbryChannelName {
 			//TODO: eventually get rid of this when the whole db is filled
 			if s.lbryChannelID == "" {
@@ -221,13 +253,16 @@ func (s *Sync) ensureChannelOwnership() error {
 
 	channelBidAmount := channelClaimAmount
 
-	balanceResp, err := s.daemon.WalletBalance()
+	balanceResp, err := s.daemon.AccountBalance(nil)
 	if err != nil {
 		return err
 	} else if balanceResp == nil {
 		return errors.Err("no response")
 	}
-	balance := decimal.Decimal(*balanceResp)
+	balance, err := decimal.NewFromString((string)(*balanceResp))
+	if err != nil {
+		return errors.Err(err)
+	}
 
 	if balance.LessThan(decimal.NewFromFloat(channelBidAmount)) {
 		err = s.addCredits(channelBidAmount + 0.1)
@@ -236,7 +271,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		}
 	}
 
-	c, err := s.daemon.ChannelNew(s.LbryChannelName, channelBidAmount)
+	c, err := s.daemon.ChannelNew(s.LbryChannelName, channelBidAmount, nil)
 	if err != nil {
 		return err
 	}
@@ -278,7 +313,7 @@ func (s *Sync) addCredits(amountToAdd float64) error {
 		}
 	}
 
-	addressResp, err := s.daemon.WalletUnusedAddress()
+	addressResp, err := s.daemon.AddressUnused(nil)
 	if err != nil {
 		return err
 	} else if addressResp == nil {

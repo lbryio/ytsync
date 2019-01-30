@@ -244,17 +244,19 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 		return nil, errors.Err("a claim_id for the channel wasn't provided") //TODO: this is probably not needed?
 	}
 	options := jsonrpc.PublishOptions{
-		Title:         &v.title,
-		Author:        &v.channelTitle,
-		Description:   strPtr(v.getAbbrevDescription() + "\nhttps://www.youtube.com/watch?v=" + v.id),
-		Language:      strPtr("en"),
-		ClaimAddress:  &claimAddress,
-		Thumbnail:     strPtr("https://berk.ninja/thumbnails/" + v.id),
-		License:       strPtr("Copyrighted (contact author)"),
-		ChangeAddress: &claimAddress,
+		Metadata: &jsonrpc.Metadata{
+			Title:       v.title,
+			Description: v.getAbbrevDescription() + "\nhttps://www.youtube.com/watch?v=" + v.id,
+			Author:      v.channelTitle,
+			Language:    "en",
+			License:     "Copyrighted (contact author)",
+			Thumbnail:   strPtr("https://berk.ninja/thumbnails/" + v.id),
+			NSFW:        false,
+		},
 		ChannelID:     &channelID,
+		ClaimAddress:  &claimAddress,
+		ChangeAddress: &claimAddress,
 	}
-
 	return publishAndRetryExistingNames(daemon, v.title, v.getFullPath(), amount, options, namer)
 }
 
