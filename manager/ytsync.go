@@ -603,6 +603,9 @@ func (s *Sync) startWorker(workerNum int) {
 						"Client.Timeout exceeded while awaiting headers)",
 						"the video is too big to sync, skipping for now",
 						"video is too long to process",
+						"no compatible format available for this video",
+						"Watch this video on YouTube.",
+						"have blocked it on copyright grounds",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
@@ -806,6 +809,9 @@ func (s *Sync) processVideo(v video) (err error) {
 		"Unable to extract signature tokens",
 		"the video is too big to sync, skipping for now",
 		"video is too long to process",
+		"no compatible format available for this video",
+		"Watch this video on YouTube.",
+		"have blocked it on copyright grounds",
 	}
 	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
 		log.Println(v.ID() + " can't ever be published")

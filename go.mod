@@ -1,0 +1,35 @@
+module github.com/lbryio/ytsync
+
+require (
+	github.com/PuerkitoBio/goquery v1.4.1
+	github.com/andybalholm/cascadia v1.0.0
+	github.com/aws/aws-sdk-go v1.10.51
+	github.com/btcsuite/btcd v0.0.0-20180924021209-2a560b2036be
+	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f
+	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
+	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd
+	github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792
+	github.com/fatih/structs v1.1.0
+	github.com/go-errors/errors v1.0.1
+	github.com/go-ini/ini v1.41.0
+	github.com/golang/protobuf v1.2.0
+	github.com/inconshreveable/mousetrap v1.0.0
+	github.com/jmespath/go-jmespath v0.0.0-20151117175822-3433f3ea46d9
+	github.com/konsorten/go-windows-terminal-sequences v1.0.1
+	github.com/lbryio/lbry.go v0.0.0-20190130121207-d7286d454113
+	github.com/lbryio/types v0.0.0-20181001180206-594241d24e00
+	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
+	github.com/mitchellh/mapstructure v1.1.2
+	github.com/nlopes/slack v0.2.0
+	github.com/rylio/ytdl v0.0.0-20181217105247-44fe64bba886
+	github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24
+	github.com/sirupsen/logrus v1.3.0
+	github.com/spf13/cobra v0.0.0-20180915222204-8d114be902bc
+	github.com/spf13/pflag v1.0.3
+	github.com/ybbus/jsonrpc v2.1.2+incompatible
+	golang.org/x/crypto v0.0.0-20181001203147-e3636079e1a4
+	golang.org/x/net v0.0.0-20181005035420-146acd28ed58
+	golang.org/x/sys v0.0.0-20181005133103-4497e2df6f9e
+	google.golang.org/api v0.0.0-20181007000908-c21459d81882
+	gopkg.in/nullbio/null.v6 v6.0.0-20161116030900-40264a2e6b79
+)

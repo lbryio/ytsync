@@ -45,6 +45,7 @@ func (s *Sync) walletSetup() error {
 		}
 		numOnSource = int(n)
 	}
+
 	log.Debugf("Source channel has %d videos", numOnSource)
 	if numOnSource == 0 {
 		return nil
@@ -153,7 +154,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if err != nil {
 			return errors.Err(err)
 		}
-		broadcastFee := 0.001
+		broadcastFee := 0.01
 		amountToSplit := fmt.Sprintf("%.6f", balanceAmount-broadcastFee)
 
 		log.Infof("Splitting balance of %s evenly between 40 UTXOs", *balance)
@@ -211,7 +212,10 @@ func (s *Sync) ensureChannelOwnership() error {
 	if s.LbryChannelName == "" {
 		return errors.Err("no channel name set")
 	}
-
+	//@TODO: get rid of this when imported channels are supported
+	if s.YoutubeChannelID == "UCkK9UDm_ZNrq_rIXCz3xCGA" || s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
+		return nil
+	}
 	channels, err := s.daemon.ChannelList(nil, 1, 50)
 	if err != nil {
 		return err

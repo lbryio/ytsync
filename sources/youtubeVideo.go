@@ -156,11 +156,11 @@ func (v *YoutubeVideo) download() error {
 			return errors.Err(err)
 		}
 		err = videoInfo.Download(formats[formatIndex], downloadedFile)
-		downloadedFile.Close()
+		_ = downloadedFile.Close()
 		if err != nil {
 			//delete the video and ignore the error
 			_ = v.delete()
-			break
+			return errors.Err(err.Error())
 		}
 		fi, err := os.Stat(v.getFullPath())
 		if err != nil {
