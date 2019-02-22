@@ -324,6 +324,7 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 		//conditions for which a channel shouldn't be marked as failed
 		noFailConditions := []string{
 			"this youtube channel is being managed by another server",
+			"interrupted during daemon startup",
 		}
 		if util.SubstringInSlice((*e).Error(), noFailConditions) {
 			return
@@ -349,7 +350,7 @@ func (s *Sync) waitForDaemonStart() error {
 			return errors.Err("interrupted during daemon startup")
 		default:
 			s, err := s.daemon.Status()
-			if err == nil && s.StartupStatus.Wallet && s.StartupStatus.FileManager {
+			if err == nil && s.StartupStatus.Wallet && s.IsRunning {
 				return nil
 			}
 			time.Sleep(5 * time.Second)
@@ -373,7 +374,7 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 			err := s.uploadWallet()
 			if err != nil {
 				if *e == nil {
-					e = &err //not 100% sure
+					e = &err
 					return
 				} else {
 					*e = errors.Prefix("failure uploading wallet", *e)

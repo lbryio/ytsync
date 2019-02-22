@@ -105,7 +105,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	apiURL := os.Getenv("LBRY_API")
+	apiURL := os.Getenv("LBRY_WEB_API")
 	apiToken := os.Getenv("LBRY_API_TOKEN")
 	youtubeAPIKey := os.Getenv("YOUTUBE_API_KEY")
 	blobsDir := os.Getenv("BLOBS_DIRECTORY")

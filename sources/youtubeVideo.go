@@ -15,7 +15,7 @@ import (
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/ytsync/namer"
 
-	"github.com/rylio/ytdl"
+	"github.com/nikooo777/ytdl"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
 )
@@ -240,13 +240,15 @@ func (v *YoutubeVideo) triggerThumbnailSave() error {
 func strPtr(s string) *string { return &s }
 
 func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *namer.Namer) (*SyncSummary, error) {
-	if channelID == "" {
-		return nil, errors.Err("a claim_id for the channel wasn't provided") //TODO: this is probably not needed?
+	additionalDescription := "\nhttps://www.youtube.com/watch?v=" + v.id
+	khanAcademyClaimID := "5fc52291980268b82413ca4c0ace1b8d749f3ffb"
+	if channelID == khanAcademyClaimID {
+		additionalDescription = additionalDescription + "\nNote: All Khan Academy content is available for free at (www.khanacademy.org)"
 	}
 	options := jsonrpc.PublishOptions{
 		Metadata: &jsonrpc.Metadata{
 			Title:       v.title,
-			Description: v.getAbbrevDescription() + "\nhttps://www.youtube.com/watch?v=" + v.id,
+			Description: v.getAbbrevDescription() + additionalDescription,
 			Author:      v.channelTitle,
 			Language:    "en",
 			License:     "Copyrighted (contact author)",

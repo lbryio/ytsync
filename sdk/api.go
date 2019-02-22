@@ -3,10 +3,11 @@ package sdk
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lbryio/lbry.go/extras/errors"
@@ -79,6 +80,14 @@ type SyncedVideo struct {
 	ClaimName     string `json:"claim_name"`
 }
 
+func sanitizeFailureReason(s *string) {
+	re := regexp.MustCompile("[[:^ascii:]]")
+	*s = strings.Replace(re.ReplaceAllLiteralString(*s, ""), "\n", " ", -1)
+
+	if len(*s) > MaxReasonLength {
+		*s = (*s)[:MaxReasonLength]
+	}
+}
 func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string) (map[string]SyncedVideo, map[string]bool, error) {
 	type apiChannelStatusResponse struct {
 		Success bool          `json:"success"`
@@ -86,9 +95,8 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 		Data    []SyncedVideo `json:"data"`
 	}
 	endpoint := a.ApiURL + "/yt/channel_status"
-	if len(failureReason) > MaxReasonLength {
-		failureReason = failureReason[:MaxReasonLength]
-	}
+
+	sanitizeFailureReason(&failureReason)
 	res, _ := http.PostForm(endpoint, url.Values{
 		"channel_id":     {channelID},
 		"sync_server":    {a.HostName},
@@ -153,9 +161,8 @@ const (
 
 func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64) error {
 	endpoint := a.ApiURL + "/yt/video_status"
-	if len(failureReason) > MaxReasonLength {
-		failureReason = failureReason[:MaxReasonLength]
-	}
+
+	sanitizeFailureReason(&failureReason)
 	vals := url.Values{
 		"youtube_channel_id": {channelID},
 		"video_id":           {videoID},
