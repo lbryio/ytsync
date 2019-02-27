@@ -1,0 +1,28 @@
+# This is an example goreleaser.yaml file with some sane defaults.
+# Make sure to check the documentation at http://goreleaser.com
+builds:
+- env:
+  - CGO_ENABLED=0
+  goos:
+    - linux
+  goarch:
+    - amd64
+  ldflags:
+    - -X "{{ .Env.IMPORTPATH }}/meta.semVersion={{ .Tag }}" -X "{{ .Env.IMPORTPATH }}/meta.version={{ .Env.VERSIONSHORT }}" -X "{{ .Env.IMPORTPATH }}/meta.versionLong={{ .Env.VERSIONLONG }}" -X "{{ .Env.IMPORTPATH }}/meta.commitMsg={{ .Env.COMMITMSG }}"
+archive:
+  name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+  replacements:
+    linux: Linux
+    amd64: x86_64
+  format: zip
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'
+

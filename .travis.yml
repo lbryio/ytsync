@@ -8,11 +8,12 @@ go:
 env:
 - GO111MODULE=on
 deploy:
-  provider: releases
+  provider: script
+  skip_cleanup: true
+  script: ./scripts/deploy.sh
   api_key:
     secure: 8WrFVcu/Nf6/BjxSXS6cewnm+2KWbJ2hz8A8FQ1VrsUDP+R0R1QYfO7QtbfSsoCuvtWNy5Tvk/zpjRH8ZvAVR16kE++rX0NYqXNzf19l0kgZQQQjQxulGRBPCa/BdqO99NcSFyyG63dpMOL9amcvH0FPGMGO2V3QsneB3EgtsK4EZAAFDO0B9GqWrB/cMlhzHyPiUN258BRg9jjka8Dnsxcprmk9RMn0Eoc7Doavt4JGbkBRo2rEfNUpKHofELOu5YZfuZZsKgyZ0yX+tGZhafqyqHyEZLruKp42DtzSlkBwzDq1Yix84WOgvPABBiX15K4vqPUpz0PnPktfqLmzvDSs3pT3Lu5IB47mnTzydlD4lRn31Id+1vb7vaIgbXeujt7cFAeQ/Oy6X2wMv9PQgS6WrP/l3b8RzJBdDCB5kG9QwOI6V5C35nQlp5C0R5Z5wR61WTjeaU0Ck9xzXOsXnKjKZdTyrPfw/x96KjuIwt/rjYc3RLduR0YrngS7sOabb9WbErNLjI32w/LEK9A39yAwXl9KKxp4I+1QYLzqzVkN/TzHtrpmb04EJFhgb7wAcRu3n5T0jyTUFskFbOMQ+CypekIB2t8vAhozy56jH116l60zsG3Je7B+Caug0Idn+0B8w1OKqVnjtic+dg6NzHsUIp+0ADBT9OAQDjLkymM=
   file: bin/ytsync
   on:
     repo: lbryio/ytsync
     tags: true
-  skip_cleanup: true
