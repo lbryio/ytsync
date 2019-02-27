@@ -1,4 +1,6 @@
 # YTSync Tool
+[![Build Status](https://travis-ci.com/lbryio/ytsync.svg?branch=master)](https://travis-ci.com/lbryio/ytsync)
+
 This tool serves lbry to parse youtube channels that want their content mirrored on LBRY.
 
 The tool downloads the entire set of public videos from a given channel, publishes them to LBRY and populates our private database in order to keep track of what's publishes.
