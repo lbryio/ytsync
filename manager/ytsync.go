@@ -324,6 +324,7 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 		//conditions for which a channel shouldn't be marked as failed
 		noFailConditions := []string{
 			"this youtube channel is being managed by another server",
+			"interrupted during daemon startup",
 		}
 		if util.SubstringInSlice((*e).Error(), noFailConditions) {
 			return
@@ -349,7 +350,7 @@ func (s *Sync) waitForDaemonStart() error {
 			return errors.Err("interrupted during daemon startup")
 		default:
 			s, err := s.daemon.Status()
-			if err == nil && s.StartupStatus.Wallet && s.StartupStatus.FileManager {
+			if err == nil && s.StartupStatus.Wallet && s.IsRunning {
 				return nil
 			}
 			time.Sleep(5 * time.Second)
@@ -373,7 +374,7 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 			err := s.uploadWallet()
 			if err != nil {
 				if *e == nil {
-					e = &err //not 100% sure
+					e = &err
 					return
 				} else {
 					*e = errors.Prefix("failure uploading wallet", *e)
@@ -388,7 +389,7 @@ func logShutdownError(shutdownErr error) {
 }
 
 func isYtsyncClaim(c jsonrpc.Claim) bool {
-	if !util.InSlice(c.Category, []string{"claim", "update"}) || c.Value.Stream == nil {
+	if !util.InSlice(c.Type, []string{"claim", "update"}) || c.Value.Stream == nil {
 		return false
 	}
 	if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
@@ -424,7 +425,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			videoIDs[videoID] = c
 		}
 		log.Debugf("abandoning %+v", claimToAbandon)
-		_, err := s.daemon.ClaimAbandon(claimToAbandon.Txid, claimToAbandon.Nout)
+		_, err := s.daemon.ClaimAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, false)
 		if err != nil {
 			return true, err
 		}
@@ -459,18 +460,31 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 	return count, fixed, nil
 }
 
+func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
+	totalPages := uint64(1)
+	var allClaims []jsonrpc.Claim
+	for page := uint64(1); page <= totalPages; page++ {
+		claims, err := s.daemon.ClaimListMine(nil, page, 50)
+		if err != nil {
+			return nil, errors.Prefix("cannot list claims", err)
+		}
+		allClaims = append(allClaims, (*claims).Claims...)
+		totalPages = (*claims).TotalPages
+	}
+	return allClaims, nil
+}
+
 func (s *Sync) doSync() error {
 	var err error
 	err = s.walletSetup()
 	if err != nil {
 		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
 	}
-
-	claims, err := s.daemon.ClaimListMine()
+	allClaims, err := s.getClaims()
 	if err != nil {
-		return errors.Prefix("cannot list claims", err)
+		return err
 	}
-	hasDupes, err := s.fixDupes(*claims)
+	hasDupes, err := s.fixDupes(allClaims)
 	if err != nil {
 		return errors.Prefix("error checking for duplicates", err)
 	}
@@ -480,13 +494,13 @@ func (s *Sync) doSync() error {
 		if err != nil {
 			return err
 		}
-		claims, err = s.daemon.ClaimListMine()
+		allClaims, err = s.getClaims()
 		if err != nil {
-			return errors.Prefix("cannot list claims", err)
+			return err
 		}
 	}
 
-	pubsOnWallet, nFixed, err := s.updateRemoteDB(*claims)
+	pubsOnWallet, nFixed, err := s.updateRemoteDB(allClaims)
 	if err != nil {
 		return errors.Prefix("error counting claims", err)
 	}
@@ -590,6 +604,9 @@ func (s *Sync) startWorker(workerNum int) {
 						"Client.Timeout exceeded while awaiting headers)",
 						"the video is too big to sync, skipping for now",
 						"video is too long to process",
+						"no compatible format available for this video",
+						"Watch this video on YouTube.",
+						"have blocked it on copyright grounds",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
@@ -793,6 +810,9 @@ func (s *Sync) processVideo(v video) (err error) {
 		"Unable to extract signature tokens",
 		"the video is too big to sync, skipping for now",
 		"video is too long to process",
+		"no compatible format available for this video",
+		"Watch this video on YouTube.",
+		"have blocked it on copyright grounds",
 	}
 	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
 		log.Println(v.ID() + " can't ever be published")
@@ -852,7 +872,7 @@ func waitForDaemonProcess(timeout time.Duration) error {
 	}
 	var daemonProcessId = -1
 	for _, p := range processes {
-		if p.Executable() == "lbrynet-daemon" {
+		if p.Executable() == "lbrynet" {
 			daemonProcessId = p.Pid()
 			break
 		}

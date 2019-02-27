@@ -176,17 +176,19 @@ func (v *ucbVideo) saveThumbnail() error {
 
 func (v *ucbVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *namer.Namer) (*SyncSummary, error) {
 	options := jsonrpc.PublishOptions{
-		Title:         &v.title,
-		Author:        strPtr("UC Berkeley"),
-		Description:   strPtr(v.getAbbrevDescription()),
-		Language:      strPtr("en"),
-		ClaimAddress:  &claimAddress,
-		Thumbnail:     strPtr("https://berk.ninja/thumbnails/" + v.id),
-		License:       strPtr("see description"),
+		Metadata: &jsonrpc.Metadata{
+			Title:       v.title,
+			Description: v.getAbbrevDescription(),
+			Author:      "UC Berkeley",
+			Language:    "en",
+			License:     "see description",
+			Thumbnail:   strPtr("https://berk.ninja/thumbnails/" + v.id),
+			NSFW:        false,
+		},
 		ChannelID:     &channelID,
+		ClaimAddress:  &claimAddress,
 		ChangeAddress: &claimAddress,
 	}
-
 	return publishAndRetryExistingNames(daemon, v.title, v.getFilename(), amount, options, namer)
 }
 

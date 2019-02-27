@@ -15,7 +15,7 @@ import (
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/ytsync/namer"
 
-	"github.com/rylio/ytdl"
+	"github.com/nikooo777/ytdl"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
 )
@@ -156,11 +156,11 @@ func (v *YoutubeVideo) download() error {
 			return errors.Err(err)
 		}
 		err = videoInfo.Download(formats[formatIndex], downloadedFile)
-		downloadedFile.Close()
+		_ = downloadedFile.Close()
 		if err != nil {
 			//delete the video and ignore the error
 			_ = v.delete()
-			break
+			return errors.Err(err.Error())
 		}
 		fi, err := os.Stat(v.getFullPath())
 		if err != nil {
@@ -240,21 +240,25 @@ func (v *YoutubeVideo) triggerThumbnailSave() error {
 func strPtr(s string) *string { return &s }
 
 func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *namer.Namer) (*SyncSummary, error) {
-	if channelID == "" {
-		return nil, errors.Err("a claim_id for the channel wasn't provided") //TODO: this is probably not needed?
+	additionalDescription := "\nhttps://www.youtube.com/watch?v=" + v.id
+	khanAcademyClaimID := "5fc52291980268b82413ca4c0ace1b8d749f3ffb"
+	if channelID == khanAcademyClaimID {
+		additionalDescription = additionalDescription + "\nNote: All Khan Academy content is available for free at (www.khanacademy.org)"
 	}
 	options := jsonrpc.PublishOptions{
-		Title:         &v.title,
-		Author:        &v.channelTitle,
-		Description:   strPtr(v.getAbbrevDescription() + "\nhttps://www.youtube.com/watch?v=" + v.id),
-		Language:      strPtr("en"),
-		ClaimAddress:  &claimAddress,
-		Thumbnail:     strPtr("https://berk.ninja/thumbnails/" + v.id),
-		License:       strPtr("Copyrighted (contact author)"),
-		ChangeAddress: &claimAddress,
+		Metadata: &jsonrpc.Metadata{
+			Title:       v.title,
+			Description: v.getAbbrevDescription() + additionalDescription,
+			Author:      v.channelTitle,
+			Language:    "en",
+			License:     "Copyrighted (contact author)",
+			Thumbnail:   strPtr("https://berk.ninja/thumbnails/" + v.id),
+			NSFW:        false,
+		},
 		ChannelID:     &channelID,
+		ClaimAddress:  &claimAddress,
+		ChangeAddress: &claimAddress,
 	}
-
 	return publishAndRetryExistingNames(daemon, v.title, v.getFullPath(), amount, options, namer)
 }
 
