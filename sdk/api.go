@@ -12,6 +12,8 @@ import (
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/null"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
