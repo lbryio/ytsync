@@ -6,13 +6,14 @@ go:
 - 1.11.5
 - master
 env:
-- GO111MODULE=on
+  global:
+    - GO111MODULE=on
+    #GITHUB_TOKEN
+    - secure: "+G0TxyGyRYJb0L0qCCn6NPregigwhalkS9+/3mkV41xoAwUlEU9aclSJQVKKqeMrV0PkmJ6KrzYD78tnRj8Q5ZDe93LBDbc/WhXZ91JbRmIXIsVktz/78R2a2Q0DBrXMlyWXS84QouRfI3eyxf2BusERSYdr3H6BL4r15PIHJEmLGOchHsHwSI46PRGag+IFnbUb+fyUSs7er6gKeSp4+ZK1bSUgxiMUQrZfImYI9LS+cgqpDh67pX5jRbDNBihZZUwfreToYw3RbIAom4i2oix1rBBD/jpcTwO+WdyXFtur8RYGnsknePU88KiAB9bcXU4T2xVxR9wusK6jX5G2BChEOG9PjuVfeDqXBnskOEtAevwAKJRYW6ATmXqQZ+TAy1DFxsUWPVS7ykIA+69n7HzE7xu50AB1U2n6myT977i4jhBzw3VrB9NQz//4b2j6MCG1PhIgB38kffQWVsa/CF4RiiWi6a7ePRsPP0HdRUbXFQJWPevKgVJ9ve/ArQKiea1rP9zy9KdFAP30vESBkn4WMOCjfg7F6JbfV3e1ywBq9XMznj14iAZHwXR1tpPp0GekuMlVJHJWa0Ea/dfDGWshnr1Be71vc9T118w7sd0v1Dp4EQCFa4B0Hx7Ual7uWgeuweL/JLr1Am3BgWVcXOWrhzMT0b1tGFa9ZNz2Wwk="
 deploy:
   provider: script
   skip_cleanup: true
   script: ./scripts/deploy.sh
-  api_key:
-    secure: 8WrFVcu/Nf6/BjxSXS6cewnm+2KWbJ2hz8A8FQ1VrsUDP+R0R1QYfO7QtbfSsoCuvtWNy5Tvk/zpjRH8ZvAVR16kE++rX0NYqXNzf19l0kgZQQQjQxulGRBPCa/BdqO99NcSFyyG63dpMOL9amcvH0FPGMGO2V3QsneB3EgtsK4EZAAFDO0B9GqWrB/cMlhzHyPiUN258BRg9jjka8Dnsxcprmk9RMn0Eoc7Doavt4JGbkBRo2rEfNUpKHofELOu5YZfuZZsKgyZ0yX+tGZhafqyqHyEZLruKp42DtzSlkBwzDq1Yix84WOgvPABBiX15K4vqPUpz0PnPktfqLmzvDSs3pT3Lu5IB47mnTzydlD4lRn31Id+1vb7vaIgbXeujt7cFAeQ/Oy6X2wMv9PQgS6WrP/l3b8RzJBdDCB5kG9QwOI6V5C35nQlp5C0R5Z5wR61WTjeaU0Ck9xzXOsXnKjKZdTyrPfw/x96KjuIwt/rjYc3RLduR0YrngS7sOabb9WbErNLjI32w/LEK9A39yAwXl9KKxp4I+1QYLzqzVkN/TzHtrpmb04EJFhgb7wAcRu3n5T0jyTUFskFbOMQ+CypekIB2t8vAhozy56jH116l60zsG3Je7B+Caug0Idn+0B8w1OKqVnjtic+dg6NzHsUIp+0ADBT9OAQDjLkymM=
   file: bin/ytsync
   on:
     repo: lbryio/ytsync
