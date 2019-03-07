@@ -70,16 +70,17 @@ func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool
 }
 
 const (
-	StatusPending   = "pending" // waiting for permission to sync
-	StatusQueued    = "queued"  // in sync queue. will be synced soon
-	StatusSyncing   = "syncing" // syncing now
-	StatusSynced    = "synced"  // done
-	StatusFailed    = "failed"
-	StatusFinalized = "finalized" // no more changes allowed
-	StatusAbandoned = "abandoned" // deleted on youtube or banned
+	StatusPending      = "pending"      // waiting for permission to sync
+	StatusPendingEmail = "pendingemail" // permission granted but missing email
+	StatusQueued       = "queued"       // in sync queue. will be synced soon
+	StatusSyncing      = "syncing"      // syncing now
+	StatusSynced       = "synced"       // done
+	StatusFailed       = "failed"
+	StatusFinalized    = "finalized" // no more changes allowed
+	StatusAbandoned    = "abandoned" // deleted on youtube or banned
 )
 
-var SyncStatuses = []string{StatusPending, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
+var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
 
 const (
 	VideoStatusPublished = "published"
