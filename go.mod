@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/lbryio/lbry.go v0.0.0-20190222180913-9b603ca498c6
+	github.com/lbryio/lbry.go v0.0.0-20190321133538-94802df513b0
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
 	github.com/nikooo777/ytdl v0.0.0-20190215151411-9c7832eaf457
