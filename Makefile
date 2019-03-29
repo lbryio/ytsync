@@ -1,4 +1,4 @@
-BINARY=prism-bin
+BINARY=ytsync
 
 DIR = $(shell cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)
 BIN_DIR = ${DIR}/bin

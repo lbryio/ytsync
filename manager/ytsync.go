@@ -620,8 +620,10 @@ func (s *Sync) startWorker(workerNum int) {
 								SendErrorToSlack("something went wrong while waiting for a block: %v", err)
 								break
 							}
-						} else if strings.Contains(err.Error(), "failed: Not enough funds") ||
-							strings.Contains(err.Error(), "Error in daemon: Insufficient funds, please deposit additional LBC") {
+						} else if util.SubstringInSlice(err.Error(), []string{
+							"Not enough funds to cover this transaction",
+							"failed: Not enough funds",
+							"Error in daemon: Insufficient funds, please deposit additional LBC"}) {
 							log.Println("refilling addresses before retrying")
 							err = s.walletSetup()
 							if err != nil {
