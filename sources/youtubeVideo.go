@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"regexp"
@@ -13,8 +14,10 @@ import (
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/ytsync/namer"
 
+	"github.com/ChannelMeter/iso8601duration"
 	"github.com/nikooo777/ytdl"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
@@ -31,18 +34,21 @@ type YoutubeVideo struct {
 	maxVideoLength   float64
 	publishedAt      time.Time
 	dir              string
+	youtubeInfo      *youtube.Video
+	tags             []string
 }
 
-func NewYoutubeVideo(directory string, snippet *youtube.PlaylistItemSnippet) *YoutubeVideo {
-	publishedAt, _ := time.Parse(time.RFC3339Nano, snippet.PublishedAt) // ignore parse errors
+func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64) *YoutubeVideo {
+	publishedAt, _ := time.Parse(time.RFC3339Nano, videoData.Snippet.PublishedAt) // ignore parse errors
 	return &YoutubeVideo{
-		id:               snippet.ResourceId.VideoId,
-		title:            snippet.Title,
-		description:      snippet.Description,
-		channelTitle:     snippet.ChannelTitle,
-		playlistPosition: snippet.Position,
+		id:               videoData.Id,
+		title:            videoData.Snippet.Title,
+		description:      videoData.Snippet.Description,
+		channelTitle:     videoData.Snippet.ChannelTitle,
+		playlistPosition: playlistPosition,
 		publishedAt:      publishedAt,
 		dir:              directory,
+		youtubeInfo:      videoData,
 	}
 }
 
@@ -245,20 +251,33 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 	if channelID == khanAcademyClaimID {
 		additionalDescription = additionalDescription + "\nNote: All Khan Academy content is available for free at (www.khanacademy.org)"
 	}
-	options := jsonrpc.PublishOptions{
-		Metadata: &jsonrpc.Metadata{
-			Title:       v.title,
-			Description: v.getAbbrevDescription() + additionalDescription,
-			Author:      v.channelTitle,
-			Language:    "en",
-			License:     "Copyrighted (contact author)",
-			Thumbnail:   strPtr("https://berk.ninja/thumbnails/" + v.id),
-			NSFW:        false,
-		},
-		ChannelID:     &channelID,
-		ClaimAddress:  &claimAddress,
-		ChangeAddress: &claimAddress,
+	var languages []string = nil
+	if v.youtubeInfo.Snippet.DefaultLanguage != "" {
+		languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
 	}
+
+	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
+
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	options := jsonrpc.StreamCreateOptions{
+		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+			Title:        v.title,
+			Description:  v.getAbbrevDescription() + additionalDescription,
+			ClaimAddress: &claimAddress,
+			Languages:    languages,
+			ThumbnailURL: strPtr("https://thumbnails.lbry.com/" + v.id),
+			Tags:         v.youtubeInfo.Snippet.Tags,
+		},
+		Author:        strPtr(v.channelTitle),
+		License:       strPtr("Copyrighted (contact author)"),
+		StreamType:    &jsonrpc.StreamTypeVideo,
+		ReleaseTime:   util.PtrToInt64(v.publishedAt.Unix()),
+		VideoDuration: util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
+		ChannelID:     &channelID,
+	}
+
 	return publishAndRetryExistingNames(daemon, v.title, v.getFullPath(), amount, options, namer)
 }
 

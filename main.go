@@ -115,7 +115,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 	awsS3Region := os.Getenv("AWS_S3_REGION")
 	awsS3Bucket := os.Getenv("AWS_S3_BUCKET")
 	if apiURL == "" {
-		log.Errorln("An API URL was not defined. Please set the environment variable LBRY_API")
+		log.Errorln("An API URL was not defined. Please set the environment variable LBRY_WEB_API")
 		return
 	}
 	if apiToken == "" {

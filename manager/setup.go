@@ -2,16 +2,23 @@ package manager
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/lbry.go/lbrycrd"
+	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/api/googleapi/transport"
+	"google.golang.org/api/youtube/v3"
 )
 
 func (s *Sync) walletSetup() error {
@@ -274,12 +281,65 @@ func (s *Sync) ensureChannelOwnership() error {
 			return err
 		}
 	}
+	client := &http.Client{
+		Transport: &transport.APIKey{Key: s.APIConfig.YoutubeAPIKey},
+	}
 
-	c, err := s.daemon.ChannelNew(s.LbryChannelName, channelBidAmount, nil)
+	service, err := youtube.New(client)
+	if err != nil {
+		return errors.Prefix("error creating YouTube service", err)
+	}
+
+	response, err := service.Channels.List("snippet").Id(s.YoutubeChannelID).Do()
+	if err != nil {
+		return errors.Prefix("error getting channel details", err)
+	}
+
+	if len(response.Items) < 1 {
+		return errors.Err("youtube channel not found")
+	}
+
+	channelInfo := response.Items[0].Snippet
+
+	thumbnail := channelInfo.Thumbnails.Default
+	if channelInfo.Thumbnails.Maxres != nil {
+		thumbnail = channelInfo.Thumbnails.Maxres
+	} else if channelInfo.Thumbnails.High != nil {
+		thumbnail = channelInfo.Thumbnails.High
+	} else if channelInfo.Thumbnails.Medium != nil {
+		thumbnail = channelInfo.Thumbnails.Medium
+	} else if channelInfo.Thumbnails.Standard != nil {
+		thumbnail = channelInfo.Thumbnails.Standard
+	}
+	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, aws.Config{
+		Credentials: credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, ""),
+		Region:      &s.AwsS3Region,
+	})
 	if err != nil {
 		return err
 	}
-	s.lbryChannelID = c.ClaimID
+	var languages []string = nil
+	if channelInfo.DefaultLanguage != "" {
+		languages = []string{channelInfo.DefaultLanguage}
+	}
+	var locations []jsonrpc.Location = nil
+	if channelInfo.Country != "" {
+		locations = []jsonrpc.Location{{Country: util.PtrToString(channelInfo.Country)}}
+	}
+	c, err := s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
+		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+			Title:        channelInfo.Title,
+			Description:  channelInfo.Description,
+			Tags:         nil,
+			Languages:    languages,
+			Locations:    locations,
+			ThumbnailURL: &thumbnailURL,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	s.lbryChannelID = c.Outputs[0].ClaimID
 	return s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, s.lbryChannelID)
 }
 

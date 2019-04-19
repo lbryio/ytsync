@@ -388,16 +388,22 @@ func logShutdownError(shutdownErr error) {
 	SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 }
 
+var thumbnailHosts = []string{
+	"berk.ninja/thumbnails/",
+	"https://thumbnails.lbry.com/",
+}
+
 func isYtsyncClaim(c jsonrpc.Claim) bool {
-	if !util.InSlice(c.Type, []string{"claim", "update"}) || c.Value.Stream == nil {
+
+	if !util.InSlice(c.Type, []string{"claim", "update"}) || c.Value.GetStream() == nil {
 		return false
 	}
-	if c.Value.Stream.Metadata == nil || c.Value.Stream.Metadata.Thumbnail == nil {
+	if c.Value.GetStream().GetThumbnailUrl() == "" {
 		//most likely a claim created outside of ytsync, ignore!
 		return false
 	}
 
-	return strings.Contains(*c.Value.Stream.Metadata.Thumbnail, "https://berk.ninja/thumbnails/")
+	return util.InSlice(c.Value.GetStream().GetThumbnailUrl(), thumbnailHosts)
 }
 
 // fixDupes abandons duplicate claims
@@ -408,7 +414,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 		if !isYtsyncClaim(c) {
 			continue
 		}
-		tn := *c.Value.Stream.Metadata.Thumbnail
+		tn := c.Value.GetStream().GetThumbnailUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 
 		log.Infof("claimid: %s, claimName: %s, videoID: %s", c.ClaimID, c.Name, videoID)
@@ -425,7 +431,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			videoIDs[videoID] = c
 		}
 		log.Debugf("abandoning %+v", claimToAbandon)
-		_, err := s.daemon.ClaimAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, false)
+		_, err := s.daemon.StreamAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, false)
 		if err != nil {
 			return true, err
 		}
@@ -444,7 +450,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 		}
 		count++
 		//check if claimID is in remote db
-		tn := *c.Value.Stream.Metadata.Thumbnail
+		tn := c.Value.GetStream().GetThumbnailUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 		pv, ok := s.syncedVideos[videoID]
 		if !ok || pv.ClaimName != c.Name {
@@ -464,7 +470,7 @@ func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
 	totalPages := uint64(1)
 	var allClaims []jsonrpc.Claim
 	for page := uint64(1); page <= totalPages; page++ {
-		claims, err := s.daemon.ClaimListMine(nil, page, 50)
+		claims, err := s.daemon.ClaimList(nil, page, 50)
 		if err != nil {
 			return nil, errors.Prefix("cannot list claims", err)
 		}
@@ -699,11 +705,22 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			}
 			return errors.Err("playlist items not found")
 		}
-
-		for _, item := range playlistResponse.Items {
+		playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
+		videoIDs := make([]string, 50)
+		for i, item := range playlistResponse.Items {
 			// normally we'd send the video into the channel here, but youtube api doesn't have sorting
 			// so we have to get ALL the videos, then sort them, then send them in
-			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item.Snippet))
+			playlistMap[item.Snippet.ResourceId.VideoId] = item.Snippet
+			videoIDs[i] = item.Snippet.ResourceId.VideoId
+		}
+		req2 := service.Videos.List("snippet,contentDetails").Id(strings.Join(videoIDs[:], ","))
+
+		videosListResponse, err := req2.Do()
+		if err != nil {
+			return errors.Prefix("error getting videos info", err)
+		}
+		for _, item := range videosListResponse.Items {
+			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position))
 		}
 
 		log.Infof("Got info for %d videos from youtube API", len(videos))
