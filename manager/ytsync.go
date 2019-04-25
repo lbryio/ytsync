@@ -398,12 +398,12 @@ func isYtsyncClaim(c jsonrpc.Claim) bool {
 	if !util.InSlice(c.Type, []string{"claim", "update"}) || c.Value.GetStream() == nil {
 		return false
 	}
-	if c.Value.GetStream().GetThumbnailUrl() == "" {
+	if c.Value.GetThumbnail() == nil || c.Value.GetThumbnail().GetUrl() == "" {
 		//most likely a claim created outside of ytsync, ignore!
 		return false
 	}
 
-	return util.InSlice(c.Value.GetStream().GetThumbnailUrl(), thumbnailHosts)
+	return util.InSlice(c.Value.GetThumbnail().GetUrl(), thumbnailHosts)
 }
 
 // fixDupes abandons duplicate claims
@@ -414,7 +414,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 		if !isYtsyncClaim(c) {
 			continue
 		}
-		tn := c.Value.GetStream().GetThumbnailUrl()
+		tn := c.Value.GetThumbnail().GetUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 
 		log.Infof("claimid: %s, claimName: %s, videoID: %s", c.ClaimID, c.Name, videoID)
@@ -450,7 +450,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 		}
 		count++
 		//check if claimID is in remote db
-		tn := c.Value.GetStream().GetThumbnailUrl()
+		tn := c.Value.GetThumbnail().GetUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 		pv, ok := s.syncedVideos[videoID]
 		if !ok || pv.ClaimName != c.Name {
