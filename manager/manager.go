@@ -83,8 +83,9 @@ const (
 var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
 
 const (
-	VideoStatusPublished = "published"
-	VideoStatusFailed    = "failed"
+	VideoStatusPublished   = "published"
+	VideoStatusFailed      = "failed"
+	VideoStatusUnpublished = "unpublished"
 )
 
 func (s *SyncManager) Start() error {
