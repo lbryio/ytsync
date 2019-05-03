@@ -2,6 +2,8 @@ package manager
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"strings"
 	"syscall"
 	"time"
@@ -70,17 +72,18 @@ func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool
 }
 
 const (
-	StatusPending      = "pending"      // waiting for permission to sync
-	StatusPendingEmail = "pendingemail" // permission granted but missing email
-	StatusQueued       = "queued"       // in sync queue. will be synced soon
-	StatusSyncing      = "syncing"      // syncing now
-	StatusSynced       = "synced"       // done
-	StatusFailed       = "failed"
-	StatusFinalized    = "finalized" // no more changes allowed
-	StatusAbandoned    = "abandoned" // deleted on youtube or banned
+	StatusPending        = "pending"        // waiting for permission to sync
+	StatusPendingEmail   = "pendingemail"   // permission granted but missing email
+	StatusQueued         = "queued"         // in sync queue. will be synced soon
+	StatusPendingUpgrade = "pendingupgrade" // in sync queue. will be synced soon
+	StatusSyncing        = "syncing"        // syncing now
+	StatusSynced         = "synced"         // done
+	StatusFailed         = "failed"
+	StatusFinalized      = "finalized" // no more changes allowed
+	StatusAbandoned      = "abandoned" // deleted on youtube or banned
 )
 
-var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
+var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
 
 const (
 	VideoStatusPublished   = "published"
@@ -207,7 +210,12 @@ func (s *SyncManager) Start() error {
 	}
 	return nil
 }
-
+func (s *SyncManager) GetS3AWSConfig() aws.Config {
+	return aws.Config{
+		Credentials: credentials.NewStaticCredentials(s.awsS3ID, s.awsS3Secret, ""),
+		Region:      &s.awsS3Region,
+	}
+}
 func (s *SyncManager) checkUsedSpace() error {
 	usedPctile, err := GetUsedSpace(s.blobsDir)
 	if err != nil {

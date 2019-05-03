@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
@@ -301,20 +299,8 @@ func (s *Sync) ensureChannelOwnership() error {
 
 	channelInfo := response.Items[0].Snippet
 
-	thumbnail := channelInfo.Thumbnails.Default
-	if channelInfo.Thumbnails.Maxres != nil {
-		thumbnail = channelInfo.Thumbnails.Maxres
-	} else if channelInfo.Thumbnails.High != nil {
-		thumbnail = channelInfo.Thumbnails.High
-	} else if channelInfo.Thumbnails.Medium != nil {
-		thumbnail = channelInfo.Thumbnails.Medium
-	} else if channelInfo.Thumbnails.Standard != nil {
-		thumbnail = channelInfo.Thumbnails.Standard
-	}
-	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, aws.Config{
-		Credentials: credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, ""),
-		Region:      &s.AwsS3Region,
-	})
+	thumbnail := thumbs.GetBestThumbnail(channelInfo.Thumbnails)
+	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}

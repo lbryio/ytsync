@@ -1,11 +1,7 @@
 package manager
 
 import (
-	"bufio"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -21,6 +17,7 @@ import (
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
 	"github.com/lbryio/ytsync/sources"
+	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
@@ -51,7 +48,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string, int, *namer.Namer, float64) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, sources.SyncParams, *sdk.SyncedVideo, bool) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -319,6 +316,7 @@ func (s *Sync) FullCycle() (e error) {
 
 	return nil
 }
+
 func (s *Sync) setChannelTerminationStatus(e *error) {
 	if *e != nil {
 		//conditions for which a channel shouldn't be marked as failed
@@ -390,7 +388,7 @@ func logShutdownError(shutdownErr error) {
 
 var thumbnailHosts = []string{
 	"berk.ninja/thumbnails/",
-	"https://thumbnails.lbry.com/",
+	thumbs.ThumbnailEndpoint,
 }
 
 func isYtsyncClaim(c jsonrpc.Claim) bool {
@@ -545,7 +543,7 @@ func (s *Sync) doSync() error {
 	}
 
 	if s.LbryChannelName == "@UCBerkeley" {
-		err = s.enqueueUCBVideos()
+		err = errors.Err("UCB is not supported on this version of YTSYNC")
 	} else {
 		err = s.enqueueYoutubeVideos()
 	}
@@ -713,14 +711,14 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			playlistMap[item.Snippet.ResourceId.VideoId] = item.Snippet
 			videoIDs[i] = item.Snippet.ResourceId.VideoId
 		}
-		req2 := service.Videos.List("snippet,contentDetails").Id(strings.Join(videoIDs[:], ","))
+		req2 := service.Videos.List("snippet,contentDetails,recordingDetails").Id(strings.Join(videoIDs[:], ","))
 
 		videosListResponse, err := req2.Do()
 		if err != nil {
 			return errors.Prefix("error getting videos info", err)
 		}
 		for _, item := range videosListResponse.Items {
-			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position))
+			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position, s.Manager.GetS3AWSConfig()))
 		}
 
 		log.Infof("Got info for %d videos from youtube API", len(videos))
@@ -733,55 +731,6 @@ func (s *Sync) enqueueYoutubeVideos() error {
 
 	sort.Sort(byPublishedAt(videos))
 	//or sort.Sort(sort.Reverse(byPlaylistPosition(videos)))
-
-Enqueue:
-	for _, v := range videos {
-		select {
-		case <-s.grp.Ch():
-			break Enqueue
-		default:
-		}
-
-		select {
-		case s.queue <- v:
-		case <-s.grp.Ch():
-			break Enqueue
-		}
-	}
-
-	return nil
-}
-
-func (s *Sync) enqueueUCBVideos() error {
-	var videos []video
-
-	csvFile, err := os.Open("ucb.csv")
-	if err != nil {
-		return err
-	}
-
-	reader := csv.NewReader(bufio.NewReader(csvFile))
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-		data := struct {
-			PublishedAt string `json:"publishedAt"`
-		}{}
-		err = json.Unmarshal([]byte(line[4]), &data)
-		if err != nil {
-			return err
-		}
-
-		videos = append(videos, sources.NewUCBVideo(line[0], line[2], line[1], line[3], data.PublishedAt, s.videoDirectory))
-	}
-
-	log.Printf("Publishing %d videos\n", len(videos))
-
-	sort.Sort(byPublishedAt(videos))
 
 Enqueue:
 	for _, v := range videos {
@@ -851,8 +800,17 @@ func (s *Sync) processVideo(v video) (err error) {
 	if err != nil {
 		return err
 	}
+	sp := sources.SyncParams{
+		ClaimAddress:   s.claimAddress,
+		Amount:         publishAmount,
+		ChannelID:      s.lbryChannelID,
+		MaxVideoSize:   s.Manager.maxVideoSize,
+		Namer:          s.namer,
+		MaxVideoLength: s.Manager.maxVideoLength,
+	}
 
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.maxVideoSize, s.namer, s.Manager.maxVideoLength)
+	isUpgradeSync := s.Manager.syncStatus == StatusPendingUpgrade
+	summary, err := v.Sync(s.daemon, sp, &sv, isUpgradeSync)
 	if err != nil {
 		return err
 	}

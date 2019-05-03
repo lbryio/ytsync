@@ -3,6 +3,7 @@ package sources
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -12,12 +13,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lbryio/ytsync/sdk"
+	"github.com/lbryio/ytsync/thumbs"
+
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/ytsync/namer"
 
 	"github.com/ChannelMeter/iso8601duration"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/nikooo777/ytdl"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
@@ -36,9 +41,45 @@ type YoutubeVideo struct {
 	dir              string
 	youtubeInfo      *youtube.Video
 	tags             []string
+	awsConfig        aws.Config
 }
 
-func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64) *YoutubeVideo {
+var youtubeCategories = map[string]string{
+	"1":  "Film & Animation",
+	"2":  "Autos & Vehicles",
+	"10": "Music",
+	"15": "Pets & Animals",
+	"17": "Sports",
+	"18": "Short Movies",
+	"19": "Travel & Events",
+	"20": "Gaming",
+	"21": "Videoblogging",
+	"22": "People & Blogs",
+	"23": "Comedy",
+	"24": "Entertainment",
+	"25": "News & Politics",
+	"26": "Howto & Style",
+	"27": "Education",
+	"28": "Science & Technology",
+	"29": "Nonprofits & Activism",
+	"30": "Movies",
+	"31": "Anime/Animation",
+	"32": "Action/Adventure",
+	"33": "Classics",
+	"34": "Comedy",
+	"35": "Documentary",
+	"36": "Drama",
+	"37": "Family",
+	"38": "Foreign",
+	"39": "Horror",
+	"40": "Sci-Fi/Fantasy",
+	"41": "Thriller",
+	"42": "Shorts",
+	"43": "Shows",
+	"44": "Trailers",
+}
+
+func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64, awsConfig aws.Config) *YoutubeVideo {
 	publishedAt, _ := time.Parse(time.RFC3339Nano, videoData.Snippet.PublishedAt) // ignore parse errors
 	return &YoutubeVideo{
 		id:               videoData.Id,
@@ -49,6 +90,7 @@ func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPositio
 		publishedAt:      publishedAt,
 		dir:              directory,
 		youtubeInfo:      videoData,
+		awsConfig:        awsConfig,
 	}
 }
 
@@ -267,7 +309,7 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 			Description:  v.getAbbrevDescription() + additionalDescription,
 			ClaimAddress: &claimAddress,
 			Languages:    languages,
-			ThumbnailURL: strPtr("https://thumbnails.lbry.com/" + v.id),
+			ThumbnailURL: strPtr(thumbs.ThumbnailEndpoint + v.id),
 			Tags:         v.youtubeInfo.Snippet.Tags,
 		},
 		Author:        strPtr(v.channelTitle),
@@ -285,9 +327,24 @@ func (v *YoutubeVideo) Size() *int64 {
 	return v.size
 }
 
-func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, maxVideoSize int, namer *namer.Namer, maxVideoLength float64) (*SyncSummary, error) {
-	v.maxVideoSize = int64(maxVideoSize) * 1024 * 1024
-	v.maxVideoLength = maxVideoLength
+type SyncParams struct {
+	ClaimAddress   string
+	Amount         float64
+	ChannelID      string
+	MaxVideoSize   int
+	Namer          *namer.Namer
+	MaxVideoLength float64
+}
+
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool) (*SyncSummary, error) {
+	v.maxVideoSize = int64(params.MaxVideoSize) * 1024 * 1024
+	v.maxVideoLength = params.MaxVideoLength
+
+	if reprocess {
+		summary, err := v.reprocess(daemon, params.ChannelID, existingVideoData)
+
+		return summary, err
+	}
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -301,9 +358,66 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, claimAddress string, amount 
 	}
 	log.Debugln("Created thumbnail for " + v.id)
 
-	summary, err := v.publish(daemon, claimAddress, amount, channelID, namer)
+	summary, err := v.publish(daemon, params.ClaimAddress, params.Amount, params.ChannelID, params.Namer)
 	//delete the video in all cases (and ignore the error)
 	_ = v.delete()
 
 	return summary, errors.Prefix("publish error", err)
+}
+
+func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, channelID string, existingVideoData *sdk.SyncedVideo) (*SyncSummary, error) {
+	c, err := daemon.ClaimSearch(nil, &existingVideoData.ClaimID, nil, nil)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	if len(c.Claims) == 0 {
+		return nil, errors.Err("cannot reprocess: no claim found for this video")
+	} else if len(c.Claims) > 1 {
+		return nil, errors.Err("cannot reprocess: too many claims. claimID: %s", existingVideoData.ClaimID)
+	}
+
+	currentClaim := c.Claims[0]
+	var languages []string = nil
+	if v.youtubeInfo.Snippet.DefaultLanguage != "" {
+		languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
+	}
+
+	var locations []jsonrpc.Location = nil
+	if v.youtubeInfo.RecordingDetails.Location != nil {
+		locations = []jsonrpc.Location{{
+			Latitude:  util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Latitude)),
+			Longitude: util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Longitude)),
+		}}
+	}
+
+	thumbnailURL := ""
+	if currentClaim.Value.GetThumbnail() == nil {
+		thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Snippet.Thumbnails)
+		thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.Url, v.ID(), v.awsConfig)
+	} else {
+		thumbnailURL = thumbs.ThumbnailEndpoint + v.ID()
+	}
+
+	tags := append(v.youtubeInfo.Snippet.Tags, youtubeCategories[v.youtubeInfo.Snippet.CategoryId])
+
+	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
+	_, err = daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
+		StreamCreateOptions: &jsonrpc.StreamCreateOptions{
+			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+				Title:        v.title,
+				Description:  v.getAbbrevDescription(),
+				Tags:         tags,
+				Languages:    languages,
+				Locations:    locations,
+				ThumbnailURL: &thumbnailURL,
+			},
+			Author:        util.PtrToString(""),
+			License:       strPtr("Copyrighted (contact author)"),
+			ReleaseTime:   util.PtrToInt64(v.publishedAt.Unix()),
+			VideoDuration: util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
+
+			ChannelID: &channelID,
+		},
+	})
+	return &SyncSummary{}, nil
 }

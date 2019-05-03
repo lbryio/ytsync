@@ -76,10 +76,13 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 }
 
 type SyncedVideo struct {
-	VideoID       string `json:"video_id"`
-	Published     bool   `json:"published"`
-	FailureReason string `json:"failure_reason"`
-	ClaimName     string `json:"claim_name"`
+	VideoID         string `json:"video_id"`
+	Published       bool   `json:"published"`
+	FailureReason   string `json:"failure_reason"`
+	ClaimName       string `json:"claim_name"`
+	ClaimID         string `json:"claim_id"`
+	Size            int64  `json:"size"`
+	MetadataVersion int8   `json:"metadata_version"`
 }
 
 func sanitizeFailureReason(s *string) {
@@ -121,7 +124,9 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 		claimNames := make(map[string]bool)
 		for _, v := range response.Data {
 			svs[v.VideoID] = v
-			claimNames[v.ClaimName] = v.Published
+			if v.ClaimName != "" {
+				claimNames[v.ClaimName] = v.Published
+			}
 		}
 		return svs, claimNames, nil
 	}

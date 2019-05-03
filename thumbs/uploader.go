@@ -1,6 +1,7 @@
 package thumbs
 
 import (
+	"google.golang.org/api/youtube/v3"
 	"io"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ type thumbnailUploader struct {
 }
 
 const thumbnailPath = "/tmp/ytsync_thumbnails/"
+const ThumbnailEndpoint = "https://thumbnails.lbry.com/"
 
 func (u *thumbnailUploader) downloadThumbnail() error {
 	_ = os.Mkdir(thumbnailPath, 0750)
@@ -63,7 +65,7 @@ func (u *thumbnailUploader) uploadThumbnail() error {
 		Key:    key,
 		Body:   thumb,
 	})
-	u.mirroredUrl = "https://thumbnails.lbry.com/" + u.name
+	u.mirroredUrl = ThumbnailEndpoint + u.name
 	return errors.Err(err)
 }
 
@@ -91,4 +93,17 @@ func MirrorThumbnail(url string, name string, s3Config aws.Config) (string, erro
 	}
 
 	return tu.mirroredUrl, nil
+}
+
+func GetBestThumbnail(thumbnails *youtube.ThumbnailDetails) *youtube.Thumbnail {
+	if thumbnails.Maxres != nil {
+		return thumbnails.Maxres
+	} else if thumbnails.High != nil {
+		return thumbnails.High
+	} else if thumbnails.Medium != nil {
+		return thumbnails.Medium
+	} else if thumbnails.Standard != nil {
+		return thumbnails.Standard
+	}
+	return thumbnails.Default
 }
