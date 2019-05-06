@@ -19,6 +19,27 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
+const minimumRefillAmount = 3
+
+func (s *Sync) enableAddressReuse() error {
+	accountsResponse, err := s.daemon.AccountList()
+	if err != nil {
+		return errors.Err(err)
+	}
+	accounts := accountsResponse.LBCMainnet
+	if os.Getenv("REGTEST") == "true" {
+		accounts = accountsResponse.LBCRegtest
+	}
+	for _, a := range accounts {
+		_, err = s.daemon.AccountSet(a.ID, jsonrpc.AccountSettings{
+			ChangeMaxUses: 1000,
+		})
+		if err != nil {
+			return errors.Err(err)
+		}
+	}
+	return nil
+}
 func (s *Sync) walletSetup() error {
 	//prevent unnecessary concurrent execution
 	s.walletMux.Lock()
@@ -40,16 +61,11 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("Starting balance is %.4f", balance)
 
-	var numOnSource int
-	if s.LbryChannelName == "@UCBerkeley" {
-		numOnSource = 10104
-	} else {
-		n, err := s.CountVideos()
-		if err != nil {
-			return err
-		}
-		numOnSource = int(n)
+	n, err := s.CountVideos()
+	if err != nil {
+		return err
 	}
+	numOnSource := int(n)
 
 	log.Debugf("Source channel has %d videos", numOnSource)
 	if numOnSource == 0 {
@@ -66,9 +82,9 @@ func (s *Sync) walletSetup() error {
 	}
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
-	if numPublished > numOnSource && balance < 1 {
+	if numPublished > numOnSource && balance < minimumRefillAmount {
 		SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
-		minBalance = 1 //since we ended up in this function it means some juice is still needed
+		minBalance = minimumRefillAmount
 	}
 	amountToAdd := minBalance - balance
 
@@ -81,8 +97,8 @@ func (s *Sync) walletSetup() error {
 	}
 
 	if amountToAdd > 0 {
-		if amountToAdd < 1 {
-			amountToAdd = 1 // no reason to bother adding less than 1 credit
+		if amountToAdd < minimumRefillAmount {
+			amountToAdd = minimumRefillAmount
 		}
 		err := s.addCredits(amountToAdd)
 		if err != nil {

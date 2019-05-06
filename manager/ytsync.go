@@ -479,7 +479,10 @@ func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
 }
 
 func (s *Sync) doSync() error {
-	var err error
+	err := s.enableAddressReuse()
+	if err != nil {
+		return errors.Prefix("could not set address reuse policy", err)
+	}
 	err = s.walletSetup()
 	if err != nil {
 		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)

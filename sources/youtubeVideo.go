@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lbryio/ytsync/sdk"
-	"github.com/lbryio/ytsync/thumbs"
-
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
+
 	"github.com/lbryio/ytsync/namer"
+	"github.com/lbryio/ytsync/sdk"
+	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/ChannelMeter/iso8601duration"
 	"github.com/aws/aws-sdk-go/aws"
@@ -43,6 +43,8 @@ type YoutubeVideo struct {
 	tags             []string
 	awsConfig        aws.Config
 }
+
+const reflectorURL = "http://blobs.lbry.io/"
 
 var youtubeCategories = map[string]string{
 	"1":  "Film & Animation",
@@ -285,8 +287,6 @@ func (v *YoutubeVideo) triggerThumbnailSave() error {
 	return nil
 }
 
-func strPtr(s string) *string { return &s }
-
 func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *namer.Namer) (*SyncSummary, error) {
 	additionalDescription := "\nhttps://www.youtube.com/watch?v=" + v.id
 	khanAcademyClaimID := "5fc52291980268b82413ca4c0ace1b8d749f3ffb"
@@ -309,15 +309,15 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 			Description:  v.getAbbrevDescription() + additionalDescription,
 			ClaimAddress: &claimAddress,
 			Languages:    languages,
-			ThumbnailURL: strPtr(thumbs.ThumbnailEndpoint + v.id),
+			ThumbnailURL: util.PtrToString(thumbs.ThumbnailEndpoint + v.id),
 			Tags:         v.youtubeInfo.Snippet.Tags,
 		},
-		Author:        strPtr(v.channelTitle),
-		License:       strPtr("Copyrighted (contact author)"),
-		StreamType:    &jsonrpc.StreamTypeVideo,
-		ReleaseTime:   util.PtrToInt64(v.publishedAt.Unix()),
-		VideoDuration: util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
-		ChannelID:     &channelID,
+		Author:      util.PtrToString(v.channelTitle),
+		License:     util.PtrToString("Copyrighted (contact author)"),
+		StreamType:  &jsonrpc.StreamTypeVideo,
+		ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
+		Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
+		ChannelID:   &channelID,
 	}
 
 	return publishAndRetryExistingNames(daemon, v.title, v.getFullPath(), amount, options, namer)
@@ -341,10 +341,13 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 	v.maxVideoLength = params.MaxVideoLength
 
 	if reprocess {
-		summary, err := v.reprocess(daemon, params.ChannelID, existingVideoData)
-
+		summary, err := v.reprocess(daemon, params, existingVideoData)
 		return summary, err
 	}
+	return v.downloadAndPublish(daemon, params)
+}
+
+func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
@@ -365,7 +368,7 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 	return summary, errors.Prefix("publish error", err)
 }
 
-func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, channelID string, existingVideoData *sdk.SyncedVideo) (*SyncSummary, error) {
+func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo) (*SyncSummary, error) {
 	c, err := daemon.ClaimSearch(nil, &existingVideoData.ClaimID, nil, nil)
 	if err != nil {
 		return nil, errors.Err(err)
@@ -400,6 +403,15 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, channelID string, exist
 
 	tags := append(v.youtubeInfo.Snippet.Tags, youtubeCategories[v.youtubeInfo.Snippet.CategoryId])
 
+	videoSize, err := currentClaim.GetStreamSizeByMagic()
+	if err != nil {
+		if existingVideoData.Size > 0 {
+			videoSize = uint64(existingVideoData.Size)
+		} else {
+			log.Infof("%s: the video must be republished as we can't get the right size", v.ID())
+			return v.downloadAndPublish(daemon, params)
+		}
+	}
 	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
 	_, err = daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 		StreamCreateOptions: &jsonrpc.StreamCreateOptions{
@@ -411,13 +423,13 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, channelID string, exist
 				Locations:    locations,
 				ThumbnailURL: &thumbnailURL,
 			},
-			Author:        util.PtrToString(""),
-			License:       strPtr("Copyrighted (contact author)"),
-			ReleaseTime:   util.PtrToInt64(v.publishedAt.Unix()),
-			VideoDuration: util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
-
-			ChannelID: &channelID,
+			Author:      util.PtrToString(""),
+			License:     util.PtrToString("Copyrighted (contact author)"),
+			ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
+			Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
+			ChannelID:   &params.ChannelID,
 		},
+		FileSize: util.PtrToString(fmt.Sprintf("%d", videoSize)),
 	})
 	return &SyncSummary{}, nil
 }
