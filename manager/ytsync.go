@@ -323,6 +323,7 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 		noFailConditions := []string{
 			"this youtube channel is being managed by another server",
 			"interrupted during daemon startup",
+			"playlist items not found",
 		}
 		if util.SubstringInSlice((*e).Error(), noFailConditions) {
 			return
