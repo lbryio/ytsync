@@ -294,7 +294,7 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 	v.maxVideoSize = int64(params.MaxVideoSize) * 1024 * 1024
 	v.maxVideoLength = params.MaxVideoLength
 	v.lbryChannelID = params.ChannelID
-	if reprocess {
+	if reprocess && existingVideoData != nil && existingVideoData.Published {
 		summary, err := v.reprocess(daemon, params, existingVideoData)
 		return summary, err
 	}
@@ -302,7 +302,6 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 }
 
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
-	//download and thumbnail can be done in parallel
 	err := v.download()
 	if err != nil {
 		return nil, errors.Prefix("download error", err)
