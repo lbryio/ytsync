@@ -1,12 +1,8 @@
 package sources
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
-	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -42,6 +38,7 @@ type YoutubeVideo struct {
 	youtubeInfo      *youtube.Video
 	tags             []string
 	awsConfig        aws.Config
+	thumbnailURL     string
 }
 
 const reflectorURL = "http://blobs.lbry.io/"
@@ -246,45 +243,10 @@ func (v *YoutubeVideo) delete() error {
 	return nil
 }
 
-func (v *YoutubeVideo) triggerThumbnailSave() error {
-	client := &http.Client{Timeout: 30 * time.Second}
-
-	params, err := json.Marshal(map[string]string{"videoid": v.id})
-	if err != nil {
-		return err
-	}
-
-	request, err := http.NewRequest(http.MethodPut, "https://jgp4g1qoud.execute-api.us-east-1.amazonaws.com/prod/thumbnail", bytes.NewBuffer(params))
-	if err != nil {
-		return err
-	}
-
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	contents, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	var decoded struct {
-		Error   int    `json:"error"`
-		Url     string `json:"url,omitempty"`
-		Message string `json:"message,omitempty"`
-	}
-	err = json.Unmarshal(contents, &decoded)
-	if err != nil {
-		return err
-	}
-
-	if decoded.Error != 0 {
-		return errors.Err("error creating thumbnail: " + decoded.Message)
-	}
-
-	return nil
+func (v *YoutubeVideo) triggerThumbnailSave() (err error) {
+	thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Snippet.Thumbnails)
+	v.thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.Url, v.ID(), v.awsConfig)
+	return err
 }
 
 func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, channelID string, namer *namer.Namer) (*SyncSummary, error) {
@@ -309,7 +271,7 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 			Description:  v.getAbbrevDescription() + additionalDescription,
 			ClaimAddress: &claimAddress,
 			Languages:    languages,
-			ThumbnailURL: util.PtrToString(thumbs.ThumbnailEndpoint + v.id),
+			ThumbnailURL: &v.thumbnailURL,
 			Tags:         v.youtubeInfo.Snippet.Tags,
 		},
 		Author:      util.PtrToString(v.channelTitle),
@@ -409,11 +371,15 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			videoSize = uint64(existingVideoData.Size)
 		} else {
 			log.Infof("%s: the video must be republished as we can't get the right size", v.ID())
-			return v.downloadAndPublish(daemon, params)
+			//return v.downloadAndPublish(daemon, params) //TODO: actually republish the video. NB: the current claim should be abandoned first
+			return nil, errors.Err("the video must be republished as we can't get the right size")
 		}
 	}
 	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
-	_, err = daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 		StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 				Title:        v.title,
@@ -431,5 +397,12 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		},
 		FileSize: util.PtrToString(fmt.Sprintf("%d", videoSize)),
 	})
-	return &SyncSummary{}, nil
+	if err != nil {
+		return nil, err
+	}
+
+	return &SyncSummary{
+		ClaimID:   pr.ClaimID,
+		ClaimName: pr.Output.Name,
+	}, nil
 }

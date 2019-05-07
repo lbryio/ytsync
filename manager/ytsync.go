@@ -614,6 +614,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"no compatible format available for this video",
 						"Watch this video on YouTube.",
 						"have blocked it on copyright grounds",
+						"the video must be republished as we can't get the right size",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
