@@ -136,7 +136,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	}
 	defaultAccount := ""
 	for _, account := range accountsNet {
-		if account.IsDefaultAccount {
+		if account.IsDefault {
 			defaultAccount = account.ID
 			break
 		}

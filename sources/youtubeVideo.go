@@ -276,7 +276,6 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 		},
 		Author:      util.PtrToString(v.channelTitle),
 		License:     util.PtrToString("Copyrighted (contact author)"),
-		StreamType:  &jsonrpc.StreamTypeVideo,
 		ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 		Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
 		ChannelID:   &channelID,
