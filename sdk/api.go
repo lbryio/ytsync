@@ -183,6 +183,7 @@ func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status str
 		vals.Add("published_at", strconv.FormatInt(time.Now().Unix(), 10))
 		vals.Add("claim_id", claimID)
 		vals.Add("claim_name", claimName)
+		vals.Add("metadata_version", "2")
 		if size != nil {
 			vals.Add("size", strconv.FormatInt(*size, 10))
 		}

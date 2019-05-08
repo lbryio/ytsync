@@ -328,7 +328,7 @@ func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Lo
 	}
 
 	locations = nil
-	if v.youtubeInfo.RecordingDetails.Location != nil {
+	if v.youtubeInfo.RecordingDetails != nil && v.youtubeInfo.RecordingDetails.Location != nil {
 		locations = []jsonrpc.Location{{
 			Latitude:  util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Latitude)),
 			Longitude: util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Longitude)),
@@ -392,14 +392,14 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
 			ChannelID:   &v.lbryChannelID,
 		},
-		FileSize: util.PtrToString(fmt.Sprintf("%d", videoSize)),
+		FileSize: &videoSize,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &SyncSummary{
-		ClaimID:   pr.ClaimID,
-		ClaimName: pr.Output.Name,
+		ClaimID:   pr.Outputs[0].ClaimID,
+		ClaimName: pr.Outputs[0].Name,
 	}, nil
 }

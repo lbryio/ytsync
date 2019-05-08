@@ -393,7 +393,6 @@ var thumbnailHosts = []string{
 }
 
 func isYtsyncClaim(c jsonrpc.Claim) bool {
-
 	if !util.InSlice(c.Type, []string{"claim", "update"}) || c.Value.GetStream() == nil {
 		return false
 	}
@@ -402,7 +401,12 @@ func isYtsyncClaim(c jsonrpc.Claim) bool {
 		return false
 	}
 
-	return util.InSlice(c.Value.GetThumbnail().GetUrl(), thumbnailHosts)
+	for _, th := range thumbnailHosts {
+		if strings.Contains(c.Value.GetThumbnail().GetUrl(), th) {
+			return true
+		}
+	}
+	return false
 }
 
 // fixDupes abandons duplicate claims
@@ -777,6 +781,7 @@ func (s *Sync) processVideo(v video) (err error) {
 	sv, ok := s.syncedVideos[v.ID()]
 	s.syncedVideosMux.RUnlock()
 	alreadyPublished := ok && sv.Published
+	isUpgradeSync := s.Manager.syncStatus == StatusPendingUpgrade
 
 	neverRetryFailures := []string{
 		"Error extracting sts from embedded url response",
@@ -792,7 +797,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if alreadyPublished {
+	if alreadyPublished && !isUpgradeSync {
 		log.Println(v.ID() + " already published")
 		return nil
 	}
@@ -814,7 +819,6 @@ func (s *Sync) processVideo(v video) (err error) {
 		MaxVideoLength: s.Manager.maxVideoLength,
 	}
 
-	isUpgradeSync := s.Manager.syncStatus == StatusPendingUpgrade
 	summary, err := v.Sync(s.daemon, sp, &sv, isUpgradeSync)
 	if err != nil {
 		return err

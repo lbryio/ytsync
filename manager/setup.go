@@ -112,7 +112,7 @@ func (s *Sync) walletSetup() error {
 	} else if claimAddress == nil {
 		return errors.Err("could not get unused address")
 	}
-	s.claimAddress = string((*claimAddress)[0])
+	s.claimAddress = string((*claimAddress)[0]) //TODO: remove claimAddress completely
 	if s.claimAddress == "" {
 		return errors.Err("found blank claim address")
 	}
