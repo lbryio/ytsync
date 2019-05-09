@@ -801,6 +801,11 @@ func (s *Sync) processVideo(v video) (err error) {
 		log.Println(v.ID() + " already published")
 		return nil
 	}
+	newMetadataVersion := int8(2)
+	if ok && sv.MetadataVersion >= newMetadataVersion {
+		log.Println(v.ID() + " upgraded to the new metadata")
+		return nil
+	}
 
 	if v.PlaylistPosition() > s.Manager.videosLimit {
 		log.Println(v.ID() + " is old: skipping")

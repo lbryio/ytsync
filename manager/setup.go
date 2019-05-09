@@ -260,9 +260,11 @@ func (s *Sync) ensureChannelOwnership() error {
 			}
 		}
 	}
+	channelUsesOldMetadata := false
 	if len((*channels).Items) == 1 {
 		channel := ((*channels).Items)[0]
 		if channel.Name == s.LbryChannelName {
+			channelUsesOldMetadata = channel.Value.GetThumbnail() == nil
 			//TODO: eventually get rid of this when the whole db is filled
 			if s.lbryChannelID == "" {
 				err = s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, channel.ClaimID)
@@ -270,7 +272,9 @@ func (s *Sync) ensureChannelOwnership() error {
 				return errors.Err("the channel in the wallet is different than the channel in the database")
 			}
 			s.lbryChannelID = channel.ClaimID
-			return err
+			if !channelUsesOldMetadata {
+				return err
+			}
 		} else {
 			return errors.Err("this channel does not belong to this wallet! Expected: %s, found: %s", s.LbryChannelName, channel.Name)
 		}
@@ -328,16 +332,35 @@ func (s *Sync) ensureChannelOwnership() error {
 	if channelInfo.Country != "" {
 		locations = []jsonrpc.Location{{Country: util.PtrToString(channelInfo.Country)}}
 	}
-	c, err := s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
-		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-			Title:        channelInfo.Title,
-			Description:  channelInfo.Description,
-			Tags:         nil,
-			Languages:    languages,
-			Locations:    locations,
-			ThumbnailURL: &thumbnailURL,
-		},
-	})
+	var c *jsonrpc.TransactionSummary
+	if channelUsesOldMetadata {
+		c, err = s.daemon.ChannelUpdate(s.lbryChannelID, jsonrpc.ChannelUpdateOptions{
+			ClearLocations: util.PtrToBool(true),
+			ClearLanguages: util.PtrToBool(true),
+			ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
+				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+					Title:        channelInfo.Title,
+					Description:  channelInfo.Description,
+					Tags:         nil,
+					Languages:    languages,
+					Locations:    locations,
+					ThumbnailURL: &thumbnailURL,
+				},
+			},
+		})
+	} else {
+		c, err = s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
+			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+				Title:        channelInfo.Title,
+				Description:  channelInfo.Description,
+				Tags:         nil,
+				Languages:    languages,
+				Locations:    locations,
+				ThumbnailURL: &thumbnailURL,
+			},
+		})
+	}
+
 	if err != nil {
 		return err
 	}
