@@ -5,8 +5,6 @@ require (
 	github.com/ChannelMeter/iso8601duration v0.0.0-20150204201828-8da3af7a2a61
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/aws/aws-sdk-go v1.17.3
-	github.com/btcsuite/btcd v0.0.0-20190410025418-9bfb2ca0346b // indirect
-	github.com/btcsuite/btcutil v0.0.0-20190316010144-3ac1210f4b38 // indirect
 	github.com/channelmeter/iso8601duration v0.0.0-20150204201828-8da3af7a2a61 // indirect
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/golang/protobuf v1.3.1 // indirect
@@ -17,7 +15,7 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lbryio/errors.go v0.0.0-20180223142025-ad03d3cc6a5c
-	github.com/lbryio/lbry.go v1.0.1
+	github.com/lbryio/lbry.go v1.0.2
 	github.com/lusis/slack-test v0.0.0-20190408224659-6cf59653add2 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
