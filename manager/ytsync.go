@@ -650,8 +650,20 @@ func (s *Sync) startWorker(workerNum int) {
 					}
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
+				existingClaim, ok := s.syncedVideos[v.ID()]
+				existingClaimID := ""
+				existingClaimName := ""
+				existingClaimSize := v.Size()
+				if ok {
+					existingClaimID = existingClaim.ClaimID
+					existingClaimName = existingClaim.ClaimName
+					if existingClaim.Size > 0 {
+						existingClaimSize = &existingClaim.Size
+					}
+				}
+
 				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error(), v.Size())
+				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, existingClaimID, existingClaimName, err.Error(), existingClaimSize)
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}

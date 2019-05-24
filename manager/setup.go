@@ -82,6 +82,15 @@ func (s *Sync) walletSetup() error {
 	}
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
+	if s.Manager.syncStatus == StatusPendingUpgrade {
+		videosToUpgrade := 0
+		for _, v := range s.syncedVideos {
+			if v.Published && v.MetadataVersion < 2 {
+				videosToUpgrade++
+			}
+		}
+		minBalance += float64(videosToUpgrade) * 0.001
+	}
 	if numPublished > numOnSource && balance < minimumRefillAmount {
 		SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
 		minBalance = minimumRefillAmount
@@ -308,7 +317,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Prefix("error creating YouTube service", err)
 	}
 
-	response, err := service.Channels.List("snippet").Id(s.YoutubeChannelID).Do()
+	response, err := service.Channels.List("snippet,branding").Id(s.YoutubeChannelID).Do()
 	if err != nil {
 		return errors.Prefix("error getting channel details", err)
 	}
@@ -318,12 +327,23 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 
 	channelInfo := response.Items[0].Snippet
+	channelBranding := response.Items[0].BrandingSettings
 
 	thumbnail := thumbs.GetBestThumbnail(channelInfo.Thumbnails)
 	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}
+
+	var bannerURL *string = nil
+	if channelBranding.Image != nil && channelBranding.Image.BannerImageUrl != "" {
+		bURL, err := thumbs.MirrorThumbnail(channelBranding.Image.BannerImageUrl, "banner-"+s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
+		if err != nil {
+			return err
+		}
+		bannerURL = &bURL
+	}
+
 	var languages []string = nil
 	if channelInfo.DefaultLanguage != "" {
 		languages = []string{channelInfo.DefaultLanguage}
@@ -346,6 +366,7 @@ func (s *Sync) ensureChannelOwnership() error {
 					Locations:    locations,
 					ThumbnailURL: &thumbnailURL,
 				},
+				CoverURL: bannerURL,
 			},
 		})
 	} else {
