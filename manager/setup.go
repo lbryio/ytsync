@@ -317,7 +317,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Prefix("error creating YouTube service", err)
 	}
 
-	response, err := service.Channels.List("snippet,branding").Id(s.YoutubeChannelID).Do()
+	response, err := service.Channels.List("snippet,brandingSettings").Id(s.YoutubeChannelID).Do()
 	if err != nil {
 		return errors.Prefix("error getting channel details", err)
 	}
@@ -335,7 +335,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return err
 	}
 
-	var bannerURL *string = nil
+	var bannerURL *string
 	if channelBranding.Image != nil && channelBranding.Image.BannerImageUrl != "" {
 		bURL, err := thumbs.MirrorThumbnail(channelBranding.Image.BannerImageUrl, "banner-"+s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
 		if err != nil {
@@ -379,6 +379,7 @@ func (s *Sync) ensureChannelOwnership() error {
 				Locations:    locations,
 				ThumbnailURL: &thumbnailURL,
 			},
+			CoverURL: bannerURL,
 		})
 	}
 

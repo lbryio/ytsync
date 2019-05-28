@@ -46,7 +46,7 @@ func (u *thumbnailUploader) downloadThumbnail() error {
 }
 
 func (u *thumbnailUploader) uploadThumbnail() error {
-	key := aws.String("/thumbnails/" + u.name)
+	key := &u.name
 	thumb, err := os.Open("/tmp/ytsync_thumbnails/" + u.name)
 	if err != nil {
 		return errors.Err(err)
@@ -64,6 +64,7 @@ func (u *thumbnailUploader) uploadThumbnail() error {
 		Bucket: aws.String("thumbnails.lbry.com"),
 		Key:    key,
 		Body:   thumb,
+		ACL:    aws.String("public-read"),
 	})
 	u.mirroredUrl = ThumbnailEndpoint + u.name
 	return errors.Err(err)

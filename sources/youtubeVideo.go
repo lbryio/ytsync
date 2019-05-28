@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -156,14 +157,15 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 
 func (v *YoutubeVideo) fallbackDownload() error {
 	cmd := exec.Command("youtube-dl",
-		"--id "+v.ID(),
+		v.ID(),
 		"--no-progress",
-		"-f \"bestvideo[ext=mp4,height<=1080,filesize<1000M]+bestaudio/best[ext=mp4,height<=1080,filesize<1000M]\"",
-		"-o "+strings.TrimRight(v.getFullPath(), ".mp4"))
+		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+bestaudio/best[ext=mp4,height<=1080,filesize<2000M]",
+		"-o"+strings.TrimRight(v.getFullPath(), ".mp4"))
 	log.Printf("Running command and waiting for it to finish...")
-	err := cmd.Run()
+	output, err := cmd.CombinedOutput()
+	log.Debugln(string(output))
 	if err != nil {
-		log.Printf("Command finished with error: %v", err)
+		log.Printf("Command finished with error: %v", errors.Err(string(output)))
 		return errors.Err(err)
 	}
 	return nil
@@ -257,6 +259,7 @@ func (v *YoutubeVideo) videoDir() string {
 }
 func (v *YoutubeVideo) getDownloadedPath() (string, error) {
 	files, err := ioutil.ReadDir(v.videoDir())
+	log.Infoln(v.videoDir())
 	if err != nil {
 		err = errors.Prefix("list error", err)
 		log.Errorln(err)
@@ -267,7 +270,7 @@ func (v *YoutubeVideo) getDownloadedPath() (string, error) {
 		if f.IsDir() {
 			continue
 		}
-		if strings.Contains(v.getFullPath(), f.Name()) {
+		if strings.Contains(v.getFullPath(), strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))) {
 			return v.videoDir() + "/" + f.Name(), nil
 		}
 	}
@@ -353,7 +356,7 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 		log.Errorf("standard downloader failed: %s. Trying fallback downloader\n", err.Error())
 		fallBackErr := v.fallbackDownload()
 		if fallBackErr != nil {
-			log.Errorf("fallback downloader failed: %s\n", err.Error())
+			log.Errorf("fallback downloader failed: %s\n", fallBackErr.Error())
 			return nil, errors.Prefix("download error", err) //return original error
 		}
 	}
