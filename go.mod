@@ -15,7 +15,7 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lbryio/errors.go v0.0.0-20180223142025-ad03d3cc6a5c
-	github.com/lbryio/lbry.go v1.0.2
+	github.com/lbryio/lbry.go v1.0.6
 	github.com/lusis/slack-test v0.0.0-20190408224659-6cf59653add2 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
@@ -34,7 +34,6 @@ require (
 	golang.org/x/crypto v0.0.0-20190418165655-df01cb2cc480 // indirect
 	golang.org/x/net v0.0.0-20190415214537-1da14a5a36f2 // indirect
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a // indirect
-	golang.org/x/sys v0.0.0-20190418153312-f0ce4c0180be // indirect
 	google.golang.org/api v0.3.2
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20190418145605-e7d98fc518a7 // indirect

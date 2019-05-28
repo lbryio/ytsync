@@ -2,8 +2,10 @@ package sources
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
+	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/ChannelMeter/iso8601duration"
@@ -151,6 +154,21 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..."
 }
 
+func (v *YoutubeVideo) fallbackDownload() error {
+	cmd := exec.Command("youtube-dl",
+		"--id "+v.ID(),
+		"--no-progress",
+		"-f \"bestvideo[ext=mp4,height<=1080,filesize<1000M]+bestaudio/best[ext=mp4,height<=1080,filesize<1000M]\"",
+		"-o "+strings.TrimRight(v.getFullPath(), ".mp4"))
+	log.Printf("Running command and waiting for it to finish...")
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("Command finished with error: %v", err)
+		return errors.Err(err)
+	}
+	return nil
+}
+
 func (v *YoutubeVideo) download() error {
 	videoPath := v.getFullPath()
 
@@ -237,15 +255,40 @@ func (v *YoutubeVideo) download() error {
 func (v *YoutubeVideo) videoDir() string {
 	return v.dir + "/" + v.id
 }
-
-func (v *YoutubeVideo) delete() error {
-	videoPath := v.getFullPath()
-	err := os.Remove(videoPath)
+func (v *YoutubeVideo) getDownloadedPath() (string, error) {
+	files, err := ioutil.ReadDir(v.videoDir())
 	if err != nil {
-		log.Errorln(errors.Prefix("delete error", err))
+		err = errors.Prefix("list error", err)
+		log.Errorln(err)
+		return "", err
+	}
+
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		if strings.Contains(v.getFullPath(), f.Name()) {
+			return v.videoDir() + "/" + f.Name(), nil
+		}
+	}
+	return "", errors.Err("could not find any downloaded videos")
+
+}
+func (v *YoutubeVideo) delete() error {
+	videoPath, err := v.getDownloadedPath()
+	if err != nil {
+		log.Errorln(err)
 		return err
 	}
-	log.Debugln(v.id + " deleted from disk (" + videoPath + ")")
+	err = os.Remove(videoPath)
+	log.Debugf("%s deleted from disk (%s)", v.id, videoPath)
+
+	if err != nil {
+		err = errors.Prefix("delete error", err)
+		log.Errorln(err)
+		return err
+	}
+
 	return nil
 }
 
@@ -273,8 +316,11 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 		ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 		ChannelID:   &v.lbryChannelID,
 	}
-
-	return publishAndRetryExistingNames(daemon, v.title, v.getFullPath(), amount, options, namer)
+	downloadPath, err := v.getDownloadedPath()
+	if err != nil {
+		return nil, err
+	}
+	return publishAndRetryExistingNames(daemon, v.title, downloadPath, amount, options, namer)
 }
 
 func (v *YoutubeVideo) Size() *int64 {
@@ -304,7 +350,12 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	err := v.download()
 	if err != nil {
-		return nil, errors.Prefix("download error", err)
+		log.Errorf("standard downloader failed: %s. Trying fallback downloader\n", err.Error())
+		fallBackErr := v.fallbackDownload()
+		if fallBackErr != nil {
+			log.Errorf("fallback downloader failed: %s\n", err.Error())
+			return nil, errors.Prefix("download error", err) //return original error
+		}
 	}
 	log.Debugln("Downloaded " + v.id)
 
@@ -335,6 +386,7 @@ func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Lo
 		}}
 	}
 	tags = append([]string{youtubeCategories[v.youtubeInfo.Snippet.CategoryId]}, v.youtubeInfo.Snippet.Tags...)
+	tags = tagsManager.SanitizeTags(tags)
 	return languages, locations, tags
 }
 
