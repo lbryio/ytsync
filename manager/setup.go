@@ -243,7 +243,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Err("no channel name set")
 	}
 	//@TODO: get rid of this when imported channels are supported
-	if s.YoutubeChannelID == "UCkK9UDm_ZNrq_rIXCz3xCGA" || s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
+	if s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
 		return nil
 	}
 	channels, err := s.daemon.ChannelList(nil, 1, 50)
