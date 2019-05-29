@@ -152,7 +152,7 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 	if v.lbryChannelID == khanAcademyClaimID {
 		additionalDescription = additionalDescription + "\nNote: All Khan Academy content is available for free at (www.khanacademy.org)"
 	}
-	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..."
+	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..." + additionalDescription
 }
 
 func (v *YoutubeVideo) fallbackDownload() error {
@@ -432,6 +432,9 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 	}
 
 	pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
+		ClearLanguages: util.PtrToBool(true),
+		ClearLocations: util.PtrToBool(true),
+		ClearTags:      util.PtrToBool(true),
 		StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 				Title:        v.title,
