@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -166,7 +167,7 @@ const (
 	VideoStatusFailed    = "failed"
 )
 
-func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64) error {
+func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64, metadataVersion uint) error {
 	endpoint := a.ApiURL + "/yt/video_status"
 
 	sanitizeFailureReason(&failureReason)
@@ -183,7 +184,7 @@ func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status str
 		vals.Add("published_at", strconv.FormatInt(time.Now().Unix(), 10))
 		vals.Add("claim_id", claimID)
 		vals.Add("claim_name", claimName)
-		vals.Add("metadata_version", "2")
+		vals.Add("metadata_version", fmt.Sprintf("%d", metadataVersion))
 		if size != nil {
 			vals.Add("size", strconv.FormatInt(*size, 10))
 		}

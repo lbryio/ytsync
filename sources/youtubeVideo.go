@@ -453,11 +453,6 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		}
 	}
 
-	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
-	if err != nil {
-		return nil, errors.Err(err)
-	}
-
 	if v.mocked {
 		pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
@@ -466,7 +461,7 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 					ThumbnailURL: &thumbnailURL,
 				},
 				Author:    util.PtrToString(""),
-				License:   util.PtrToString("Copyrighted (contact author)"),
+				License:   util.PtrToString("Copyrighted (contact publisher)"),
 				ChannelID: &v.lbryChannelID,
 			},
 			FileSize: &videoSize,
@@ -480,6 +475,12 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			ClaimName: pr.Outputs[0].Name,
 		}, nil
 	}
+
+	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+
 	pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 		ClearLanguages: util.PtrToBool(true),
 		ClearLocations: util.PtrToBool(true),
@@ -495,6 +496,8 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			},
 			Author:      util.PtrToString(""),
 			License:     util.PtrToString("Copyrighted (contact publisher)"),
+			VideoHeight: util.PtrToUint(720),
+			VideoWidth:  util.PtrToUint(1280),
 			ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 			Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
 			ChannelID:   &v.lbryChannelID,

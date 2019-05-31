@@ -24,6 +24,11 @@ const (
 	Weapons    = "weapons"
 )
 
+func GetTagsForChannel(channelID string) []string {
+	tags, _ := channelWideTags[channelID]
+	return tags
+}
+
 func SanitizeTags(tags []string, youtubeChannelID string) ([]string, error) {
 	unsanitized := make([]string, 0, len(tags))
 	for _, t := range tags {
@@ -54,7 +59,7 @@ func SanitizeTags(tags []string, youtubeChannelID string) ([]string, error) {
 			originalTags = append(originalTags, t)
 		}
 	}
-	sanitizedTags := make([]string, len(originalTags)+len(curatedTags))
+	sanitizedTags := make([]string, 0, len(originalTags)+len(curatedTags))
 	sanitizedTags = append(sanitizedTags, curatedTags...)
 	sanitizedTags = append(sanitizedTags, originalTags...)
 	return sanitizedTags, nil
@@ -117,17 +122,19 @@ func (ts *tagsSanitizer) add() {
 	extraTags, ok := channelWideTags[ts.ChannelID]
 	if ok {
 		for _, t := range extraTags {
-			ts.Sanitized[t] = false
+			ts.Sanitized[t] = true
 		}
 	}
 }
 
 const (
-	Lunduke = "UCkK9UDm_ZNrq_rIXCz3xCGA"
+	Lunduke          = "UCkK9UDm_ZNrq_rIXCz3xCGA"
+	SwissExperiments = "UCNQfQvFMPnInwsU_iGYArJQ"
 )
 
 var channelWideTags = map[string][]string{
-	Lunduke: {"linux", "technology"},
+	Lunduke:          {"linux", "technology"},
+	SwissExperiments: {"science & technology", "experiments", "switzerland"},
 }
 var tagsToSkip = map[string]*struct{}{
 	"#hangoutsonair":                         nil,

@@ -11,6 +11,8 @@ import (
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/lbry.go/lbrycrd"
+
+	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/shopspring/decimal"
@@ -355,13 +357,14 @@ func (s *Sync) ensureChannelOwnership() error {
 	var c *jsonrpc.TransactionSummary
 	if channelUsesOldMetadata {
 		c, err = s.daemon.ChannelUpdate(s.lbryChannelID, jsonrpc.ChannelUpdateOptions{
+			ClearTags:      util.PtrToBool(true),
 			ClearLocations: util.PtrToBool(true),
 			ClearLanguages: util.PtrToBool(true),
 			ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 					Title:        channelInfo.Title,
 					Description:  channelInfo.Description,
-					Tags:         nil,
+					Tags:         tagsManager.GetTagsForChannel(s.YoutubeChannelID),
 					Languages:    languages,
 					Locations:    locations,
 					ThumbnailURL: &thumbnailURL,
@@ -374,7 +377,7 @@ func (s *Sync) ensureChannelOwnership() error {
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 				Title:        channelInfo.Title,
 				Description:  channelInfo.Description,
-				Tags:         nil,
+				Tags:         tagsManager.GetTagsForChannel(s.YoutubeChannelID),
 				Languages:    languages,
 				Locations:    locations,
 				ThumbnailURL: &thumbnailURL,

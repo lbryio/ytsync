@@ -459,8 +459,12 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 		if !ok || pv.ClaimName != c.Name {
 			fixed++
 			log.Debugf("adding %s to the database", c.Name)
-
-			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", nil)
+			size, err := c.GetStreamSizeByMagic()
+			if err != nil {
+				size = 0
+			}
+			metadataVersion := uint(1)
+			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", util.PtrToInt64(int64(size)), metadataVersion)
 			if err != nil {
 				return count, fixed, err
 			}
@@ -663,7 +667,7 @@ func (s *Sync) startWorker(workerNum int) {
 				}
 
 				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, existingClaimID, existingClaimName, err.Error(), existingClaimSize)
+				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, existingClaimID, existingClaimName, err.Error(), existingClaimSize, 1)
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
@@ -749,14 +753,13 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			break
 		}
 	}
-	notOnYoutube := make([]video, 0, len(s.syncedVideos))
 	for k, v := range s.syncedVideos {
 		if !v.Published {
 			continue
 		}
 		_, ok := playlistMap[k]
 		if !ok {
-			notOnYoutube = append(notOnYoutube, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig()))
+			videos = append(videos, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig()))
 		}
 
 	}
@@ -851,7 +854,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		return err
 	}
 
-	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size())
+	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size(), 2)
 	if err != nil {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}
