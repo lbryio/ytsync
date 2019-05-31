@@ -702,7 +702,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 	}
 
 	var videos []video
-
+	playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
 	nextPageToken := ""
 	for {
 		req := service.PlaylistItems.List("snippet").
@@ -724,7 +724,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			}
 			return errors.Err("playlist items not found")
 		}
-		playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
+		//playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
 		videoIDs := make([]string, 50)
 		for i, item := range playlistResponse.Items {
 			// normally we'd send the video into the channel here, but youtube api doesn't have sorting
@@ -749,7 +749,17 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			break
 		}
 	}
+	notOnYoutube := make([]video, 0, len(s.syncedVideos))
+	for k, v := range s.syncedVideos {
+		if !v.Published {
+			continue
+		}
+		_, ok := playlistMap[k]
+		if !ok {
+			notOnYoutube = append(notOnYoutube, sources.NewMockedVideo(s.videoDirectory, k, s.Manager.GetS3AWSConfig()))
+		}
 
+	}
 	sort.Sort(byPublishedAt(videos))
 	//or sort.Sort(sort.Reverse(byPlaylistPosition(videos)))
 

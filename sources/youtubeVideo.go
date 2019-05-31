@@ -30,7 +30,6 @@ import (
 
 type YoutubeVideo struct {
 	id               string
-	channelTitle     string
 	title            string
 	description      string
 	playlistPosition int64
@@ -44,6 +43,7 @@ type YoutubeVideo struct {
 	awsConfig        aws.Config
 	thumbnailURL     string
 	lbryChannelID    string
+	mocked           bool
 }
 
 const reflectorURL = "http://blobs.lbry.io/"
@@ -89,12 +89,21 @@ func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPositio
 		id:               videoData.Id,
 		title:            videoData.Snippet.Title,
 		description:      videoData.Snippet.Description,
-		channelTitle:     videoData.Snippet.ChannelTitle,
 		playlistPosition: playlistPosition,
 		publishedAt:      publishedAt,
 		dir:              directory,
 		youtubeInfo:      videoData,
 		awsConfig:        awsConfig,
+		mocked:           false,
+	}
+}
+func NewMockedVideo(directory string, videoID string, awsConfig aws.Config) *YoutubeVideo {
+	return &YoutubeVideo{
+		id:               videoID,
+		playlistPosition: 0,
+		dir:              directory,
+		awsConfig:        awsConfig,
+		mocked:           true,
 	}
 }
 
@@ -111,6 +120,9 @@ func (v *YoutubeVideo) IDAndNum() string {
 }
 
 func (v *YoutubeVideo) PublishedAt() time.Time {
+	if v.mocked {
+		return time.Unix(0, 0)
+	}
 	return v.publishedAt
 }
 
@@ -314,7 +326,6 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 			Tags:         tags,
 			Locations:    locations,
 		},
-		Author:      util.PtrToString(v.channelTitle),
 		License:     util.PtrToString("Copyrighted (contact author)"),
 		ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 		ChannelID:   &v.lbryChannelID,
@@ -376,6 +387,9 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 }
 
 func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Location, tags []string) {
+	if v.mocked {
+		return nil, nil, tagsManager.SanitizeTags([]string{})
+	}
 	languages = nil
 	if v.youtubeInfo.Snippet.DefaultLanguage != "" {
 		languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
@@ -409,6 +423,9 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 
 	thumbnailURL := ""
 	if currentClaim.Value.GetThumbnail() == nil {
+		if v.mocked {
+			return nil, errors.Err("could not find thumbnail for mocked video")
+		}
 		thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Snippet.Thumbnails)
 		thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.Url, v.ID(), v.awsConfig)
 	} else {
@@ -431,6 +448,29 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		return nil, errors.Err(err)
 	}
 
+	var description *string
+	if v.mocked {
+		pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
+			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
+				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+					Tags:         tags,
+					ThumbnailURL: &thumbnailURL,
+				},
+				Author:    util.PtrToString(""),
+				License:   util.PtrToString("Copyrighted (contact author)"),
+				ChannelID: &v.lbryChannelID,
+			},
+			FileSize: &videoSize,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return &SyncSummary{
+			ClaimID:   pr.Outputs[0].ClaimID,
+			ClaimName: pr.Outputs[0].Name,
+		}, nil
+	}
 	pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 		ClearLanguages: util.PtrToBool(true),
 		ClearLocations: util.PtrToBool(true),
