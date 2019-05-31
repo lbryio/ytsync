@@ -39,6 +39,7 @@ type YoutubeVideo struct {
 	publishedAt      time.Time
 	dir              string
 	youtubeInfo      *youtube.Video
+	youtubeChannelID string
 	tags             []string
 	awsConfig        aws.Config
 	thumbnailURL     string
@@ -95,15 +96,17 @@ func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPositio
 		youtubeInfo:      videoData,
 		awsConfig:        awsConfig,
 		mocked:           false,
+		youtubeChannelID: videoData.Snippet.ChannelId,
 	}
 }
-func NewMockedVideo(directory string, videoID string, awsConfig aws.Config) *YoutubeVideo {
+func NewMockedVideo(directory string, videoID string, youtubeChannelID string, awsConfig aws.Config) *YoutubeVideo {
 	return &YoutubeVideo{
 		id:               videoID,
 		playlistPosition: 0,
 		dir:              directory,
 		awsConfig:        awsConfig,
 		mocked:           true,
+		youtubeChannelID: youtubeChannelID,
 	}
 }
 
@@ -387,23 +390,30 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 }
 
 func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Location, tags []string) {
-	if v.mocked {
-		return nil, nil, tagsManager.SanitizeTags([]string{})
-	}
 	languages = nil
-	if v.youtubeInfo.Snippet.DefaultLanguage != "" {
-		languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
+	locations = nil
+	tags = nil
+	if !v.mocked {
+		if v.youtubeInfo.Snippet.DefaultLanguage != "" {
+			languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
+		}
+
+		if v.youtubeInfo.RecordingDetails != nil && v.youtubeInfo.RecordingDetails.Location != nil {
+			locations = []jsonrpc.Location{{
+				Latitude:  util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Latitude)),
+				Longitude: util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Longitude)),
+			}}
+		}
+		tags = v.youtubeInfo.Snippet.Tags
+	}
+	tags, err := tagsManager.SanitizeTags(tags, v.youtubeChannelID)
+	if err != nil {
+		log.Errorln(err.Error())
+	}
+	if !v.mocked {
+		tags = append(tags, youtubeCategories[v.youtubeInfo.Snippet.CategoryId])
 	}
 
-	locations = nil
-	if v.youtubeInfo.RecordingDetails != nil && v.youtubeInfo.RecordingDetails.Location != nil {
-		locations = []jsonrpc.Location{{
-			Latitude:  util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Latitude)),
-			Longitude: util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Longitude)),
-		}}
-	}
-	tags = append([]string{youtubeCategories[v.youtubeInfo.Snippet.CategoryId]}, v.youtubeInfo.Snippet.Tags...)
-	tags = tagsManager.SanitizeTags(tags)
 	return languages, locations, tags
 }
 
@@ -448,7 +458,6 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		return nil, errors.Err(err)
 	}
 
-	var description *string
 	if v.mocked {
 		pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 			StreamCreateOptions: &jsonrpc.StreamCreateOptions{

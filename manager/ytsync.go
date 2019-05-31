@@ -756,7 +756,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		}
 		_, ok := playlistMap[k]
 		if !ok {
-			notOnYoutube = append(notOnYoutube, sources.NewMockedVideo(s.videoDirectory, k, s.Manager.GetS3AWSConfig()))
+			notOnYoutube = append(notOnYoutube, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig()))
 		}
 
 	}
