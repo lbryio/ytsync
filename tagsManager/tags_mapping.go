@@ -1,10 +1,7 @@
 package tagsManager
 
 import (
-	"regexp"
 	"strings"
-
-	"github.com/lbryio/lbry.go/extras/errors"
 )
 
 const (
@@ -65,16 +62,17 @@ func SanitizeTags(tags []string, youtubeChannelID string) ([]string, error) {
 
 func normalizeTag(t string) (string, error) {
 	t = strings.ToLower(t)
-	r, err := regexp.Compile("/\\([^\\)]+\\)/g")
-	if err != nil {
-		return "", errors.Err(err)
-	}
-	r2, err := regexp.Compile("/[^\\w-'&]/g")
-	if err != nil {
-		return "", errors.Err(err)
-	}
-	t = r.ReplaceAllString(t, "")
-	return r2.ReplaceAllString(t, ""), nil
+	return t, nil
+	//r, err := regexp.Compile("/\\([^\\)]+\\)/g")
+	//if err != nil {
+	//	return "", errors.Err(err)
+	//}
+	//r2, err := regexp.Compile("/[^\\w-'& \+]/g")
+	//if err != nil {
+	//	return "", errors.Err(err)
+	//}
+	//t = r.ReplaceAllString(t, "")
+	//return r2.ReplaceAllString(t, ""), nil
 }
 
 type tagsSanitizer struct {
