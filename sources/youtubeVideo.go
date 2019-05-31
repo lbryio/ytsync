@@ -326,7 +326,7 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 			Tags:         tags,
 			Locations:    locations,
 		},
-		License:     util.PtrToString("Copyrighted (contact author)"),
+		License:     util.PtrToString("Copyrighted (contact publisher)"),
 		ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 		ChannelID:   &v.lbryChannelID,
 	}
@@ -485,7 +485,7 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 				ThumbnailURL: &thumbnailURL,
 			},
 			Author:      util.PtrToString(""),
-			License:     util.PtrToString("Copyrighted (contact author)"),
+			License:     util.PtrToString("Copyrighted (contact publisher)"),
 			ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 			Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
 			ChannelID:   &v.lbryChannelID,
