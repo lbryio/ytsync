@@ -355,34 +355,28 @@ func (s *Sync) ensureChannelOwnership() error {
 		locations = []jsonrpc.Location{{Country: util.PtrToString(channelInfo.Country)}}
 	}
 	var c *jsonrpc.TransactionSummary
+	claimCreateOptions := jsonrpc.ClaimCreateOptions{
+		Title:        &channelInfo.Title,
+		Description:  &channelInfo.Description,
+		Tags:         tagsManager.GetTagsForChannel(s.YoutubeChannelID),
+		Languages:    languages,
+		Locations:    locations,
+		ThumbnailURL: &thumbnailURL,
+	}
 	if channelUsesOldMetadata {
 		c, err = s.daemon.ChannelUpdate(s.lbryChannelID, jsonrpc.ChannelUpdateOptions{
 			ClearTags:      util.PtrToBool(true),
 			ClearLocations: util.PtrToBool(true),
 			ClearLanguages: util.PtrToBool(true),
 			ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
-				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-					Title:        channelInfo.Title,
-					Description:  channelInfo.Description,
-					Tags:         tagsManager.GetTagsForChannel(s.YoutubeChannelID),
-					Languages:    languages,
-					Locations:    locations,
-					ThumbnailURL: &thumbnailURL,
-				},
-				CoverURL: bannerURL,
+				ClaimCreateOptions: claimCreateOptions,
+				CoverURL:           bannerURL,
 			},
 		})
 	} else {
 		c, err = s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
-			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-				Title:        channelInfo.Title,
-				Description:  channelInfo.Description,
-				Tags:         tagsManager.GetTagsForChannel(s.YoutubeChannelID),
-				Languages:    languages,
-				Locations:    locations,
-				ThumbnailURL: &thumbnailURL,
-			},
-			CoverURL: bannerURL,
+			ClaimCreateOptions: claimCreateOptions,
+			CoverURL:           bannerURL,
 		})
 	}
 

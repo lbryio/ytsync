@@ -445,8 +445,9 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 }
 
 //updateRemoteDB counts the amount of videos published so far and updates the remote db if some videos weren't marked as published
-func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err error) {
+func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int, err error) {
 	count := 0
+	videoIDMap := make(map[string]string, len(claims))
 	for _, c := range claims {
 		if !isYtsyncClaim(c) {
 			continue
@@ -455,6 +456,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 		//check if claimID is in remote db
 		tn := c.Value.GetThumbnail().GetUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
+		videoIDMap[videoID] = c.ClaimID
 		pv, ok := s.syncedVideos[videoID]
 		if !ok || pv.ClaimName != c.Name {
 			fixed++
@@ -464,13 +466,33 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 				size = 0
 			}
 			metadataVersion := uint(1)
+			claimIsUpgraded := strings.Contains(tn, thumbs.ThumbnailEndpoint)
+			if claimIsUpgraded {
+				metadataVersion = 2
+			}
 			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", util.PtrToInt64(int64(size)), metadataVersion)
 			if err != nil {
-				return count, fixed, err
+				return count, fixed, 0, err
 			}
 		}
 	}
-	return count, fixed, nil
+	idsToRemove := make([]string, 0, len(videoIDMap))
+	for vID, sv := range s.syncedVideos {
+		_, ok := videoIDMap[vID]
+		if !ok && sv.Published {
+			log.Debugf("%s: claims to be published but wasn't found in the list of claims and will be removed if --remove-db-unpublished was specified", vID)
+			idsToRemove = append(idsToRemove, vID)
+		}
+	}
+	removeCount := 0
+	if s.Manager.removeDBUnpublished {
+		err := s.Manager.apiConfig.DeleteVideos(idsToRemove)
+		if err != nil {
+			return count, fixed, 0, err
+		}
+		removeCount++
+	}
+	return count, fixed, removeCount, nil
 }
 
 func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
@@ -516,16 +538,21 @@ func (s *Sync) doSync() error {
 		}
 	}
 
-	pubsOnWallet, nFixed, err := s.updateRemoteDB(allClaims)
+	pubsOnWallet, nFixed, nRemoved, err := s.updateRemoteDB(allClaims)
 	if err != nil {
 		return errors.Prefix("error counting claims", err)
 	}
-	if nFixed > 0 {
+	if nFixed > 0 || nRemoved > 0 {
 		err := s.setStatusSyncing()
 		if err != nil {
 			return err
 		}
-		SendInfoToSlack("%d claims were not on the remote database and were fixed", nFixed)
+		if nFixed > 0 {
+			SendInfoToSlack("%d claims were not on the remote database and were fixed", nFixed)
+		}
+		if nRemoved > 0 {
+			SendInfoToSlack("%d were marked as published but weren't actually published and thus removed from the database", nRemoved)
+		}
 	}
 	pubsOnDB := 0
 	for _, sv := range s.syncedVideos {
@@ -648,6 +675,8 @@ func (s *Sync) startWorker(workerNum int) {
 								SendErrorToSlack("failed to setup the wallet for a refill: %v", err)
 								break
 							}
+						} else if strings.Contains(err.Error(), "Error in daemon: 'str' object has no attribute 'get'") {
+							time.Sleep(5 * time.Second)
 						}
 						log.Println("Retrying")
 						continue

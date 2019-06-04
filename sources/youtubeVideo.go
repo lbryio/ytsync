@@ -174,8 +174,11 @@ func (v *YoutubeVideo) fallbackDownload() error {
 	cmd := exec.Command("youtube-dl",
 		v.ID(),
 		"--no-progress",
-		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+bestaudio/best[ext=mp4,height<=1080,filesize<2000M]",
-		"-o"+strings.TrimRight(v.getFullPath(), ".mp4"))
+		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+best[ext=mp4,height<=1080,filesize<2000M]",
+		"-o"+strings.TrimRight(v.getFullPath(), ".mp4"),
+		"--merge-output-format",
+		"mp4")
+
 	log.Printf("Running command and waiting for it to finish...")
 	output, err := cmd.CombinedOutput()
 	log.Debugln(string(output))
@@ -321,8 +324,8 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 
 	options := jsonrpc.StreamCreateOptions{
 		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-			Title:        v.title,
-			Description:  v.getAbbrevDescription(),
+			Title:        &v.title,
+			Description:  util.PtrToString(v.getAbbrevDescription()),
 			ClaimAddress: &claimAddress,
 			Languages:    languages,
 			ThumbnailURL: &v.thumbnailURL,
@@ -463,6 +466,8 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 				Author:    util.PtrToString(""),
 				License:   util.PtrToString("Copyrighted (contact publisher)"),
 				ChannelID: &v.lbryChannelID,
+				Height:    util.PtrToUint(720),
+				Width:     util.PtrToUint(1280),
 			},
 			FileSize: &videoSize,
 		})
@@ -487,8 +492,8 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		ClearTags:      util.PtrToBool(true),
 		StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-				Title:        v.title,
-				Description:  v.getAbbrevDescription(),
+				Title:        &v.title,
+				Description:  util.PtrToString(v.getAbbrevDescription()),
 				Tags:         tags,
 				Languages:    languages,
 				Locations:    locations,
@@ -496,8 +501,8 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			},
 			Author:      util.PtrToString(""),
 			License:     util.PtrToString("Copyrighted (contact publisher)"),
-			VideoHeight: util.PtrToUint(720),
-			VideoWidth:  util.PtrToUint(1280),
+			Height:      util.PtrToUint(720),
+			Width:       util.PtrToUint(1280),
 			ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 			Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
 			ChannelID:   &v.lbryChannelID,

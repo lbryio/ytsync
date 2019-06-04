@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lbryio/lbry.go/extras/api"
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/null"
 
@@ -166,6 +167,34 @@ const (
 	VideoStatusPublished = "published"
 	VideoStatusFailed    = "failed"
 )
+
+func (a *APIConfig) DeleteVideos(videos []string) error {
+	endpoint := a.ApiURL + "/yt/video_status"
+	videoIDs := strings.Join(videos, ",")
+	vals := url.Values{
+		"video_id":   {videoIDs},
+		"auth_token": {a.ApiToken},
+	}
+	res, _ := http.PostForm(endpoint, vals)
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+	response := api.Response{}
+	err := json.Unmarshal(body, response)
+	if err != nil {
+		return errors.Err(err)
+	}
+	if response.Error != nil {
+		return errors.Err(response.Error)
+	}
+	str, ok := response.Data.(string)
+	if !ok {
+		return errors.Err("%x", response.Data)
+	}
+	if str != "ok" {
+		return errors.Err(str)
+	}
+	return nil
+}
 
 func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64, metadataVersion uint) error {
 	endpoint := a.ApiURL + "/yt/video_status"

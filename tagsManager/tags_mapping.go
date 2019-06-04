@@ -1,6 +1,7 @@
 package tagsManager
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -60,6 +61,8 @@ func SanitizeTags(tags []string, youtubeChannelID string) ([]string, error) {
 		}
 	}
 	sanitizedTags := make([]string, 0, len(originalTags)+len(curatedTags))
+	sort.Strings(curatedTags)
+	sort.Strings(originalTags)
 	sanitizedTags = append(sanitizedTags, curatedTags...)
 	sanitizedTags = append(sanitizedTags, originalTags...)
 	return sanitizedTags, nil
@@ -130,11 +133,17 @@ func (ts *tagsSanitizer) add() {
 const (
 	Lunduke          = "UCkK9UDm_ZNrq_rIXCz3xCGA"
 	SwissExperiments = "UCNQfQvFMPnInwsU_iGYArJQ"
+	Juggling         = "UC2fhTIbnQlFYaFzyTcmPkXg"
+	JustJuggling     = "UCftqelpjmbFrUwr3VVzzVwA"
+	JordanBPeterson  = "UCL_f53ZEJxp8TtlOkHwMV9Q"
 )
 
 var channelWideTags = map[string][]string{
 	Lunduke:          {"linux", "technology"},
 	SwissExperiments: {"science & technology", "experiments", "switzerland"},
+	Juggling:         {"juggling", "circus arts", "malabares"},
+	JustJuggling:     {"juggling", "circus arts", "malabares"},
+	JordanBPeterson:  {"postmodernism", "psychology", "news"},
 }
 var tagsToSkip = map[string]*struct{}{
 	"#hangoutsonair":                         nil,

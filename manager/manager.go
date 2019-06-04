@@ -39,12 +39,13 @@ type SyncManager struct {
 	singleRun               bool
 	syncProperties          *sdk.SyncProperties
 	apiConfig               *sdk.APIConfig
+	removeDBUnpublished     bool
 }
 
 func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool, refill int, limit int,
 	skipSpaceCheck bool, syncUpdate bool, concurrentJobs int, concurrentVideos int, blobsDir string, videosLimit int,
 	maxVideoSize int, lbrycrdString string, awsS3ID string, awsS3Secret string, awsS3Region string, awsS3Bucket string,
-	syncStatus string, singleRun bool, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64) *SyncManager {
+	syncStatus string, singleRun bool, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64, removeDBUnpublished bool) *SyncManager {
 	return &SyncManager{
 		stopOnError:             stopOnError,
 		maxTries:                maxTries,
@@ -68,6 +69,7 @@ func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool
 		singleRun:               singleRun,
 		syncProperties:          syncProperties,
 		apiConfig:               apiConfig,
+		removeDBUnpublished:     removeDBUnpublished,
 	}
 }
 
