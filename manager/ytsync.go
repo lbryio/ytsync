@@ -484,7 +484,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 		}
 	}
 	removeCount := 0
-	if s.Manager.removeDBUnpublished {
+	if s.Manager.removeDBUnpublished && len(idsToRemove) > 0 {
 		err := s.Manager.apiConfig.DeleteVideos(idsToRemove)
 		if err != nil {
 			return count, fixed, 0, err
@@ -539,7 +539,7 @@ func (s *Sync) doSync() error {
 
 	pubsOnWallet, nFixed, nRemoved, err := s.updateRemoteDB(allClaims)
 	if err != nil {
-		return errors.Prefix("error counting claims", err)
+		return errors.Prefix("error updating remote database", err)
 	}
 	if nFixed > 0 || nRemoved > 0 {
 		err := s.setStatusSyncing()
