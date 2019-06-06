@@ -471,6 +471,7 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			return nil, errors.Err("the video must be republished as we can't get the right size")
 		}
 	}
+	v.size = util.PtrToInt64(int64(videoSize))
 	var fee *jsonrpc.Fee
 	if params.Fee != nil {
 		feeAmount, err := decimal.NewFromString(params.Fee.Amount)

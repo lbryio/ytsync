@@ -444,6 +444,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 }
 
 //updateRemoteDB counts the amount of videos published so far and updates the remote db if some videos weren't marked as published
+//additionally it removes all entries in the database indicating that a video is published when it's actually not
 func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int, err error) {
 	count := 0
 	videoIDMap := make(map[string]string, len(claims))
@@ -581,7 +582,7 @@ func (s *Sync) doSync() error {
 	}
 
 	if s.LbryChannelName == "@UCBerkeley" {
-		err = errors.Err("UCB is not supported on this version of YTSYNC")
+		err = errors.Err("UCB is not supported in this version of YTSYNC")
 	} else {
 		err = s.enqueueYoutubeVideos()
 	}
@@ -695,7 +696,7 @@ func (s *Sync) startWorker(workerNum int) {
 				}
 
 				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, existingClaimID, existingClaimName, err.Error(), existingClaimSize, 1)
+				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, existingClaimID, existingClaimName, err.Error(), existingClaimSize, 0)
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}

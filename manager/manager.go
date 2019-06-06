@@ -2,8 +2,6 @@ package manager
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"strings"
 	"syscall"
 	"time"
@@ -13,6 +11,9 @@ import (
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/util"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	log "github.com/sirupsen/logrus"
 )
 
