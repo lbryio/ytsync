@@ -74,18 +74,17 @@ type Sync struct {
 	AwsS3Secret             string
 	AwsS3Region             string
 	AwsS3Bucket             string
-
-	daemon          *jsonrpc.Client
-	claimAddress    string
-	videoDirectory  string
-	syncedVideosMux *sync.RWMutex
-	syncedVideos    map[string]sdk.SyncedVideo
-	grp             *stop.Group
-	lbryChannelID   string
-	namer           *namer.Namer
-
-	walletMux *sync.Mutex
-	queue     chan video
+	Fee                     *sdk.Fee
+	daemon                  *jsonrpc.Client
+	claimAddress            string
+	videoDirectory          string
+	syncedVideosMux         *sync.RWMutex
+	syncedVideos            map[string]sdk.SyncedVideo
+	grp                     *stop.Group
+	lbryChannelID           string
+	namer                   *namer.Namer
+	walletMux               *sync.Mutex
+	queue                   chan video
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string) {
@@ -876,6 +875,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		MaxVideoSize:   s.Manager.maxVideoSize,
 		Namer:          s.namer,
 		MaxVideoLength: s.Manager.maxVideoLength,
+		Fee:            s.Fee,
 	}
 
 	summary, err := v.Sync(s.daemon, sp, &sv, isUpgradeSync)

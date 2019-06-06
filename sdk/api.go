@@ -35,16 +35,17 @@ type SyncProperties struct {
 	YoutubeChannelID string
 }
 
+type Fee struct {
+	Amount   string `json:"amount"`
+	Address  string `json:"address"`
+	Currency string `json:"currency"`
+}
 type YoutubeChannel struct {
 	ChannelId          string `json:"channel_id"`
 	TotalVideos        uint   `json:"total_videos"`
 	DesiredChannelName string `json:"desired_channel_name"`
-	Fee                *struct {
-		Amount   string `json:"amount"`
-		Address  string `json:"address"`
-		Currency string `json:"currency"`
-	} `json:"fee"`
-	ChannelClaimID string `json:"channel_claim_id"`
+	Fee                *Fee   `json:"fee"`
+	ChannelClaimID     string `json:"channel_claim_id"`
 }
 
 func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeChannel, error) {

@@ -24,6 +24,7 @@ import (
 	"github.com/ChannelMeter/iso8601duration"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/nikooo777/ytdl"
+	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
 )
@@ -50,38 +51,38 @@ type YoutubeVideo struct {
 const reflectorURL = "http://blobs.lbry.io/"
 
 var youtubeCategories = map[string]string{
-	"1":  "Film & Animation",
-	"2":  "Autos & Vehicles",
-	"10": "Music",
-	"15": "Pets & Animals",
-	"17": "Sports",
-	"18": "Short Movies",
-	"19": "Travel & Events",
-	"20": "Gaming",
-	"21": "Videoblogging",
-	"22": "People & Blogs",
-	"23": "Comedy",
-	"24": "Entertainment",
-	"25": "News & Politics",
-	"26": "Howto & Style",
-	"27": "Education",
-	"28": "Science & Technology",
-	"29": "Nonprofits & Activism",
-	"30": "Movies",
-	"31": "Anime/Animation",
-	"32": "Action/Adventure",
-	"33": "Classics",
-	"34": "Comedy",
-	"35": "Documentary",
-	"36": "Drama",
-	"37": "Family",
-	"38": "Foreign",
-	"39": "Horror",
-	"40": "Sci-Fi/Fantasy",
-	"41": "Thriller",
-	"42": "Shorts",
-	"43": "Shows",
-	"44": "Trailers",
+	"1":  "film & animation",
+	"2":  "autos & vehicles",
+	"10": "music",
+	"15": "pets & animals",
+	"17": "sports",
+	"18": "short movies",
+	"19": "travel & events",
+	"20": "gaming",
+	"21": "videoblogging",
+	"22": "people & blogs",
+	"23": "comedy",
+	"24": "entertainment",
+	"25": "news & politics",
+	"26": "howto & style",
+	"27": "education",
+	"28": "science & technology",
+	"29": "nonprofits & activism",
+	"30": "movies",
+	"31": "anime/animation",
+	"32": "action/adventure",
+	"33": "classics",
+	"34": "comedy",
+	"35": "documentary",
+	"36": "drama",
+	"37": "family",
+	"38": "foreign",
+	"39": "horror",
+	"40": "sci-fi/fantasy",
+	"41": "thriller",
+	"42": "shorts",
+	"43": "shows",
+	"44": "trailers",
 }
 
 func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64, awsConfig aws.Config) *YoutubeVideo {
@@ -319,19 +320,33 @@ func (v *YoutubeVideo) triggerThumbnailSave() (err error) {
 	return err
 }
 
-func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amount float64, namer *namer.Namer) (*SyncSummary, error) {
+func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	languages, locations, tags := v.getMetadata()
+
+	var fee *jsonrpc.Fee
+	if params.Fee != nil {
+		feeAmount, err := decimal.NewFromString(params.Fee.Amount)
+		if err != nil {
+			return nil, errors.Err(err)
+		}
+		fee = &jsonrpc.Fee{
+			FeeAddress:  &params.Fee.Address,
+			FeeAmount:   feeAmount,
+			FeeCurrency: jsonrpc.Currency(params.Fee.Currency),
+		}
+	}
 
 	options := jsonrpc.StreamCreateOptions{
 		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 			Title:        &v.title,
 			Description:  util.PtrToString(v.getAbbrevDescription()),
-			ClaimAddress: &claimAddress,
+			ClaimAddress: &params.ClaimAddress,
 			Languages:    languages,
 			ThumbnailURL: &v.thumbnailURL,
 			Tags:         tags,
 			Locations:    locations,
 		},
+		Fee:         fee,
 		License:     util.PtrToString("Copyrighted (contact publisher)"),
 		ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 		ChannelID:   &v.lbryChannelID,
@@ -340,7 +355,7 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, claimAddress string, amou
 	if err != nil {
 		return nil, err
 	}
-	return publishAndRetryExistingNames(daemon, v.title, downloadPath, amount, options, namer)
+	return publishAndRetryExistingNames(daemon, v.title, downloadPath, params.Amount, options, params.Namer)
 }
 
 func (v *YoutubeVideo) Size() *int64 {
@@ -354,6 +369,7 @@ type SyncParams struct {
 	MaxVideoSize   int
 	Namer          *namer.Namer
 	MaxVideoLength float64
+	Fee            *sdk.Fee
 }
 
 func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool) (*SyncSummary, error) {
@@ -385,7 +401,7 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 	}
 	log.Debugln("Created thumbnail for " + v.id)
 
-	summary, err := v.publish(daemon, params.ClaimAddress, params.Amount, params.Namer)
+	summary, err := v.publish(daemon, params)
 	//delete the video in all cases (and ignore the error)
 	_ = v.delete()
 
@@ -455,21 +471,37 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			return nil, errors.Err("the video must be republished as we can't get the right size")
 		}
 	}
+	var fee *jsonrpc.Fee
+	if params.Fee != nil {
+		feeAmount, err := decimal.NewFromString(params.Fee.Amount)
+		if err != nil {
+			return nil, errors.Err(err)
+		}
+		fee = &jsonrpc.Fee{
+			FeeAddress:  &params.Fee.Address,
+			FeeAmount:   feeAmount,
+			FeeCurrency: jsonrpc.Currency(params.Fee.Currency),
+		}
+	}
+	streamCreateOptions := &jsonrpc.StreamCreateOptions{
+		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+			Tags:         tags,
+			ThumbnailURL: &thumbnailURL,
+			Languages:    languages,
+			Locations:    locations,
+		},
+		Author:    util.PtrToString(""),
+		License:   util.PtrToString("Copyrighted (contact publisher)"),
+		ChannelID: &v.lbryChannelID,
+		Height:    util.PtrToUint(720),
+		Width:     util.PtrToUint(1280),
+		Fee:       fee,
+	}
 
 	if v.mocked {
 		pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
-			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
-				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-					Tags:         tags,
-					ThumbnailURL: &thumbnailURL,
-				},
-				Author:    util.PtrToString(""),
-				License:   util.PtrToString("Copyrighted (contact publisher)"),
-				ChannelID: &v.lbryChannelID,
-				Height:    util.PtrToUint(720),
-				Width:     util.PtrToUint(1280),
-			},
-			FileSize: &videoSize,
+			StreamCreateOptions: streamCreateOptions,
+			FileSize:            &videoSize,
 		})
 		if err != nil {
 			return nil, err
@@ -486,28 +518,16 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		return nil, errors.Err(err)
 	}
 
+	streamCreateOptions.ClaimCreateOptions.Title = &v.title
+	streamCreateOptions.ClaimCreateOptions.Description = util.PtrToString(v.getAbbrevDescription())
+	streamCreateOptions.Duration = util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds())))
+	streamCreateOptions.ReleaseTime = util.PtrToInt64(v.publishedAt.Unix())
 	pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
-		ClearLanguages: util.PtrToBool(true),
-		ClearLocations: util.PtrToBool(true),
-		ClearTags:      util.PtrToBool(true),
-		StreamCreateOptions: &jsonrpc.StreamCreateOptions{
-			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-				Title:        &v.title,
-				Description:  util.PtrToString(v.getAbbrevDescription()),
-				Tags:         tags,
-				Languages:    languages,
-				Locations:    locations,
-				ThumbnailURL: &thumbnailURL,
-			},
-			Author:      util.PtrToString(""),
-			License:     util.PtrToString("Copyrighted (contact publisher)"),
-			Height:      util.PtrToUint(720),
-			Width:       util.PtrToUint(1280),
-			ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
-			Duration:    util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds()))),
-			ChannelID:   &v.lbryChannelID,
-		},
-		FileSize: &videoSize,
+		ClearLanguages:      util.PtrToBool(true),
+		ClearLocations:      util.PtrToBool(true),
+		ClearTags:           util.PtrToBool(true),
+		StreamCreateOptions: streamCreateOptions,
+		FileSize:            &videoSize,
 	})
 	if err != nil {
 		return nil, err

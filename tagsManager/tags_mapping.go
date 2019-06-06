@@ -1,8 +1,11 @@
 package tagsManager
 
 import (
+	"regexp"
 	"sort"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -70,17 +73,23 @@ func SanitizeTags(tags []string, youtubeChannelID string) ([]string, error) {
 
 func normalizeTag(t string) (string, error) {
 	t = strings.ToLower(t)
+	multipleSpaces := regexp.MustCompile(`\s{2,}`)
+	leadingAndTrailingSpaces := regexp.MustCompile(`^\s+|\s$`)
+	hashTags := regexp.MustCompile(`(#\d+\s)|#+`)
+	inParenthesis := regexp.MustCompile(`\([^\)]+\)`)
+	weirdChars := regexp.MustCompile(`[^-\w'& +\/A-Za-zÀ-ÖØ-öø-ÿ]`)
+	startsOrEndsInWeirdChars := regexp.MustCompile(`^[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+|[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+$`)
+	t = hashTags.ReplaceAllString(t, "")
+	t = inParenthesis.ReplaceAllString(t, " ")
+	t = startsOrEndsInWeirdChars.ReplaceAllString(t, "")
+	t = multipleSpaces.ReplaceAllString(t, " ")
+	t = leadingAndTrailingSpaces.ReplaceAllString(t, "")
+	if weirdChars.MatchString(t) {
+		log.Debugf("tag '%s' has weird stuff in it, skipping\n", t)
+		return "", nil
+
+	}
 	return t, nil
-	//r, err := regexp.Compile("/\\([^\\)]+\\)/g")
-	//if err != nil {
-	//	return "", errors.Err(err)
-	//}
-	//r2, err := regexp.Compile("/[^\\w-'& \+]/g")
-	//if err != nil {
-	//	return "", errors.Err(err)
-	//}
-	//t = r.ReplaceAllString(t, "")
-	//return r2.ReplaceAllString(t, ""), nil
 }
 
 type tagsSanitizer struct {

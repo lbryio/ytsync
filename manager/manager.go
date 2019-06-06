@@ -133,6 +133,7 @@ func (s *SyncManager) Start() error {
 				AwsS3Region:             s.awsS3Region,
 				AwsS3Bucket:             s.awsS3Bucket,
 				namer:                   namer.NewNamer(),
+				Fee:                     channels[0].Fee,
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -167,6 +168,7 @@ func (s *SyncManager) Start() error {
 						AwsS3Region:             s.awsS3Region,
 						AwsS3Bucket:             s.awsS3Bucket,
 						namer:                   namer.NewNamer(),
+						Fee:                     c.Fee,
 					})
 				}
 			}
