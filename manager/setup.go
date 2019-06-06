@@ -84,7 +84,7 @@ func (s *Sync) walletSetup() error {
 	}
 
 	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
-	if s.Manager.syncStatus == StatusPendingUpgrade {
+	if s.Manager.upgradeMetadata {
 		videosToUpgrade := 0
 		for _, v := range s.syncedVideos {
 			if v.Published && v.MetadataVersion < 2 {

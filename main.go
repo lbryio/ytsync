@@ -37,6 +37,7 @@ var (
 	maxVideoSize            int
 	maxVideoLength          float64
 	removeDBUnpublished     bool
+	upgradeMetadata         bool
 )
 
 func main() {
@@ -57,7 +58,8 @@ func main() {
 	cmd.Flags().BoolVar(&skipSpaceCheck, "skip-space-check", false, "Do not perform free space check on startup")
 	cmd.Flags().BoolVar(&syncUpdate, "update", false, "Update previously synced channels instead of syncing new ones")
 	cmd.Flags().BoolVar(&singleRun, "run-once", false, "Whether the process should be stopped after one cycle or not")
-	cmd.Flags().BoolVar(&singleRun, "remove-db-unpublished", false, "Remove videos from the database that are marked as published but aren't really published")
+	cmd.Flags().BoolVar(&removeDBUnpublished, "remove-db-unpublished", false, "Remove videos from the database that are marked as published but aren't really published")
+	cmd.Flags().BoolVar(&upgradeMetadata, "upgrade-metadata", false, "Upgrade videos if they're on the old metadata version")
 	cmd.Flags().StringVar(&syncStatus, "status", "", "Specify which queue to pull from. Overrides --update")
 	cmd.Flags().StringVar(&channelID, "channelID", "", "If specified, only this channel will be synced.")
 	cmd.Flags().Int64Var(&syncFrom, "after", time.Unix(0, 0).Unix(), "Specify from when to pull jobs [Unix time](Default: 0)")
@@ -191,6 +193,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 		apiConfig,
 		maxVideoLength,
 		removeDBUnpublished,
+		upgradeMetadata,
 	)
 	err := sm.Start()
 	if err != nil {

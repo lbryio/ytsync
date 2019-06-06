@@ -833,8 +833,9 @@ func (s *Sync) processVideo(v video) (err error) {
 	s.syncedVideosMux.RLock()
 	sv, ok := s.syncedVideos[v.ID()]
 	s.syncedVideosMux.RUnlock()
+	newMetadataVersion := int8(2)
 	alreadyPublished := ok && sv.Published
-	isUpgradeSync := s.Manager.syncStatus == StatusPendingUpgrade
+	videoRequiresUpgrade := s.Manager.upgradeMetadata && sv.MetadataVersion < newMetadataVersion
 
 	neverRetryFailures := []string{
 		"Error extracting sts from embedded url response",
@@ -850,11 +851,10 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if alreadyPublished && !isUpgradeSync {
+	if alreadyPublished && !videoRequiresUpgrade {
 		log.Println(v.ID() + " already published")
 		return nil
 	}
-	newMetadataVersion := int8(2)
 	if ok && sv.MetadataVersion >= newMetadataVersion {
 		log.Println(v.ID() + " upgraded to the new metadata")
 		return nil
@@ -878,7 +878,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		Fee:            s.Fee,
 	}
 
-	summary, err := v.Sync(s.daemon, sp, &sv, isUpgradeSync)
+	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade)
 	if err != nil {
 		return err
 	}
