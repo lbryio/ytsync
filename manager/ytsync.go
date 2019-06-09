@@ -457,20 +457,39 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 		tn := c.Value.GetThumbnail().GetUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 		videoIDMap[videoID] = c.ClaimID
-		pv, ok := s.syncedVideos[videoID]
-		if !ok || pv.ClaimName != c.Name {
-			fixed++
-			log.Debugf("adding %s to the database", c.Name)
-			size, err := c.GetStreamSizeByMagic()
+		pv, claimInDatabase := s.syncedVideos[videoID]
+		claimMetadataVersion := uint(1)
+		if strings.Contains(tn, thumbs.ThumbnailEndpoint) {
+			claimMetadataVersion = 2
+		}
+
+		metadataDiffers := claimInDatabase && pv.MetadataVersion != int8(claimMetadataVersion)
+		claimIDDiffers := claimInDatabase && pv.ClaimID != c.ClaimID
+		claimNameDiffers := claimInDatabase && pv.ClaimName != c.Name
+		claimMarkedUnpublished := claimInDatabase && !pv.Published
+		if metadataDiffers {
+			log.Debugf("%s: Mismatch in database for metadata. DB: %d - Blockchain: %d", videoID, pv.MetadataVersion, claimMetadataVersion)
+		}
+		if claimIDDiffers {
+			log.Debugf("%s: Mismatch in database for claimID. DB: %s - Blockchain: %s", videoID, pv.ClaimID, c.ClaimID)
+		}
+		if claimIDDiffers {
+			log.Debugf("%s: Mismatch in database for claimName. DB: %s - Blockchain: %s", videoID, pv.ClaimName, c.Name)
+		}
+		if claimMarkedUnpublished {
+			log.Debugf("%s: Mismatch in database: published but marked as unpublished", videoID)
+		}
+		if !claimInDatabase {
+			log.Debugf("%s: Published but is not in database", videoID, pv.ClaimName, c.Name)
+		}
+		if !claimInDatabase || metadataDiffers || claimIDDiffers || claimNameDiffers || claimMarkedUnpublished {
+			claimSize, err := c.GetStreamSizeByMagic()
 			if err != nil {
-				size = 0
+				claimSize = 0
 			}
-			metadataVersion := uint(1)
-			claimIsUpgraded := strings.Contains(tn, thumbs.ThumbnailEndpoint)
-			if claimIsUpgraded {
-				metadataVersion = 2
-			}
-			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", util.PtrToInt64(int64(size)), metadataVersion)
+			fixed++
+			log.Debugf("updating %s in the database", videoID)
+			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", util.PtrToInt64(int64(claimSize)), claimMetadataVersion)
 			if err != nil {
 				return count, fixed, 0, err
 			}
@@ -484,15 +503,13 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 			idsToRemove = append(idsToRemove, vID)
 		}
 	}
-	removeCount := 0
 	if s.Manager.removeDBUnpublished && len(idsToRemove) > 0 {
 		err := s.Manager.apiConfig.DeleteVideos(idsToRemove)
 		if err != nil {
 			return count, fixed, 0, err
 		}
-		removeCount++
 	}
-	return count, fixed, removeCount, nil
+	return count, fixed, len(idsToRemove), nil
 }
 
 func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
@@ -548,7 +565,7 @@ func (s *Sync) doSync() error {
 			return err
 		}
 		if nFixed > 0 {
-			SendInfoToSlack("%d claims were not on the remote database and were fixed", nFixed)
+			SendInfoToSlack("%d claims had mismatched database info or were completely missing and were fixed", nFixed)
 		}
 		if nRemoved > 0 {
 			SendInfoToSlack("%d were marked as published but weren't actually published and thus removed from the database", nRemoved)
@@ -836,7 +853,7 @@ func (s *Sync) processVideo(v video) (err error) {
 	s.syncedVideosMux.RUnlock()
 	newMetadataVersion := int8(2)
 	alreadyPublished := ok && sv.Published
-	videoRequiresUpgrade := s.Manager.upgradeMetadata && sv.MetadataVersion < newMetadataVersion
+	videoRequiresUpgrade := ok && s.Manager.upgradeMetadata && sv.MetadataVersion < newMetadataVersion
 
 	neverRetryFailures := []string{
 		"Error extracting sts from embedded url response",
@@ -861,7 +878,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if v.PlaylistPosition() > s.Manager.videosLimit {
+	if !videoRequiresUpgrade && v.PlaylistPosition() > s.Manager.videosLimit {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}

@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,7 +22,7 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
-const minimumRefillAmount = 3
+const minimumRefillAmount = 4
 
 func (s *Sync) enableAddressReuse() error {
 	accountsResponse, err := s.daemon.AccountList()
@@ -189,9 +190,10 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		broadcastFee := 0.01
 		amountToSplit := fmt.Sprintf("%.6f", balanceAmount-broadcastFee)
 
-		log.Infof("Splitting balance of %s evenly between 40 UTXOs", *balance)
+		desiredUTXOCount := uint64(math.Floor((balanceAmount - broadcastFee) / 0.1))
+		log.Infof("Splitting balance of %s evenly between %d UTXOs", *balance, desiredUTXOCount)
 
-		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, amountToSplit, uint64(target))
+		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, amountToSplit, desiredUTXOCount)
 		if err != nil {
 			return err
 		} else if prefillTx == nil {
