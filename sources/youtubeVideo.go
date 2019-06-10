@@ -378,7 +378,7 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 	v.lbryChannelID = params.ChannelID
 	if reprocess && existingVideoData != nil && existingVideoData.Published {
 		summary, err := v.reprocess(daemon, params, existingVideoData)
-		return summary, err
+		return summary, errors.Prefix("upgrade failed", err)
 	}
 	return v.downloadAndPublish(daemon, params)
 }

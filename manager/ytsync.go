@@ -711,9 +711,12 @@ func (s *Sync) startWorker(workerNum int) {
 						existingClaimSize = &existingClaim.Size
 					}
 				}
-
+				videoStatus := VideoStatusFailed
+				if strings.Contains(err.Error(), "upgrade failed") {
+					videoStatus = VideoStatusUpgradeFailed
+				}
 				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, existingClaimID, existingClaimName, err.Error(), existingClaimSize, 0)
+				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), videoStatus, existingClaimID, existingClaimName, err.Error(), existingClaimSize, 0)
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
