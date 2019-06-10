@@ -146,6 +146,7 @@ const (
 	JustJuggling     = "UCftqelpjmbFrUwr3VVzzVwA"
 	JordanBPeterson  = "UCL_f53ZEJxp8TtlOkHwMV9Q"
 	DavidPakman      = "UCvixJtaXuNdMPUGdOPcY8Ag"
+	TheLinuxGamer    = "UCv1Kcz-CuGM6mxzL3B1_Eiw"
 )
 
 var channelWideTags = map[string][]string{
@@ -155,6 +156,7 @@ var channelWideTags = map[string][]string{
 	JustJuggling:     {"juggling", "circus arts", "malabares"},
 	JordanBPeterson:  {"postmodernism", "psychology", "news"},
 	DavidPakman:      {"news"},
+	TheLinuxGamer:    {"gaming", "technology", "linux"},
 }
 var tagsToSkip = map[string]*struct{}{
 	"#hangoutsonair":                         nil,

@@ -480,7 +480,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 			log.Debugf("%s: Mismatch in database: published but marked as unpublished", videoID)
 		}
 		if !claimInDatabase {
-			log.Debugf("%s: Published but is not in database", videoID, pv.ClaimName, c.Name)
+			log.Debugf("%s: Published but is not in database (%s - %s)", videoID, c.Name, c.ClaimID)
 		}
 		if !claimInDatabase || metadataDiffers || claimIDDiffers || claimNameDiffers || claimMarkedUnpublished {
 			claimSize, err := c.GetStreamSizeByMagic()
