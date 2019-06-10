@@ -55,7 +55,7 @@ Usage:
 
 Flags:
       --after int                   Specify from when to pull jobs [Unix time](Default: 0)
-      --before int                  Specify until when to pull jobs [Unix time](Default: current Unix time) (default 1582834707)
+      --before int                  Specify until when to pull jobs [Unix time](Default: current Unix time) (default current timestamp)
       --channelID string            If specified, only this channel will be synced.
       --concurrent-jobs int         how many jobs to process concurrently (default 1)
   -h, --help                        help for ytsync
@@ -63,12 +63,14 @@ Flags:
       --max-length float            Maximum video length to process (in hours) (default 2)
       --max-size int                Maximum video size to process (in MB) (default 2048)
       --max-tries int               Number of times to try a publish that fails (default 3)
+      --remove-db-unpublished       Remove videos from the database that are marked as published but aren't really published
       --run-once                    Whether the process should be stopped after one cycle or not
       --skip-space-check            Do not perform free space check on startup
       --status string               Specify which queue to pull from. Overrides --update
       --stop-on-error               If a publish fails, stop all publishing and exit
       --takeover-existing-channel   If channel exists and we don't own it, take over the channel
       --update                      Update previously synced channels instead of syncing new ones
+      --upgrade-metadata            Upgrade videos if they're on the old metadata version
       --videos-limit int            how many videos to process per channel (default 1000)
 ```
 
