@@ -140,23 +140,415 @@ func (ts *tagsSanitizer) add() {
 }
 
 const (
-	Lunduke          = "UCkK9UDm_ZNrq_rIXCz3xCGA"
-	SwissExperiments = "UCNQfQvFMPnInwsU_iGYArJQ"
-	Juggling         = "UC2fhTIbnQlFYaFzyTcmPkXg"
-	JustJuggling     = "UCftqelpjmbFrUwr3VVzzVwA"
-	JordanBPeterson  = "UCL_f53ZEJxp8TtlOkHwMV9Q"
-	DavidPakman      = "UCvixJtaXuNdMPUGdOPcY8Ag"
-	TheLinuxGamer    = "UCv1Kcz-CuGM6mxzL3B1_Eiw"
+	SwissExperiments                    = "UCNQfQvFMPnInwsU_iGYArJQ"
+	JustJuggling                        = "UCftqelpjmbFrUwr3VVzzVwA"
+	anupjanakpur                        = "UC_5tRfC4L2AbTz6mj6vZrKw"
+	PraveenMedia                        = "UC_fjE70lKNwM9AKIofQv-bA"
+	MisteriosDesvelados                 = "UC-FzxivscjYzonBDXgX2GLg"
+	kaipenchery                         = "UC-MU4K3Ghl-IdEX4J68tnTA"
+	Dhinchakpooja                       = "UC-stzLwoQF_R8Vnfb28d7Lg"
+	Karolajn                            = "UC-vYDJQiabg9BK8XTDPFspg"
+	thefantasio974                      = "UC0GHeUcPxfNEZqbFyxy2frQ"
+	EduPrimitivo                        = "UC0odmP6ffEw3iVwTEyt-UKA"
+	isupportanupriyapatel               = "UC0sxOzdHnmauMdOra0cxXVg"
+	theconfusedindian                   = "UC12ZPYxQbMA1loZE1OA609w"
+	guriaarts                           = "UC1fHp166o1Hd024fg3-d-jg"
+	minutodafisica                      = "UC1lUEcHrQwbusC5ext1himg"
+	khabir                              = "UC1yzNCXXk1h_tHgsqChE8mw"
+	OMapadaMinaMara                     = "UC2WMUPTbxQQ9hXq2_uutspg"
+	oliverjanich                        = "UC3cmEfpy4XED7YYEe69nIMA"
+	shyamsadhu                          = "UC3XAT8oBjL2RaqfblESHW_A"
+	EbaduRahmantech                     = "UC4950gpY6Qw1lCAcN6gNWwQ"
+	_1975oles                           = "UC4bGQWN4C8idymxlZxw77oA"
+	_8dsongsbollywood                   = "UC4nH7zmw41lRDbaiIddumjw"
+	EYESTV                              = "UC50CIbyHMydEEzEhV1ZNEBw"
+	Nono                                = "UC5yufoRPJy-1e1pR73UTxFQ"
+	lichtle                             = "UC6n_2v7YjwZ65F9h77nZPOA"
+	elabuelokraken                      = "UC7iWk2xziMR4hs_NzfsYytw"
+	cidvela                             = "UCaVOx5GCcSi2ELjWUdf05PA"
+	jayaskumar                          = "UCax9CJCQ6aY0bntP3mcIWKQ"
+	canaldarippi                        = "UCB_fba7yYMwa91F7rijBsVA"
+	FunMusicClassical                   = "UCB_X256IN7QiBtDkueo_6QQ"
+	minutodaterra                       = "UCB0zinWfy-dS_NqcOINYo3A"
+	franciscoalves                      = "UCbAm6YcZGk04obnFb-LuOSA"
+	criptomonedastv                     = "UCbK6Awel1-o-9JDVMFq808Q"
+	lux77                               = "UCBYm4l3NX352goFtjSgZ7jA"
+	MrLuckyOficial                      = "UCEbMhGhZ1JoOYKgbgVyeQaA"
+	KotneKit                            = "UCf_1BQz3T151Eph0Sarj3Yw"
+	jaysgaming                          = "UCFAkedtc3jjDZQqqIULxqWg"
+	iamdineshthakur                     = "UCg0VInmUZoSdHD-DNmjifBA"
+	Musicreationz                       = "UCGJEtZB0Nj3rT3zZfyfjIZQ"
+	lafenixtv                           = "UCHAx8o0jj-8L_sqR5QM1Cwg"
+	guardeiafe                          = "UCHWjmG-Ce93VNcNZMMUyGQQ"
+	KHANEKIKHUSHBOO                     = "UCI8DRKcrfrHklRqSJHPhOwQ"
+	AjayGamingYT                        = "UCi9r5igvQblbI0PhJFj-IDg"
+	SzekelyVegan                        = "UCiqvKH1Ib_VPwh9bQf_hlXQ"
+	barzoy888                           = "UCIYF1orTg4nDvv29ORoKXyA"
+	_7playstudiopersian                 = "UCJ3QUKcd9yOhiJzZBR2zT3Q"
+	eazypurple                          = "UCJ6Hd8S39g7pe65A6k42NZw"
+	GennadyM                            = "UCjZlOrmC7hi_1kMA6BKZXeQ"
+	GTGujarati                          = "UCKnYZmYFdFX4hP09Hh8k8jw"
+	annapavlidou                        = "UCKPSHyCFIDtMqzbJ_Qx-7aw"
+	Tamilmemesclub                      = "UCL_DPW38jcSGWy0Fu0A_hCg"
+	QuickReactionTeam                   = "UCl--LVcANGKHJYN7O8uY6OA"
+	rodrigojoseoficial                  = "UClMsSb57Jvexl1a0a2c2_CQ"
+	AzadChaiwala                        = "UCM5QNdoIefx6eumjPk8ZTMw"
+	lafenixextras                       = "UCM7zougvyPtfd9zw5HmAGlg"
+	JustSawAGhost                       = "UCmQYXE03n6qlF9FhtAPztcw"
+	mirchibangla                        = "UCmzj6hXrPZ_AwIZ8lgo-HuQ"
+	marsaguirre                         = "UCN3OMvdU7ySvE6meGjo9omg"
+	JustGoool                           = "UCn7kTV_syU_rI0jANxrpaFg"
+	nossocanal                          = "UCNDb9jdx5Jz-C7hWJv3y6Fw"
+	CSNN                                = "UCnfn-8PJbjYFAJ1fqzMdcew"
+	pedronedved                         = "UCNhb2Fz3sVLZcMb_arm1cMQ"
+	famoosh                             = "UCnQU2QZLVG1wxHoy_9LZucA"
+	Cenoritas                           = "UCo-VSGoYy_4IjXF9u4QqTiw"
+	fantabobgames                       = "UCo0U1tbk3YbqiLDhkeWOviQ"
+	thesoundofsoul                      = "UCOey6R7Ktnil8RZrY_xJYiA"
+	SaurabhMishraJournalist             = "UCoHVCBoSfUOlQVa80dlN60g"
+	YoYoHoneySinghlive                  = "UCOZTp3nGj39-snzo4QSdduA"
+	CINEGLITZ                           = "UCP_p8JkLOwPcGAnxN1iVhZA"
+	lovetreta                           = "UCPi3uuGrh2mxnZJMfRhcjiw"
+	canalvendimeusofa                   = "UCpk58NDdaKdX0QiiA2e79tg"
+	CARIBEANVIDEOS                      = "UCPynGkfzH35RKyXRccCgzNg"
+	Dimon                               = "UCpZsZZ6KEqCHeAJ_Y0gEbyQ"
+	Anantvijaysoni                      = "UCQ3NeFKF2yo70xxBBUDeXXQ"
+	canalilhadebarbados                 = "UCR5L_Q8Tiljy7WKEQOrGKbg"
+	SotomayorTV2                        = "UCR70CjRHxQilfEUgBBYpDhg"
+	Recipesarab                         = "UCRbMDfkH_bPUjQsv5dHcFQA"
+	_4ak10                              = "UCsbrIjDPPXuVlWApYTnQECA"
+	Top50                               = "UCSjXR8uvU4PijMM_kgyVQfw"
+	SoumyajitPyne                       = "UCSJXwgF3SePNfyojYG3yt6Q"
+	SneksShow                           = "UCsqZSkVccnyIxSE6pZuj13g"
+	casadosaber                         = "UCtvvTFp0XANyllOdmzZr9VQ"
+	Entarexyt                           = "UCuDkq6yAb5zdM2zIRG6VRDw"
+	UCurU6GLM4ggcLtWWAOTzlYw            = "UCurU6GLM4ggcLtWWAOTzlYw"
+	promining                           = "UCviqKxlMnZqBipTzwixkGyg"
+	zapkids                             = "UCx2uGhYa9EuCNmbL72hVKGg"
+	Canalokok                           = "UCXyCAcjoWz9SMLGJT8dR0pA"
+	SmoothGames                         = "UCY8gvG25rOZ4hWWvcQH88PQ"
+	LIGATFA                             = "UCYhiIMOlDn_HEn3zvqZCDiw"
+	DeHamad                             = "UCZ5G07Vw7IaV81InBgYLCcg"
+	misszizi                            = "UCE55WTFs4ekJ_aWCoNEapbQ"
+	creationshub                        = "UCNfELkowZPIQ-Vegmb3pIBQ"
+	AlicePandora                        = "UCScRxEtwlt082_6ThI0YJbg"
+	Akito0405                           = "UCXHWx1teSYIKwTGiscYaC-Q"
+	dashcambristol                      = "UCD0IC8bZI-MfIutkgPHlyWA"
+	adrianbonillap                      = "UCdmY7p_kC-QN8jS7rocmCSA"
+	SubhamVlogs                         = "UCXtdoCLRlnLIW3Skix0rHaQ"
+	DisciplesofJesusChristJeremiahPayne = "UC_y2rVsotcQcVF7LImVGs5Q"
+	ModernGalaxy                        = "UCGISiGs_RL7Z1qfs1-GD6PA"
+	socofilms                           = "UCyDS9p6NWHpU9XbbbYLFLBw"
+	buriedone                           = "UC_lm7xXB3adOTc0T1FwyGRQ"
+	bitcoin                             = "UC-f5nPBEDyUBZz_jOPBwAfQ"
+	globalrashid                        = "UC2ldcEtbR7cFYadgrnW3B6Q"
+	gameofbitcoins                      = "UC2WKsYBxMwx7E7ENkND-fkg"
+	CryptoInsightsBrasil                = "UC4BrnREinCBUenQZi4ZU95w"
+	Crypt0                              = "UCdUSSt-IEUg2eq46rD7lu_g"
+	cryptomined                         = "UCGQ3XHtsH8Q9iQr9bFbgfDA"
+	altcoinbuzz                         = "UCGyqEtcGQQtXyUwvcy7Gmyg"
+	crypto                              = "UCiMgF08KQ4z-Gnu8o2BLOxA"
+	Crypto99                            = "UCjsrdOJCAKcuBqyyqjg1cCQ"
+	TheCryptoLark                       = "UCl2oCaw8hdR_kbqyqd2klIA"
+	NuggetsNews                         = "UCLo66QVfEod0nNM_GzKNxmQ"
+	btckyle                             = "UCNCGCxxTT10aeTgUMHW5FfQ"
+	LouisThomas                         = "UCpceefaJ9vs4RYUTsO9Y3FA"
+	BitsBeTrippin                       = "UCVVWXoQfMfQVuzxcLylq9aA"
+	cryptocrow                          = "UCwsRWmIL5XKqFtdytBfeX0g"
+	KouSuccessLeeFX                     = "UC0YkP4Fg_d8y6JFwLj3MLdg"
+	TheSchiffReport                     = "UCIjuLiLHdFxYtFmWlbTGQRQ"
+	MRU                                 = "UCnkEhPBMZcEO0QGu51fDFDg"
+	Vidello                             = "UCwMaWqZ6SdDpTaYOW0huELw"
+	kaccreative                         = "UC02O9ICMuwrfULSa0N6SiSw"
+	shecooks                            = "UChZYqTJkeYV2r7WETcytdPQ"
+	vegsource                           = "UClEsPxvotpTJ1Z8eu2Y97rg"
+	VeganGains                          = "UCr2eKhGzPhN5RPVk5dd5o3g"
+	AwesomeKnowledge                    = "UC_pC4T8vr-caiNDYU6PYTTA"
+	luckyloush                          = "UCbO0Oomf_jr20Wb4V2ap5Uw"
+	MichaelLuzzi                        = "UCDwLrj4DSGrw3gFvANbl_Cw"
+	NakedApe                            = "UCMOaRU-YsXVgU-WahBkZqWQ"
+	ParaReact                           = "UCuJKELjsmWTlJG0X7T4ZD_A"
+	dullytv                             = "UCv1J91Nhn7KsxMFaxKChT3w"
+	REDONKULAS                          = "UCwd_sSDZ8EQt6SEeOO2tBRA"
+	RedactedTonight                     = "UCyvaZ2RHEDrgKXz43gz7CbQ"
+	TonyTornado                         = "UCZu9AV3mrCCDpK_dy1qJRAQ"
+	hoodlumscrafty                      = "UC0cTVjYKgAnBrXQKcICyNmA"
+	Karmakut                            = "UC2B8TOklu2rSDULqAzwn5GQ"
+	Draxr                               = "UC72o3j23E1wKskBDEKlmTOw"
+	BigfryTV                            = "UC7FVdUA3SxDMfl4fLBGlADg"
+	CSGONews                            = "UC7L6NRLyldvxWukhOHABazQ"
+	ZedGaming                           = "UC7Q15H71DmB7F1iSFE1Z8LQ"
+	KamiVS                              = "UC9fh15yUcGAr8iUfQaoRRpQ"
+	grabthegames                        = "UCaJFEgY6ij05Fxgn6qtcX_g"
+	blueplays                           = "UCbjMsFlYb2NLpjS3uDzm9ow"
+	ImNotBonkers                        = "UCCyN0G77B7wnf-1AOTI3gWQ"
+	GunslingerMedia                     = "UCDjs4JoXmMzvaZyPVsvjKXw"
+	LeagueVoices                        = "UCdkonRjBLzr1Adf7Jhu1bWQ"
+	SirPugger                           = "UCelqWKTcCvBZP_1_1iYZAWA"
+	gamesoup                            = "UCGPMrF9AN_D9BrmSmMeV3hA"
+	ProHenis                            = "UCIjFoXSQ9HYbcWmRVIsH-Ow"
+	Dota2Divine                         = "UCiR9IHCurqVHpC821NVcW6g"
+	CrazyFoxMovies                      = "UCjewtQLpJEENPLbrCtb6YpA"
+	Larry                               = "UCJVdNvvuvOnthuWVQjYff2w"
+	hottake                             = "UCK24784Oqb4oYQfHL9XePNg"
+	Breezy                              = "UCKWRpZpcLKriWd1am9SHf8A"
+	retrorgb                            = "UCLPIbBCKVH2uKGm5C4sOkew"
+	Zer0Gamer                           = "UCmII34jN4rqCIsGqWkK5JEg"
+	nickatnyte                          = "UCMxYQX1zaepCgmiSmwbT39w"
+	DyllonStejGaming                    = "UCngaLL0QDbsAGYj7zsB8o_Q"
+	bluedrake42                         = "UCNSwcDEUfIEzYdAPscXo6ZA"
+	Rerez                               = "UCoFpRCAsKfWAshvLE1bYzdw"
+	Op                                  = "UCowi5kFfvGXR8NqhyE6jneQ"
+	kidsgamesfun                        = "UCqjGzmb2pMWSFYm0GzKeTEA"
+	GamesGlitches                       = "UCRj3Q06KOxAZWHaHScrkAOw"
+	Musikage                            = "UCsej4tgCoXDgVH3J7M3NMgw"
+	JeffyGaming                         = "UCTZzSNnZ43XQslejT5wFdRw"
+	oniblackmage                        = "UCUEF9XL3o8dZ6hvVf8jAi8Q"
+	nickatnyte2                         = "UCuoTqrobMyZj0ge8LOCkiSw"
+	KazeEmanuar                         = "UCuvSqzfO_LV_QzHdmEj84SQ"
+	TheLinuxGamer                       = "UCv1Kcz-CuGM6mxzL3B1_Eiw"
+	GaminGHD                            = "UCW-thz5HxE-goYq8yPds1Gw"
+	BHGaming                            = "UCX4N3DioqqrugFeilxTkSIw"
+	Potato                              = "UCxPPTDNH85HZWxrgZ3FQBYA"
+	MikeyTaylorGaming                   = "UCycXj6lRWtsSqo-bZOIZePw"
+	Acituanbus                          = "UCzfx1QvKjn-BxLMLBdBGgMw"
+	juggling                            = "UC2fhTIbnQlFYaFzyTcmPkXg"
+	KhanAcademy                         = "UC4a-Gbdw7vOaccHmFo40b9g"
+	DON                                 = "UCAYrPk70AePJZSaVLKrWdfQ"
+	shogogarcia                         = "UCE3yZjxDg3iI91bcNJDFnsg"
+	alphalifestyleacademy               = "UCeggEaXtJu2domMahYMD_ig"
+	NileRed                             = "UCFhXFikryT4aFcLkLw2LBLA"
+	veritasium                          = "UCHnyfMqiRRG1u-2MsSQLbXA"
+	stevecronin                         = "UCJYawZQYwjZ76mrF_US9eNg"
+	jeranism                            = "UCS_FY5mR4g22L_E9t1D_ExQ"
+	MinutePhysics                       = "UCUHW94eEFW7hkUMVaZz4eDg"
+	_3Blue1Brown                        = "UCYO_jab_esuFRV4b17AJtAw"
+	Itsrucka                            = "UC-B2LyEZcl3avG0coKeohGQ"
+	unitedtaps                          = "UC5Q8e9-uutVZmiwAcEHKuzA"
+	srodalmenara                        = "UC9kc1DaOy2kSzXHZgpn9kfQ"
+	ShutupAndPlay                       = "UCAwuvzhah0KUw5QNihSkEwQ"
+	sanx2                               = "UCJ_waKl9kjbhfXI3LJOfHvA"
+	DerickWattsAndTheSundayBlues        = "UCmZhiZq7M7d73Kbey4yna_Q"
+	akirathedon                         = "UCsoiSpBvkr4Y-78Pj3recUw"
+	Musicoterapia                       = "UCsoSK8K4OpdMV1tqJFwO5QA"
+	daydreaming                         = "UCtbuGylbRXc42pIxWey19Dg"
+	RemixHolicRecords                   = "UCUW5GjwcXgbPcfk00t-GQZA"
+	EDMBot                              = "UCvmUdL2NHWlj1NRiNJPI-TQ"
+	TrioTravels                         = "UCdAPAmdnkdFsH5R2Hxevucg"
+	caosonnguyen                        = "UCwPeW9kFId5-VbQ2LQEjVhg"
+	TheAlmonteFilms                     = "UC4C_SF5koS4Q5om50b9NMTw"
+	timcast                             = "UCG749Dj4V2fKa143f8sE60Q"
+	SeekingTheTruth                     = "UCHrDpTVL9S0h91u9UCPgVbA"
+	davidpakman                         = "UCvixJtaXuNdMPUGdOPcY8Ag"
+	mikenayna                           = "UCzk08fzh5c_BhjQa1w35wtA"
+	DoorMonster                         = "UC-to_wlckb-bFDtQfUZL3Kw"
+	barnacules                          = "UC1MwJy1R0nGQkXxRD9p-zTQ"
+	brightsunfilms                      = "UC5k3Kc0avyDJ2nG9Kxm9JmQ"
+	Onision                             = "UC5OxQNCgW88FDBxeZCnrBbg"
+	top10archive                        = "UCa03bf8gAS2EtffptV-_jfA"
+	thought                             = "UCb0yiUQhhLV_jpY3BayJaLA"
+	MothersBasement                     = "UCBs2Y3i14e1NWQxOGliatmg"
+	VlogsOfKnowledge                    = "UCDUPGR6uL5uz0_hiRAQjZMQ"
+	GorTheMovieGod                      = "UCHdTVw89QU6coU1MgN-9RHA"
+	iamalexoconnor                      = "UCKAQLEk1GGqnPtov9EW0huQ"
+	ADedits                             = "UCsX-zRuq3ovMsgFqEQLw2Bw"
+	SynthCool                           = "UCxGTHsD0pLSFlFI7M7jYmBQ"
+	JordanBPeterson                     = "UCL_f53ZEJxp8TtlOkHwMV9Q"
+	Sciencedocumentinhindi              = "UC9SpfUF3rm-MGep5WE6FSCA"
+	NurdRage                            = "UCIgKGGJkt1MrNmhq3vRibYA"
+	MINDBLASTER                         = "UC_ZMqbRu44jK-EogjYyHz8g"
+	DaminousPurity                      = "UCdKRWvz50QoioZFgu6Nf9og"
+	ScammerRevolts                      = "UC0uJKUXiU5T41Fzawy5H6mw"
+	eevblog                             = "UC2DjFE7Xf11URZqWBigcVOQ"
+	Luke                                = "UC2eYFnH61tmytImy1mTYvhA"
+	AppGirl                             = "UC389S4_2Yt9cei1qNDwmBrA"
+	thecryptodad                        = "UC68x_TIzqCtF69fYl2_kl3w"
+	ChrisWereDigital                    = "UCAPR27YUyxmgwm3Wc2WSHLw"
+	alecaddd                            = "UCbmBY_XYZqCa2G0XmFA7ZWg"
+	EliTheComputerGuy                   = "UCD4EOyXKjfDUhCI6jlOZZYQ"
+	archetapp                           = "UCDIBBmkZIB2hjBsk1hUImdA"
+	PCPlaceNZ                           = "UCf5ZTSZAKbinY03jOwylfOg"
+	NaomiSexyCyborgWu                   = "UCh_ugKacslKhsGGdXP0cRRA"
+	NibiruWatcher                       = "UCi62JvN-lUn7hVL3ffofADA"
+	imineblocks                         = "UCjYHcWGAjUVqU49D2JOKD3w"
+	Lunduke                             = "UCkK9UDm_ZNrq_rIXCz3xCGA"
+	CooLoserTech                        = "UCl97rZ2Tc7KV9lktmmHNFDQ"
+	TechHD                              = "UCN3bPy04Jkp3ADRtyYvXomQ"
+	MiketheScrapper                     = "UCqtlJpkH_llXS_vuDExGVvw"
+	eevblog2                            = "UCr-cm90DwFJC0W3f9jBs5jA"
+	thecreativeone                      = "UCTikFhzCiIXfOMS7D29dvYg"
+	weekendtricks                       = "UCYtAJXx0ymGPpCndn2Gt6-w"
+	GBGuns                              = "UC2VOURrALs1CwVmbGlXJOPQ"
+	Matsimus                            = "UCFWjEwhX6cSAKBQ28pufG3w"
+	TheLateBoyScout                     = "UCZjvj5MN3BMxPFfdEKIrvxQ"
+	BravoCinematografica                = "UC2ruSXQoKMgr7JXzwO0H0KA"
+	PyroNation                          = "UC4ffy3n1hE7Z8q-2KVq_91Q"
+	dramatuber                          = "UC4Y8mImty3gFEG9grsR6T-w"
+	BarnabasNagy                        = "UC8TRZRK1sJfxKJ0tXMmGTow"
+	avery                               = "UCcfjIZLDCuSqkIlkH8i4DDg"
+	Tingledove                          = "UCfI7wtV6K64gVbzjH7DOA_Q"
+	crmjewelers                         = "UChpFWeF84jA5JeV3YyIo3pQ"
+	NerfNerd18                          = "UCIgmaEJNqvH9bU9zGMapZGg"
+	SEIJIHITO                           = "UCNqUrLE6dI8fWw_u3HQkpXA"
+	anvithavlogs                        = "UCsP9pYat2DEBvnvF_iFGG_w"
+	YoelRekts                           = "UCZ_BcFyhIo6GdtTSrqXXepg"
 )
 
 var channelWideTags = map[string][]string{
-	Lunduke:          {"linux", "technology"},
-	SwissExperiments: {"science & technology", "experiments", "switzerland"},
-	Juggling:         {"juggling", "circus arts", "malabares"},
-	JustJuggling:     {"juggling", "circus arts", "malabares"},
-	JordanBPeterson:  {"postmodernism", "psychology", "news"},
-	DavidPakman:      {"news"},
-	TheLinuxGamer:    {"gaming", "technology", "linux"},
+	JustJuggling:                        {"juggling", "circus arts", "malabares"},
+	SwissExperiments:                    {"science & technology", "experiments", "switzerland"},
+	misszizi:                            {"art", "pop culture"},
+	creationshub:                        {"art"},
+	AlicePandora:                        {"art"},
+	Akito0405:                           {"art"},
+	dashcambristol:                      {"automotive"},
+	adrianbonillap:                      {"automotive"},
+	SubhamVlogs:                         {"automotive"},
+	DisciplesofJesusChristJeremiahPayne: {"beliefs"},
+	ModernGalaxy:                        {"beliefs"},
+	socofilms:                           {"beliefs"},
+	buriedone:                           {"blockchain"},
+	bitcoin:                             {"blockchain"},
+	globalrashid:                        {"blockchain"},
+	gameofbitcoins:                      {"blockchain"},
+	CryptoInsightsBrasil:                {"blockchain"},
+	Crypt0:                              {"blockchain"},
+	cryptomined:                         {"blockchain"},
+	altcoinbuzz:                         {"blockchain", "technology"},
+	crypto:                              {"blockchain"},
+	Crypto99:                            {"blockchain"},
+	TheCryptoLark:                       {"blockchain", "technology"},
+	NuggetsNews:                         {"blockchain", "learning"},
+	btckyle:                             {"blockchain"},
+	LouisThomas:                         {"blockchain"},
+	BitsBeTrippin:                       {"blockchain"},
+	cryptocrow:                          {"blockchain"},
+	KouSuccessLeeFX:                     {"economics", "learning"},
+	TheSchiffReport:                     {"economics"},
+	MRU:                                 {"economics"},
+	Vidello:                             {"economics", "pop culture"},
+	kaccreative:                         {"food", "art"},
+	shecooks:                            {"food"},
+	vegsource:                           {"food"},
+	VeganGains:                          {"food"},
+	AwesomeKnowledge:                    {"funny"},
+	luckyloush:                          {"funny"},
+	MichaelLuzzi:                        {"funny", "pop culture"},
+	NakedApe:                            {"funny"},
+	ParaReact:                           {"funny"},
+	dullytv:                             {"funny"},
+	REDONKULAS:                          {"funny"},
+	RedactedTonight:                     {"funny", "news"},
+	TonyTornado:                         {"funny"},
+	hoodlumscrafty:                      {"gaming", "pop culture"},
+	Karmakut:                            {"gaming"},
+	Draxr:                               {"gaming", "pop culture"},
+	BigfryTV:                            {"gaming"},
+	CSGONews:                            {"gaming", "funny"},
+	ZedGaming:                           {"gaming"},
+	KamiVS:                              {"gaming"},
+	grabthegames:                        {"gaming"},
+	blueplays:                           {"gaming"},
+	ImNotBonkers:                        {"gaming", "funny"},
+	GunslingerMedia:                     {"gaming"},
+	LeagueVoices:                        {"gaming"},
+	SirPugger:                           {"gaming"},
+	gamesoup:                            {"gaming"},
+	ProHenis:                            {"gaming"},
+	Dota2Divine:                         {"gaming"},
+	CrazyFoxMovies:                      {"gaming", "pop culture", "technology"},
+	Larry:                               {"gaming"},
+	hottake:                             {"gaming", "funny"},
+	Breezy:                              {"gaming", "funny"},
+	retrorgb:                            {"gaming"},
+	Zer0Gamer:                           {"gaming"},
+	nickatnyte:                          {"gaming"},
+	DyllonStejGaming:                    {"gaming"},
+	bluedrake42:                         {"gaming"},
+	Rerez:                               {"gaming"},
+	Op:                                  {"gaming"},
+	kidsgamesfun:                        {"gaming", "pop culture"},
+	GamesGlitches:                       {"gaming"},
+	Musikage:                            {"gaming", "pop culture"},
+	JeffyGaming:                         {"gaming", "funny"},
+	oniblackmage:                        {"gaming"},
+	nickatnyte2:                         {"gaming"},
+	KazeEmanuar:                         {"gaming"},
+	TheLinuxGamer:                       {"gaming", "technology", "linux"},
+	GaminGHD:                            {"gaming", "pop culture"},
+	BHGaming:                            {"gaming"},
+	Potato:                              {"gaming"},
+	MikeyTaylorGaming:                   {"gaming"},
+	Acituanbus:                          {"gaming"},
+	juggling:                            {"juggling", "circus art", "malabares"},
+	KhanAcademy:                         {"learning", "science"},
+	DON:                                 {"learning", "pop culture"},
+	shogogarcia:                         {"learning"},
+	alphalifestyleacademy:               {"learning"},
+	NileRed:                             {"learning", "science"},
+	veritasium:                          {"learning"},
+	stevecronin:                         {"learning"},
+	jeranism:                            {"learning"},
+	MinutePhysics:                       {"learning", "science"},
+	_3Blue1Brown:                        {"learning"},
+	Itsrucka:                            {"music"},
+	unitedtaps:                          {"music"},
+	srodalmenara:                        {"music"},
+	ShutupAndPlay:                       {"music", "learning"},
+	sanx2:                               {"music"},
+	DerickWattsAndTheSundayBlues:        {"music", "funny"},
+	akirathedon:                         {"music"},
+	Musicoterapia:                       {"music"},
+	daydreaming:                         {"music"},
+	RemixHolicRecords:                   {"music"},
+	EDMBot:                              {"music"},
+	TrioTravels:                         {"nature"},
+	caosonnguyen:                        {"nature"},
+	TheAlmonteFilms:                     {"news"},
+	timcast:                             {"news", "technology"},
+	SeekingTheTruth:                     {"news"},
+	davidpakman:                         {"news"},
+	mikenayna:                           {"news"},
+	DoorMonster:                         {"pop culture", "funny"},
+	barnacules:                          {"pop culture", "gaming"},
+	brightsunfilms:                      {"pop culture"},
+	Onision:                             {"pop culture", "funny"},
+	top10archive:                        {"pop culture"},
+	thought:                             {"pop culture", "learning"},
+	MothersBasement:                     {"pop culture", "gaming"},
+	VlogsOfKnowledge:                    {"pop culture", "gaming"},
+	GorTheMovieGod:                      {"pop culture"},
+	iamalexoconnor:                      {"pop culture"},
+	ADedits:                             {"pop culture"},
+	SynthCool:                           {"pop culture", "funny"},
+	JordanBPeterson:                     {"psychology", "postmodernism", "news"},
+	Sciencedocumentinhindi:              {"science"},
+	NurdRage:                            {"science", "learning"},
+	MINDBLASTER:                         {"sports", "funny"},
+	DaminousPurity:                      {"sports", "gaming"},
+	ScammerRevolts:                      {"technology"},
+	eevblog:                             {"technology", "learning"},
+	Luke:                                {"technology", "funny"},
+	AppGirl:                             {"technology"},
+	thecryptodad:                        {"technology", "blockchain"},
+	ChrisWereDigital:                    {"technology"},
+	alecaddd:                            {"technology", "learning"},
+	EliTheComputerGuy:                   {"technology"},
+	archetapp:                           {"technology", "learning"},
+	PCPlaceNZ:                           {"technology"},
+	NaomiSexyCyborgWu:                   {"technology"},
+	NibiruWatcher:                       {"technology", "learning"},
+	imineblocks:                         {"technology", "blockchain"},
+	Lunduke:                             {"technology"},
+	CooLoserTech:                        {"technology"},
+	TechHD:                              {"technology", "learning"},
+	MiketheScrapper:                     {"technology"},
+	eevblog2:                            {"technology"},
+	thecreativeone:                      {"technology", "gaming"},
+	weekendtricks:                       {"technology"},
+	GBGuns:                              {"weapons"},
+	Matsimus:                            {"weapons", "gaming"},
+	TheLateBoyScout:                     {"weapons"},
 }
 var tagsToSkip = map[string]*struct{}{
 	"#hangoutsonair":                         nil,
