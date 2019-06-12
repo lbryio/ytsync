@@ -175,12 +175,12 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 
 func (v *YoutubeVideo) fallbackDownload() error {
 	cmd := exec.Command("youtube-dl",
-		v.ID(),
 		"--no-progress",
 		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+best[ext=mp4,height<=1080,filesize<2000M]",
 		"-o"+strings.TrimRight(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
-		"mp4")
+		"mp4",
+		"https://www.youtube.com/watch?v="+v.ID())
 
 	log.Printf("Running command and waiting for it to finish...")
 	output, err := cmd.CombinedOutput()
@@ -189,6 +189,12 @@ func (v *YoutubeVideo) fallbackDownload() error {
 		log.Printf("Command finished with error: %v", errors.Err(string(output)))
 		return errors.Err(err)
 	}
+	fi, err := os.Stat(v.getFullPath())
+	if err != nil {
+		return errors.Err(err)
+	}
+	videoSize := fi.Size()
+	v.size = &videoSize
 	return nil
 }
 
@@ -378,6 +384,7 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 	v.maxVideoSize = int64(params.MaxVideoSize) * 1024 * 1024
 	v.maxVideoLength = params.MaxVideoLength
 	v.lbryChannelID = params.ChannelID
+	v.walletLock = walletLock
 	if reprocess && existingVideoData != nil && existingVideoData.Published {
 		summary, err := v.reprocess(daemon, params, existingVideoData)
 		return summary, errors.Prefix("upgrade failed", err)

@@ -164,8 +164,9 @@ func (a *APIConfig) SetChannelClaimID(channelID string, channelClaimID string) e
 }
 
 const (
-	VideoStatusPublished = "published"
-	VideoStatusFailed    = "failed"
+	VideoStatusPublished     = "published"
+	VideoStatusUpgradeFailed = "upgradefailed"
+	VideoStatusFailed        = "failed"
 )
 
 func (a *APIConfig) DeleteVideos(videos []string) error {
@@ -207,9 +208,9 @@ func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status str
 		"status":             {status},
 		"auth_token":         {a.ApiToken},
 	}
-	if status == VideoStatusPublished {
+	if status == VideoStatusPublished || status == VideoStatusUpgradeFailed {
 		if claimID == "" || claimName == "" {
-			return errors.Err("claimID or claimName missing")
+			return errors.Err("claimID (%s) or claimName (%s) missing", claimID, claimName)
 		}
 		vals.Add("published_at", strconv.FormatInt(time.Now().Unix(), 10))
 		vals.Add("claim_id", claimID)

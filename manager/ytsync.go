@@ -40,7 +40,7 @@ const (
 	channelClaimAmount    = 0.01
 	estimatedMaxTxFee     = 0.1
 	minimumAccountBalance = 4.0
-	minimumRefillAmount   = 4
+	minimumRefillAmount   = 1
 	publishAmount         = 0.01
 	maxReasonLength       = 500
 )
@@ -90,13 +90,17 @@ type Sync struct {
 	queue                   chan video
 }
 
-func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string) {
+func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
 	s.syncedVideosMux.Lock()
 	defer s.syncedVideosMux.Unlock()
 	s.syncedVideos[videoID] = sdk.SyncedVideo{
-		VideoID:       videoID,
-		Published:     published,
-		FailureReason: failureReason,
+		VideoID:         videoID,
+		Published:       published,
+		FailureReason:   failureReason,
+		ClaimID:         claimID,
+		ClaimName:       claimName,
+		MetadataVersion: metadataVersion,
+		Size:            size,
 	}
 }
 
@@ -706,20 +710,24 @@ func (s *Sync) startWorker(workerNum int) {
 				existingClaim, ok := s.syncedVideos[v.ID()]
 				existingClaimID := ""
 				existingClaimName := ""
-				existingClaimSize := v.Size()
+				existingClaimSize := int64(0)
+				if v.Size() != nil {
+					existingClaimSize = *v.Size()
+				}
 				if ok {
 					existingClaimID = existingClaim.ClaimID
 					existingClaimName = existingClaim.ClaimName
 					if existingClaim.Size > 0 {
-						existingClaimSize = &existingClaim.Size
+						existingClaimSize = existingClaim.Size
 					}
 				}
 				videoStatus := VideoStatusFailed
 				if strings.Contains(err.Error(), "upgrade failed") {
 					videoStatus = VideoStatusUpgradeFailed
+				} else {
+					s.AppendSyncedVideo(v.ID(), false, err.Error(), existingClaimName, existingClaimID, 0, existingClaimSize)
 				}
-				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), videoStatus, existingClaimID, existingClaimName, err.Error(), existingClaimSize, 0)
+				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), videoStatus, existingClaimID, existingClaimName, err.Error(), &existingClaimSize, 0)
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
@@ -907,12 +915,11 @@ func (s *Sync) processVideo(v video) (err error) {
 		return err
 	}
 
+	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName, summary.ClaimID, newMetadataVersion, *v.Size())
 	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size(), 2)
 	if err != nil {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}
-
-	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName)
 
 	return nil
 }

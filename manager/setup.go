@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"os"
@@ -187,7 +188,8 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		desiredUTXOCount := uint64(math.Floor((balanceAmount) / 0.1))
 		log.Infof("Splitting balance of %s evenly between %d UTXOs", *balance, desiredUTXOCount)
 
-		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, "0.0", desiredUTXOCount, true)
+		bradcastFee := 0.01
+		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, fmt.Sprintf("%.4f", balanceAmount-bradcastFee), desiredUTXOCount, false)
 		if err != nil {
 			return err
 		} else if prefillTx == nil {
