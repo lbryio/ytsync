@@ -392,11 +392,13 @@ const (
 	SEIJIHITO                           = "UCNqUrLE6dI8fWw_u3HQkpXA"
 	anvithavlogs                        = "UCsP9pYat2DEBvnvF_iFGG_w"
 	YoelRekts                           = "UCZ_BcFyhIo6GdtTSrqXXepg"
+	TechFox                             = "UCIp-oTSdFO7BhAJpW2d5HMQ"
 )
 
 var channelWideTags = map[string][]string{
 	JustJuggling:                        {"juggling", "circus arts", "malabares"},
 	SwissExperiments:                    {"science & technology", "experiments", "switzerland"},
+	TechFox:                             {"technology", "reviews"},
 	misszizi:                            {"art", "pop culture"},
 	creationshub:                        {"art"},
 	AlicePandora:                        {"art"},

@@ -2,6 +2,7 @@ package sources
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/ytsync/namer"
@@ -12,7 +13,9 @@ type SyncSummary struct {
 	ClaimName string
 }
 
-func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string, amount float64, options jsonrpc.StreamCreateOptions, namer *namer.Namer) (*SyncSummary, error) {
+func publishAndRetryExistingNames(daemon *jsonrpc.Client, title, filename string, amount float64, options jsonrpc.StreamCreateOptions, namer *namer.Namer, walletLock *sync.RWMutex) (*SyncSummary, error) {
+	walletLock.RLock()
+	defer walletLock.RUnlock()
 	for {
 		name := namer.GetNextName(title)
 		response, err := daemon.StreamCreate(name, filename, amount, options)

@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lbryio/lbry.go/extras/errors"
@@ -46,6 +47,7 @@ type YoutubeVideo struct {
 	thumbnailURL     string
 	lbryChannelID    string
 	mocked           bool
+	walletLock       *sync.RWMutex
 }
 
 const reflectorURL = "http://blobs.lbry.io/"
@@ -355,7 +357,7 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*Sync
 	if err != nil {
 		return nil, err
 	}
-	return publishAndRetryExistingNames(daemon, v.title, downloadPath, params.Amount, options, params.Namer)
+	return publishAndRetryExistingNames(daemon, v.title, downloadPath, params.Amount, options, params.Namer, v.walletLock)
 }
 
 func (v *YoutubeVideo) Size() *int64 {
@@ -372,7 +374,7 @@ type SyncParams struct {
 	Fee            *sdk.Fee
 }
 
-func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool) (*SyncSummary, error) {
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool, walletLock *sync.RWMutex) (*SyncSummary, error) {
 	v.maxVideoSize = int64(params.MaxVideoSize) * 1024 * 1024
 	v.maxVideoLength = params.MaxVideoLength
 	v.lbryChannelID = params.ChannelID
@@ -499,6 +501,8 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		Fee:       fee,
 	}
 
+	v.walletLock.RLock()
+	defer v.walletLock.RUnlock()
 	if v.mocked {
 		pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 			StreamCreateOptions: streamCreateOptions,

@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"fmt"
 	"math"
 	"net/http"
 	"os"
@@ -21,8 +20,6 @@ import (
 	"google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/youtube/v3"
 )
-
-const minimumRefillAmount = 4
 
 func (s *Sync) enableAddressReuse() error {
 	accountsResponse, err := s.daemon.AccountList()
@@ -44,7 +41,7 @@ func (s *Sync) enableAddressReuse() error {
 	return nil
 }
 func (s *Sync) walletSetup() error {
-	//prevent unnecessary concurrent execution
+	//prevent unnecessary concurrent execution and publishing while refilling/reallocating UTXOs
 	s.walletMux.Lock()
 	defer s.walletMux.Unlock()
 	err := s.ensureChannelOwnership()
@@ -68,51 +65,51 @@ func (s *Sync) walletSetup() error {
 	if err != nil {
 		return err
 	}
-	numOnSource := int(n)
+	videosOnYoutube := int(n)
 
-	log.Debugf("Source channel has %d videos", numOnSource)
-	if numOnSource == 0 {
+	log.Debugf("Source channel has %d videos", videosOnYoutube)
+	if videosOnYoutube == 0 {
 		return nil
 	}
 
 	s.syncedVideosMux.RLock()
-	numPublished := len(s.syncedVideos) //should we only count published videos? Credits are allocated even for failed ones...
-	s.syncedVideosMux.RUnlock()
-	log.Debugf("We already allocated credits for %d videos", numPublished)
-
-	if numOnSource-numPublished > s.Manager.videosLimit {
-		numOnSource = s.Manager.videosLimit
-	}
-
-	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
-	if s.Manager.upgradeMetadata {
-		videosToUpgrade := 0
-		for _, v := range s.syncedVideos {
-			if v.Published && v.MetadataVersion < 2 {
-				videosToUpgrade++
+	publishedCount := 0
+	notUpgradedCount := 0
+	failedCount := 0
+	for _, sv := range s.syncedVideos {
+		if sv.Published {
+			publishedCount++
+			if sv.MetadataVersion < 2 {
+				notUpgradedCount++
 			}
+		} else {
+			failedCount++
 		}
-		minBalance += float64(videosToUpgrade) * 0.001
 	}
-	if numPublished > numOnSource && balance < minimumRefillAmount {
-		SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
-		minBalance = minimumRefillAmount
+	s.syncedVideosMux.RUnlock()
+
+	log.Debugf("We already allocated credits for %d videos", publishedCount)
+
+	if videosOnYoutube > s.Manager.videosLimit {
+		videosOnYoutube = s.Manager.videosLimit
 	}
-	amountToAdd := minBalance - balance
+	unallocatedVideos := videosOnYoutube - publishedCount
+	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelClaimAmount
+	if s.Manager.upgradeMetadata {
+		requiredBalance += float64(notUpgradedCount) * 0.001
+	}
+
+	refillAmount := 0.0
+	if balance < requiredBalance || balance < minimumAccountBalance {
+		refillAmount = math.Max(requiredBalance-requiredBalance, minimumRefillAmount)
+	}
 
 	if s.Refill > 0 {
-		if amountToAdd < 0 {
-			amountToAdd = float64(s.Refill)
-		} else {
-			amountToAdd += float64(s.Refill)
-		}
+		refillAmount += float64(s.Refill)
 	}
 
-	if amountToAdd > 0 {
-		if amountToAdd < minimumRefillAmount {
-			amountToAdd = minimumRefillAmount
-		}
-		err := s.addCredits(amountToAdd)
+	if refillAmount > 0 {
+		err := s.addCredits(refillAmount)
 		if err != nil {
 			return errors.Err(err)
 		}
@@ -187,13 +184,10 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if err != nil {
 			return errors.Err(err)
 		}
-		broadcastFee := 0.01
-		amountToSplit := fmt.Sprintf("%.6f", balanceAmount-broadcastFee)
-
-		desiredUTXOCount := uint64(math.Floor((balanceAmount - broadcastFee) / 0.1))
+		desiredUTXOCount := uint64(math.Floor((balanceAmount) / 0.1))
 		log.Infof("Splitting balance of %s evenly between %d UTXOs", *balance, desiredUTXOCount)
 
-		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, amountToSplit, desiredUTXOCount)
+		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, "0.0", desiredUTXOCount, true)
 		if err != nil {
 			return err
 		} else if prefillTx == nil {

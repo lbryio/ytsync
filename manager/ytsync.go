@@ -37,9 +37,12 @@ import (
 )
 
 const (
-	channelClaimAmount = 0.01
-	publishAmount      = 0.01
-	maxReasonLength    = 500
+	channelClaimAmount    = 0.01
+	estimatedMaxTxFee     = 0.1
+	minimumAccountBalance = 4.0
+	minimumRefillAmount   = 4
+	publishAmount         = 0.01
+	maxReasonLength       = 500
 )
 
 type video interface {
@@ -48,7 +51,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, sources.SyncParams, *sdk.SyncedVideo, bool) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, sources.SyncParams, *sdk.SyncedVideo, bool, *sync.RWMutex) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -83,7 +86,7 @@ type Sync struct {
 	grp                     *stop.Group
 	lbryChannelID           string
 	namer                   *namer.Namer
-	walletMux               *sync.Mutex
+	walletMux               *sync.RWMutex
 	queue                   chan video
 }
 
@@ -254,7 +257,7 @@ func (s *Sync) FullCycle() (e error) {
 	s.setExceptions()
 
 	s.syncedVideosMux = &sync.RWMutex{}
-	s.walletMux = &sync.Mutex{}
+	s.walletMux = &sync.RWMutex{}
 	s.grp = stop.New()
 	s.queue = make(chan video)
 	interruptChan := make(chan os.Signal, 1)
@@ -899,7 +902,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		Fee:            s.Fee,
 	}
 
-	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade)
+	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade, s.walletMux)
 	if err != nil {
 		return err
 	}
