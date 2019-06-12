@@ -645,7 +645,7 @@ func (s *Sync) startWorker(workerNum int) {
 			err := s.processVideo(v)
 
 			if err != nil {
-				logMsg := "error processing video: " + err.Error()
+				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())
 				log.Errorln(logMsg)
 				fatalErrors := []string{
 					":5279: read: connection reset by peer",
@@ -679,20 +679,14 @@ func (s *Sync) startWorker(workerNum int) {
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
-						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
-							strings.Contains(err.Error(), "too-long-mempool-chain") {
-							log.Println("waiting for a block before retrying")
-							err = s.waitForNewBlock()
-							if err != nil {
-								s.grp.Stop()
-								SendErrorToSlack("something went wrong while waiting for a block: %v", err)
-								break
-							}
-						} else if util.SubstringInSlice(err.Error(), []string{
+						if util.SubstringInSlice(err.Error(), []string{
 							"Not enough funds to cover this transaction",
 							"failed: Not enough funds",
-							"Error in daemon: Insufficient funds, please deposit additional LBC"}) {
-							log.Println("refilling addresses before retrying")
+							"Error in daemon: Insufficient funds, please deposit additional LBC",
+							"txn-mempool-conflict",
+							"too-long-mempool-chain",
+						}) {
+							log.Println("checking funds and UTXOs before retrying...")
 							err = s.walletSetup()
 							if err != nil {
 								s.grp.Stop()
