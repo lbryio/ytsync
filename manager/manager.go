@@ -142,6 +142,7 @@ func (s *SyncManager) Start() error {
 			shouldInterruptLoop = true
 		} else {
 			var queuesToSync []string
+			//TODO: implement scrambling to avoid starvation of queues
 			if s.syncStatus != "" {
 				queuesToSync = append(queuesToSync, s.syncStatus)
 			} else if s.syncUpdate {
@@ -154,7 +155,9 @@ func (s *SyncManager) Start() error {
 				if err != nil {
 					return err
 				}
-				for _, c := range channels {
+				log.Infof("There are %d channels in the \"%s\" queue", len(channels), q)
+				if len(channels) > 0 {
+					c := channels[0]
 					syncs = append(syncs, Sync{
 						APIConfig:               s.apiConfig,
 						YoutubeChannelID:        c.ChannelId,
@@ -174,6 +177,7 @@ func (s *SyncManager) Start() error {
 						namer:                   namer.NewNamer(),
 						Fee:                     c.Fee,
 					})
+					break
 				}
 			}
 		}
@@ -181,9 +185,9 @@ func (s *SyncManager) Start() error {
 			log.Infoln("No channels to sync. Pausing 5 minutes!")
 			time.Sleep(5 * time.Minute)
 		}
-		for i, sync := range syncs {
+		for _, sync := range syncs {
 			shouldNotCount := false
-			SendInfoToSlack("Syncing %s (%s) to LBRY! (iteration %d/%d - total processed channels: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
+			SendInfoToSlack("Syncing %s (%s) to LBRY! total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			err := sync.FullCycle()
 			if err != nil {
 				fatalErrors := []string{
@@ -203,7 +207,7 @@ func (s *SyncManager) Start() error {
 					SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 				}
 			}
-			SendInfoToSlack("Syncing %s (%s) reached an end. (iteration %d/%d - total processed channels: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
+			SendInfoToSlack("Syncing %s (%s) reached an end. total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			if !shouldNotCount {
 				syncCount++
 			}

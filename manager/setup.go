@@ -33,7 +33,8 @@ func (s *Sync) enableAddressReuse() error {
 	}
 	for _, a := range accounts {
 		_, err = s.daemon.AccountSet(a.ID, jsonrpc.AccountSettings{
-			ChangeMaxUses: 1000,
+			ChangeMaxUses:    util.PtrToInt(1000),
+			ReceivingMaxUses: util.PtrToInt(100),
 		})
 		if err != nil {
 			return errors.Err(err)
