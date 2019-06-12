@@ -185,11 +185,15 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if err != nil {
 			return errors.Err(err)
 		}
+		maxUTXOs := uint64(500)
 		desiredUTXOCount := uint64(math.Floor((balanceAmount) / 0.1))
+		if desiredUTXOCount > maxUTXOs {
+			desiredUTXOCount = maxUTXOs
+		}
 		log.Infof("Splitting balance of %s evenly between %d UTXOs", *balance, desiredUTXOCount)
 
-		bradcastFee := 0.01
-		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, fmt.Sprintf("%.4f", balanceAmount-bradcastFee), desiredUTXOCount, false)
+		broadcastFee := 0.1
+		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, fmt.Sprintf("%.4f", balanceAmount-broadcastFee), desiredUTXOCount, false)
 		if err != nil {
 			return err
 		} else if prefillTx == nil {
