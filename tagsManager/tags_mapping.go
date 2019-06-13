@@ -488,7 +488,7 @@ var channelWideTags = map[string][]string{
 	shogogarcia:                         {"learning"},
 	alphalifestyleacademy:               {"learning"},
 	NileRed:                             {"learning", "science"},
-	veritasium:                          {"learning"},
+	veritasium:                          {"learning", "science"},
 	stevecronin:                         {"learning"},
 	jeranism:                            {"learning"},
 	MinutePhysics:                       {"learning", "science"},
