@@ -2,17 +2,18 @@ package manager
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/lbry.go/lbrycrd"
+
+	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/shopspring/decimal"
@@ -21,8 +22,28 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
+func (s *Sync) enableAddressReuse() error {
+	accountsResponse, err := s.daemon.AccountList()
+	if err != nil {
+		return errors.Err(err)
+	}
+	accounts := accountsResponse.LBCMainnet
+	if os.Getenv("REGTEST") == "true" {
+		accounts = accountsResponse.LBCRegtest
+	}
+	for _, a := range accounts {
+		_, err = s.daemon.AccountSet(a.ID, jsonrpc.AccountSettings{
+			ChangeMaxUses:    util.PtrToInt(1000),
+			ReceivingMaxUses: util.PtrToInt(100),
+		})
+		if err != nil {
+			return errors.Err(err)
+		}
+	}
+	return nil
+}
 func (s *Sync) walletSetup() error {
-	//prevent unnecessary concurrent execution
+	//prevent unnecessary concurrent execution and publishing while refilling/reallocating UTXOs
 	s.walletMux.Lock()
 	defer s.walletMux.Unlock()
 	err := s.ensureChannelOwnership()
@@ -42,51 +63,55 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("Starting balance is %.4f", balance)
 
-	var numOnSource int
-	if s.LbryChannelName == "@UCBerkeley" {
-		numOnSource = 10104
-	} else {
-		n, err := s.CountVideos()
-		if err != nil {
-			return err
-		}
-		numOnSource = int(n)
+	n, err := s.CountVideos()
+	if err != nil {
+		return err
 	}
+	videosOnYoutube := int(n)
 
-	log.Debugf("Source channel has %d videos", numOnSource)
-	if numOnSource == 0 {
+	log.Debugf("Source channel has %d videos", videosOnYoutube)
+	if videosOnYoutube == 0 {
 		return nil
 	}
 
 	s.syncedVideosMux.RLock()
-	numPublished := len(s.syncedVideos) //should we only count published videos? Credits are allocated even for failed ones...
+	publishedCount := 0
+	notUpgradedCount := 0
+	failedCount := 0
+	for _, sv := range s.syncedVideos {
+		if sv.Published {
+			publishedCount++
+			if sv.MetadataVersion < 2 {
+				notUpgradedCount++
+			}
+		} else {
+			failedCount++
+		}
+	}
 	s.syncedVideosMux.RUnlock()
-	log.Debugf("We already allocated credits for %d videos", numPublished)
 
-	if numOnSource-numPublished > s.Manager.videosLimit {
-		numOnSource = s.Manager.videosLimit
+	log.Debugf("We already allocated credits for %d videos", publishedCount)
+
+	if videosOnYoutube > s.Manager.videosLimit {
+		videosOnYoutube = s.Manager.videosLimit
+	}
+	unallocatedVideos := videosOnYoutube - publishedCount
+	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelClaimAmount
+	if s.Manager.upgradeMetadata {
+		requiredBalance += float64(notUpgradedCount) * 0.001
 	}
 
-	minBalance := (float64(numOnSource)-float64(numPublished))*(publishAmount+0.1) + channelClaimAmount
-	if numPublished > numOnSource && balance < 1 {
-		SendErrorToSlack("something is going on as we published more videos than those available on source: %d/%d", numPublished, numOnSource)
-		minBalance = 1 //since we ended up in this function it means some juice is still needed
+	refillAmount := 0.0
+	if balance < requiredBalance || balance < minimumAccountBalance {
+		refillAmount = math.Max(requiredBalance-requiredBalance, minimumRefillAmount)
 	}
-	amountToAdd := minBalance - balance
 
 	if s.Refill > 0 {
-		if amountToAdd < 0 {
-			amountToAdd = float64(s.Refill)
-		} else {
-			amountToAdd += float64(s.Refill)
-		}
+		refillAmount += float64(s.Refill)
 	}
 
-	if amountToAdd > 0 {
-		if amountToAdd < 1 {
-			amountToAdd = 1 // no reason to bother adding less than 1 credit
-		}
-		err := s.addCredits(amountToAdd)
+	if refillAmount > 0 {
+		err := s.addCredits(refillAmount)
 		if err != nil {
 			return errors.Err(err)
 		}
@@ -98,7 +123,7 @@ func (s *Sync) walletSetup() error {
 	} else if claimAddress == nil {
 		return errors.Err("could not get unused address")
 	}
-	s.claimAddress = string((*claimAddress)[0])
+	s.claimAddress = string((*claimAddress)[0]) //TODO: remove claimAddress completely
 	if s.claimAddress == "" {
 		return errors.Err("found blank claim address")
 	}
@@ -122,7 +147,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	}
 	defaultAccount := ""
 	for _, account := range accountsNet {
-		if account.IsDefaultAccount {
+		if account.IsDefault {
 			defaultAccount = account.ID
 			break
 		}
@@ -161,12 +186,15 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if err != nil {
 			return errors.Err(err)
 		}
-		broadcastFee := 0.01
-		amountToSplit := fmt.Sprintf("%.6f", balanceAmount-broadcastFee)
+		maxUTXOs := uint64(500)
+		desiredUTXOCount := uint64(math.Floor((balanceAmount) / 0.1))
+		if desiredUTXOCount > maxUTXOs {
+			desiredUTXOCount = maxUTXOs
+		}
+		log.Infof("Splitting balance of %s evenly between %d UTXOs", *balance, desiredUTXOCount)
 
-		log.Infof("Splitting balance of %s evenly between 40 UTXOs", *balance)
-
-		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, amountToSplit, uint64(target))
+		broadcastFee := 0.1
+		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, fmt.Sprintf("%.4f", balanceAmount-broadcastFee), desiredUTXOCount, false)
 		if err != nil {
 			return err
 		} else if prefillTx == nil {
@@ -220,7 +248,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Err("no channel name set")
 	}
 	//@TODO: get rid of this when imported channels are supported
-	if s.YoutubeChannelID == "UCkK9UDm_ZNrq_rIXCz3xCGA" || s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
+	if s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
 		return nil
 	}
 	channels, err := s.daemon.ChannelList(nil, 1, 50)
@@ -246,9 +274,11 @@ func (s *Sync) ensureChannelOwnership() error {
 			}
 		}
 	}
+	channelUsesOldMetadata := false
 	if len((*channels).Items) == 1 {
 		channel := ((*channels).Items)[0]
 		if channel.Name == s.LbryChannelName {
+			channelUsesOldMetadata = channel.Value.GetThumbnail() == nil
 			//TODO: eventually get rid of this when the whole db is filled
 			if s.lbryChannelID == "" {
 				err = s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, channel.ClaimID)
@@ -256,7 +286,9 @@ func (s *Sync) ensureChannelOwnership() error {
 				return errors.Err("the channel in the wallet is different than the channel in the database")
 			}
 			s.lbryChannelID = channel.ClaimID
-			return err
+			if !channelUsesOldMetadata {
+				return err
+			}
 		} else {
 			return errors.Err("this channel does not belong to this wallet! Expected: %s, found: %s", s.LbryChannelName, channel.Name)
 		}
@@ -290,7 +322,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Prefix("error creating YouTube service", err)
 	}
 
-	response, err := service.Channels.List("snippet").Id(s.YoutubeChannelID).Do()
+	response, err := service.Channels.List("snippet,brandingSettings").Id(s.YoutubeChannelID).Do()
 	if err != nil {
 		return errors.Prefix("error getting channel details", err)
 	}
@@ -300,24 +332,23 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 
 	channelInfo := response.Items[0].Snippet
+	channelBranding := response.Items[0].BrandingSettings
 
-	thumbnail := channelInfo.Thumbnails.Default
-	if channelInfo.Thumbnails.Maxres != nil {
-		thumbnail = channelInfo.Thumbnails.Maxres
-	} else if channelInfo.Thumbnails.High != nil {
-		thumbnail = channelInfo.Thumbnails.High
-	} else if channelInfo.Thumbnails.Medium != nil {
-		thumbnail = channelInfo.Thumbnails.Medium
-	} else if channelInfo.Thumbnails.Standard != nil {
-		thumbnail = channelInfo.Thumbnails.Standard
-	}
-	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, aws.Config{
-		Credentials: credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, ""),
-		Region:      &s.AwsS3Region,
-	})
+	thumbnail := thumbs.GetBestThumbnail(channelInfo.Thumbnails)
+	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}
+
+	var bannerURL *string
+	if channelBranding.Image != nil && channelBranding.Image.BannerImageUrl != "" {
+		bURL, err := thumbs.MirrorThumbnail(channelBranding.Image.BannerImageUrl, "banner-"+s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
+		if err != nil {
+			return err
+		}
+		bannerURL = &bURL
+	}
+
 	var languages []string = nil
 	if channelInfo.DefaultLanguage != "" {
 		languages = []string{channelInfo.DefaultLanguage}
@@ -326,16 +357,32 @@ func (s *Sync) ensureChannelOwnership() error {
 	if channelInfo.Country != "" {
 		locations = []jsonrpc.Location{{Country: util.PtrToString(channelInfo.Country)}}
 	}
-	c, err := s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
-		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-			Title:        channelInfo.Title,
-			Description:  channelInfo.Description,
-			Tags:         nil,
-			Languages:    languages,
-			Locations:    locations,
-			ThumbnailURL: &thumbnailURL,
-		},
-	})
+	var c *jsonrpc.TransactionSummary
+	claimCreateOptions := jsonrpc.ClaimCreateOptions{
+		Title:        &channelInfo.Title,
+		Description:  &channelInfo.Description,
+		Tags:         tagsManager.GetTagsForChannel(s.YoutubeChannelID),
+		Languages:    languages,
+		Locations:    locations,
+		ThumbnailURL: &thumbnailURL,
+	}
+	if channelUsesOldMetadata {
+		c, err = s.daemon.ChannelUpdate(s.lbryChannelID, jsonrpc.ChannelUpdateOptions{
+			ClearTags:      util.PtrToBool(true),
+			ClearLocations: util.PtrToBool(true),
+			ClearLanguages: util.PtrToBool(true),
+			ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
+				ClaimCreateOptions: claimCreateOptions,
+				CoverURL:           bannerURL,
+			},
+		})
+	} else {
+		c, err = s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
+			ClaimCreateOptions: claimCreateOptions,
+			CoverURL:           bannerURL,
+		})
+	}
+
 	if err != nil {
 		return err
 	}

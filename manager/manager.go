@@ -11,6 +11,9 @@ import (
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/util"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -37,12 +40,14 @@ type SyncManager struct {
 	singleRun               bool
 	syncProperties          *sdk.SyncProperties
 	apiConfig               *sdk.APIConfig
+	removeDBUnpublished     bool
+	upgradeMetadata         bool
 }
 
 func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool, refill int, limit int,
 	skipSpaceCheck bool, syncUpdate bool, concurrentJobs int, concurrentVideos int, blobsDir string, videosLimit int,
 	maxVideoSize int, lbrycrdString string, awsS3ID string, awsS3Secret string, awsS3Region string, awsS3Bucket string,
-	syncStatus string, singleRun bool, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64) *SyncManager {
+	syncStatus string, singleRun bool, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64, removeDBUnpublished bool, upgradeMetadata bool) *SyncManager {
 	return &SyncManager{
 		stopOnError:             stopOnError,
 		maxTries:                maxTries,
@@ -66,26 +71,30 @@ func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool
 		singleRun:               singleRun,
 		syncProperties:          syncProperties,
 		apiConfig:               apiConfig,
+		removeDBUnpublished:     removeDBUnpublished,
+		upgradeMetadata:         upgradeMetadata,
 	}
 }
 
 const (
-	StatusPending      = "pending"      // waiting for permission to sync
-	StatusPendingEmail = "pendingemail" // permission granted but missing email
-	StatusQueued       = "queued"       // in sync queue. will be synced soon
-	StatusSyncing      = "syncing"      // syncing now
-	StatusSynced       = "synced"       // done
-	StatusFailed       = "failed"
-	StatusFinalized    = "finalized" // no more changes allowed
-	StatusAbandoned    = "abandoned" // deleted on youtube or banned
+	StatusPending        = "pending"        // waiting for permission to sync
+	StatusPendingEmail   = "pendingemail"   // permission granted but missing email
+	StatusQueued         = "queued"         // in sync queue. will be synced soon
+	StatusPendingUpgrade = "pendingupgrade" // in sync queue. will be synced soon
+	StatusSyncing        = "syncing"        // syncing now
+	StatusSynced         = "synced"         // done
+	StatusFailed         = "failed"
+	StatusFinalized      = "finalized" // no more changes allowed
+	StatusAbandoned      = "abandoned" // deleted on youtube or banned
 )
 
-var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
+var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
 
 const (
-	VideoStatusPublished   = "published"
-	VideoStatusFailed      = "failed"
-	VideoStatusUnpublished = "unpublished"
+	VideoStatusPublished     = "published"
+	VideoStatusFailed        = "failed"
+	VideoStatusUpgradeFailed = "upgradefailed"
+	VideoStatusUnpublished   = "unpublished"
 )
 
 func (s *SyncManager) Start() error {
@@ -128,10 +137,12 @@ func (s *SyncManager) Start() error {
 				AwsS3Region:             s.awsS3Region,
 				AwsS3Bucket:             s.awsS3Bucket,
 				namer:                   namer.NewNamer(),
+				Fee:                     channels[0].Fee,
 			}
 			shouldInterruptLoop = true
 		} else {
 			var queuesToSync []string
+			//TODO: implement scrambling to avoid starvation of queues
 			if s.syncStatus != "" {
 				queuesToSync = append(queuesToSync, s.syncStatus)
 			} else if s.syncUpdate {
@@ -144,7 +155,9 @@ func (s *SyncManager) Start() error {
 				if err != nil {
 					return err
 				}
-				for _, c := range channels {
+				log.Infof("There are %d channels in the \"%s\" queue", len(channels), q)
+				if len(channels) > 0 {
+					c := channels[0]
 					syncs = append(syncs, Sync{
 						APIConfig:               s.apiConfig,
 						YoutubeChannelID:        c.ChannelId,
@@ -162,7 +175,9 @@ func (s *SyncManager) Start() error {
 						AwsS3Region:             s.awsS3Region,
 						AwsS3Bucket:             s.awsS3Bucket,
 						namer:                   namer.NewNamer(),
+						Fee:                     c.Fee,
 					})
+					break
 				}
 			}
 		}
@@ -170,9 +185,9 @@ func (s *SyncManager) Start() error {
 			log.Infoln("No channels to sync. Pausing 5 minutes!")
 			time.Sleep(5 * time.Minute)
 		}
-		for i, sync := range syncs {
+		for _, sync := range syncs {
 			shouldNotCount := false
-			SendInfoToSlack("Syncing %s (%s) to LBRY! (iteration %d/%d - total processed channels: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
+			SendInfoToSlack("Syncing %s (%s) to LBRY! total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			err := sync.FullCycle()
 			if err != nil {
 				fatalErrors := []string{
@@ -192,7 +207,7 @@ func (s *SyncManager) Start() error {
 					SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 				}
 			}
-			SendInfoToSlack("Syncing %s (%s) reached an end. (iteration %d/%d - total processed channels: %d)", sync.LbryChannelName, sync.YoutubeChannelID, i+1, len(syncs), syncCount+1)
+			SendInfoToSlack("Syncing %s (%s) reached an end. total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			if !shouldNotCount {
 				syncCount++
 			}
@@ -207,7 +222,12 @@ func (s *SyncManager) Start() error {
 	}
 	return nil
 }
-
+func (s *SyncManager) GetS3AWSConfig() aws.Config {
+	return aws.Config{
+		Credentials: credentials.NewStaticCredentials(s.awsS3ID, s.awsS3Secret, ""),
+		Region:      &s.awsS3Region,
+	}
+}
 func (s *SyncManager) checkUsedSpace() error {
 	usedPctile, err := GetUsedSpace(s.blobsDir)
 	if err != nil {

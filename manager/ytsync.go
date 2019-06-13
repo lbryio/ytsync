@@ -1,11 +1,7 @@
 package manager
 
 import (
-	"bufio"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -21,6 +17,7 @@ import (
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
 	"github.com/lbryio/ytsync/sources"
+	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
@@ -40,9 +37,12 @@ import (
 )
 
 const (
-	channelClaimAmount = 0.01
-	publishAmount      = 0.01
-	maxReasonLength    = 500
+	channelClaimAmount    = 0.01
+	estimatedMaxTxFee     = 0.1
+	minimumAccountBalance = 4.0
+	minimumRefillAmount   = 1
+	publishAmount         = 0.01
+	maxReasonLength       = 500
 )
 
 type video interface {
@@ -51,7 +51,7 @@ type video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, string, float64, string, int, *namer.Namer, float64) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, sources.SyncParams, *sdk.SyncedVideo, bool, *sync.RWMutex) (*sources.SyncSummary, error)
 }
 
 // sorting videos
@@ -77,27 +77,30 @@ type Sync struct {
 	AwsS3Secret             string
 	AwsS3Region             string
 	AwsS3Bucket             string
-
-	daemon          *jsonrpc.Client
-	claimAddress    string
-	videoDirectory  string
-	syncedVideosMux *sync.RWMutex
-	syncedVideos    map[string]sdk.SyncedVideo
-	grp             *stop.Group
-	lbryChannelID   string
-	namer           *namer.Namer
-
-	walletMux *sync.Mutex
-	queue     chan video
+	Fee                     *sdk.Fee
+	daemon                  *jsonrpc.Client
+	claimAddress            string
+	videoDirectory          string
+	syncedVideosMux         *sync.RWMutex
+	syncedVideos            map[string]sdk.SyncedVideo
+	grp                     *stop.Group
+	lbryChannelID           string
+	namer                   *namer.Namer
+	walletMux               *sync.RWMutex
+	queue                   chan video
 }
 
-func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string) {
+func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
 	s.syncedVideosMux.Lock()
 	defer s.syncedVideosMux.Unlock()
 	s.syncedVideos[videoID] = sdk.SyncedVideo{
-		VideoID:       videoID,
-		Published:     published,
-		FailureReason: failureReason,
+		VideoID:         videoID,
+		Published:       published,
+		FailureReason:   failureReason,
+		ClaimID:         claimID,
+		ClaimName:       claimName,
+		MetadataVersion: metadataVersion,
+		Size:            size,
 	}
 }
 
@@ -258,7 +261,7 @@ func (s *Sync) FullCycle() (e error) {
 	s.setExceptions()
 
 	s.syncedVideosMux = &sync.RWMutex{}
-	s.walletMux = &sync.Mutex{}
+	s.walletMux = &sync.RWMutex{}
 	s.grp = stop.New()
 	s.queue = make(chan video)
 	interruptChan := make(chan os.Signal, 1)
@@ -319,12 +322,14 @@ func (s *Sync) FullCycle() (e error) {
 
 	return nil
 }
+
 func (s *Sync) setChannelTerminationStatus(e *error) {
 	if *e != nil {
 		//conditions for which a channel shouldn't be marked as failed
 		noFailConditions := []string{
 			"this youtube channel is being managed by another server",
 			"interrupted during daemon startup",
+			"playlist items not found",
 		}
 		if util.SubstringInSlice((*e).Error(), noFailConditions) {
 			return
@@ -390,11 +395,10 @@ func logShutdownError(shutdownErr error) {
 
 var thumbnailHosts = []string{
 	"berk.ninja/thumbnails/",
-	"https://thumbnails.lbry.com/",
+	thumbs.ThumbnailEndpoint,
 }
 
 func isYtsyncClaim(c jsonrpc.Claim) bool {
-
 	if !util.InSlice(c.Type, []string{"claim", "update"}) || c.Value.GetStream() == nil {
 		return false
 	}
@@ -403,7 +407,12 @@ func isYtsyncClaim(c jsonrpc.Claim) bool {
 		return false
 	}
 
-	return util.InSlice(c.Value.GetThumbnail().GetUrl(), thumbnailHosts)
+	for _, th := range thumbnailHosts {
+		if strings.Contains(c.Value.GetThumbnail().GetUrl(), th) {
+			return true
+		}
+	}
+	return false
 }
 
 // fixDupes abandons duplicate claims
@@ -442,8 +451,10 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 }
 
 //updateRemoteDB counts the amount of videos published so far and updates the remote db if some videos weren't marked as published
-func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err error) {
+//additionally it removes all entries in the database indicating that a video is published when it's actually not
+func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int, err error) {
 	count := 0
+	videoIDMap := make(map[string]string, len(claims))
 	for _, c := range claims {
 		if !isYtsyncClaim(c) {
 			continue
@@ -452,18 +463,60 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total int, fixed int, err
 		//check if claimID is in remote db
 		tn := c.Value.GetThumbnail().GetUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
-		pv, ok := s.syncedVideos[videoID]
-		if !ok || pv.ClaimName != c.Name {
-			fixed++
-			log.Debugf("adding %s to the database", c.Name)
+		videoIDMap[videoID] = c.ClaimID
+		pv, claimInDatabase := s.syncedVideos[videoID]
+		claimMetadataVersion := uint(1)
+		if strings.Contains(tn, thumbs.ThumbnailEndpoint) {
+			claimMetadataVersion = 2
+		}
 
-			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", nil)
+		metadataDiffers := claimInDatabase && pv.MetadataVersion != int8(claimMetadataVersion)
+		claimIDDiffers := claimInDatabase && pv.ClaimID != c.ClaimID
+		claimNameDiffers := claimInDatabase && pv.ClaimName != c.Name
+		claimMarkedUnpublished := claimInDatabase && !pv.Published
+		if metadataDiffers {
+			log.Debugf("%s: Mismatch in database for metadata. DB: %d - Blockchain: %d", videoID, pv.MetadataVersion, claimMetadataVersion)
+		}
+		if claimIDDiffers {
+			log.Debugf("%s: Mismatch in database for claimID. DB: %s - Blockchain: %s", videoID, pv.ClaimID, c.ClaimID)
+		}
+		if claimIDDiffers {
+			log.Debugf("%s: Mismatch in database for claimName. DB: %s - Blockchain: %s", videoID, pv.ClaimName, c.Name)
+		}
+		if claimMarkedUnpublished {
+			log.Debugf("%s: Mismatch in database: published but marked as unpublished", videoID)
+		}
+		if !claimInDatabase {
+			log.Debugf("%s: Published but is not in database (%s - %s)", videoID, c.Name, c.ClaimID)
+		}
+		if !claimInDatabase || metadataDiffers || claimIDDiffers || claimNameDiffers || claimMarkedUnpublished {
+			claimSize, err := c.GetStreamSizeByMagic()
 			if err != nil {
-				return count, fixed, err
+				claimSize = 0
+			}
+			fixed++
+			log.Debugf("updating %s in the database", videoID)
+			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", util.PtrToInt64(int64(claimSize)), claimMetadataVersion)
+			if err != nil {
+				return count, fixed, 0, err
 			}
 		}
 	}
-	return count, fixed, nil
+	idsToRemove := make([]string, 0, len(videoIDMap))
+	for vID, sv := range s.syncedVideos {
+		_, ok := videoIDMap[vID]
+		if !ok && sv.Published {
+			log.Debugf("%s: claims to be published but wasn't found in the list of claims and will be removed if --remove-db-unpublished was specified", vID)
+			idsToRemove = append(idsToRemove, vID)
+		}
+	}
+	if s.Manager.removeDBUnpublished && len(idsToRemove) > 0 {
+		err := s.Manager.apiConfig.DeleteVideos(idsToRemove)
+		if err != nil {
+			return count, fixed, 0, err
+		}
+	}
+	return count, fixed, len(idsToRemove), nil
 }
 
 func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
@@ -481,7 +534,10 @@ func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
 }
 
 func (s *Sync) doSync() error {
-	var err error
+	err := s.enableAddressReuse()
+	if err != nil {
+		return errors.Prefix("could not set address reuse policy", err)
+	}
 	err = s.walletSetup()
 	if err != nil {
 		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
@@ -506,16 +562,21 @@ func (s *Sync) doSync() error {
 		}
 	}
 
-	pubsOnWallet, nFixed, err := s.updateRemoteDB(allClaims)
+	pubsOnWallet, nFixed, nRemoved, err := s.updateRemoteDB(allClaims)
 	if err != nil {
-		return errors.Prefix("error counting claims", err)
+		return errors.Prefix("error updating remote database", err)
 	}
-	if nFixed > 0 {
+	if nFixed > 0 || nRemoved > 0 {
 		err := s.setStatusSyncing()
 		if err != nil {
 			return err
 		}
-		SendInfoToSlack("%d claims were not on the remote database and were fixed", nFixed)
+		if nFixed > 0 {
+			SendInfoToSlack("%d claims had mismatched database info or were completely missing and were fixed", nFixed)
+		}
+		if nRemoved > 0 {
+			SendInfoToSlack("%d were marked as published but weren't actually published and thus removed from the database", nRemoved)
+		}
 	}
 	pubsOnDB := 0
 	for _, sv := range s.syncedVideos {
@@ -545,7 +606,7 @@ func (s *Sync) doSync() error {
 	}
 
 	if s.LbryChannelName == "@UCBerkeley" {
-		err = s.enqueueUCBVideos()
+		err = errors.Err("UCB is not supported in this version of YTSYNC")
 	} else {
 		err = s.enqueueYoutubeVideos()
 	}
@@ -584,7 +645,7 @@ func (s *Sync) startWorker(workerNum int) {
 			err := s.processVideo(v)
 
 			if err != nil {
-				logMsg := "error processing video: " + err.Error()
+				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())
 				log.Errorln(logMsg)
 				fatalErrors := []string{
 					":5279: read: connection reset by peer",
@@ -613,38 +674,63 @@ func (s *Sync) startWorker(workerNum int) {
 						"no compatible format available for this video",
 						"Watch this video on YouTube.",
 						"have blocked it on copyright grounds",
+						"the video must be republished as we can't get the right size",
 					}
-					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
+					if strings.Contains(err.Error(), "txn-mempool-conflict") ||
+						strings.Contains(err.Error(), "too-long-mempool-chain") {
+						log.Println("waiting for a block before retrying")
+						err := s.waitForNewBlock()
+						if err != nil {
+							s.grp.Stop()
+							SendErrorToSlack("something went wrong while waiting for a block: %v", err)
+							break
+						}
+					} else if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
-						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
-							strings.Contains(err.Error(), "too-long-mempool-chain") {
-							log.Println("waiting for a block before retrying")
-							err = s.waitForNewBlock()
-							if err != nil {
-								s.grp.Stop()
-								SendErrorToSlack("something went wrong while waiting for a block: %v", err)
-								break
-							}
-						} else if util.SubstringInSlice(err.Error(), []string{
+						if util.SubstringInSlice(err.Error(), []string{
 							"Not enough funds to cover this transaction",
 							"failed: Not enough funds",
-							"Error in daemon: Insufficient funds, please deposit additional LBC"}) {
-							log.Println("refilling addresses before retrying")
-							err = s.walletSetup()
+							"Error in daemon: Insufficient funds, please deposit additional LBC",
+							//	"txn-mempool-conflict", //TODO: uncomment the two lines when the SDK will start spending confirmed UTXOs before failing
+							//"too-long-mempool-chain",
+						}) {
+							log.Println("checking funds and UTXOs before retrying...")
+							err := s.walletSetup()
 							if err != nil {
 								s.grp.Stop()
 								SendErrorToSlack("failed to setup the wallet for a refill: %v", err)
 								break
 							}
+						} else if strings.Contains(err.Error(), "Error in daemon: 'str' object has no attribute 'get'") {
+							time.Sleep(5 * time.Second)
 						}
 						log.Println("Retrying")
 						continue
 					}
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
-				s.AppendSyncedVideo(v.ID(), false, err.Error(), "")
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusFailed, "", "", err.Error(), v.Size())
+				existingClaim, ok := s.syncedVideos[v.ID()]
+				existingClaimID := ""
+				existingClaimName := ""
+				existingClaimSize := int64(0)
+				if v.Size() != nil {
+					existingClaimSize = *v.Size()
+				}
+				if ok {
+					existingClaimID = existingClaim.ClaimID
+					existingClaimName = existingClaim.ClaimName
+					if existingClaim.Size > 0 {
+						existingClaimSize = existingClaim.Size
+					}
+				}
+				videoStatus := VideoStatusFailed
+				if strings.Contains(err.Error(), "upgrade failed") {
+					videoStatus = VideoStatusUpgradeFailed
+				} else {
+					s.AppendSyncedVideo(v.ID(), false, err.Error(), existingClaimName, existingClaimID, 0, existingClaimSize)
+				}
+				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), videoStatus, existingClaimID, existingClaimName, err.Error(), &existingClaimSize, 0)
 				if err != nil {
 					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
@@ -683,7 +769,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 	}
 
 	var videos []video
-
+	playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
 	nextPageToken := ""
 	for {
 		req := service.PlaylistItems.List("snippet").
@@ -705,7 +791,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			}
 			return errors.Err("playlist items not found")
 		}
-		playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
+		//playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
 		videoIDs := make([]string, 50)
 		for i, item := range playlistResponse.Items {
 			// normally we'd send the video into the channel here, but youtube api doesn't have sorting
@@ -713,14 +799,14 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			playlistMap[item.Snippet.ResourceId.VideoId] = item.Snippet
 			videoIDs[i] = item.Snippet.ResourceId.VideoId
 		}
-		req2 := service.Videos.List("snippet,contentDetails").Id(strings.Join(videoIDs[:], ","))
+		req2 := service.Videos.List("snippet,contentDetails,recordingDetails").Id(strings.Join(videoIDs[:], ","))
 
 		videosListResponse, err := req2.Do()
 		if err != nil {
 			return errors.Prefix("error getting videos info", err)
 		}
 		for _, item := range videosListResponse.Items {
-			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position))
+			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position, s.Manager.GetS3AWSConfig()))
 		}
 
 		log.Infof("Got info for %d videos from youtube API", len(videos))
@@ -730,58 +816,18 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			break
 		}
 	}
+	for k, v := range s.syncedVideos {
+		if !v.Published {
+			continue
+		}
+		_, ok := playlistMap[k]
+		if !ok {
+			videos = append(videos, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig()))
+		}
 
+	}
 	sort.Sort(byPublishedAt(videos))
 	//or sort.Sort(sort.Reverse(byPlaylistPosition(videos)))
-
-Enqueue:
-	for _, v := range videos {
-		select {
-		case <-s.grp.Ch():
-			break Enqueue
-		default:
-		}
-
-		select {
-		case s.queue <- v:
-		case <-s.grp.Ch():
-			break Enqueue
-		}
-	}
-
-	return nil
-}
-
-func (s *Sync) enqueueUCBVideos() error {
-	var videos []video
-
-	csvFile, err := os.Open("ucb.csv")
-	if err != nil {
-		return err
-	}
-
-	reader := csv.NewReader(bufio.NewReader(csvFile))
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-		data := struct {
-			PublishedAt string `json:"publishedAt"`
-		}{}
-		err = json.Unmarshal([]byte(line[4]), &data)
-		if err != nil {
-			return err
-		}
-
-		videos = append(videos, sources.NewUCBVideo(line[0], line[2], line[1], line[3], data.PublishedAt, s.videoDirectory))
-	}
-
-	log.Printf("Publishing %d videos\n", len(videos))
-
-	sort.Sort(byPublishedAt(videos))
 
 Enqueue:
 	for _, v := range videos {
@@ -822,7 +868,9 @@ func (s *Sync) processVideo(v video) (err error) {
 	s.syncedVideosMux.RLock()
 	sv, ok := s.syncedVideos[v.ID()]
 	s.syncedVideosMux.RUnlock()
+	newMetadataVersion := int8(2)
 	alreadyPublished := ok && sv.Published
+	videoRequiresUpgrade := ok && s.Manager.upgradeMetadata && sv.MetadataVersion < newMetadataVersion
 
 	neverRetryFailures := []string{
 		"Error extracting sts from embedded url response",
@@ -838,12 +886,16 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if alreadyPublished {
+	if alreadyPublished && !videoRequiresUpgrade {
 		log.Println(v.ID() + " already published")
 		return nil
 	}
+	if ok && sv.MetadataVersion >= newMetadataVersion {
+		log.Println(v.ID() + " upgraded to the new metadata")
+		return nil
+	}
 
-	if v.PlaylistPosition() > s.Manager.videosLimit {
+	if !videoRequiresUpgrade && v.PlaylistPosition() > s.Manager.videosLimit {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}
@@ -851,18 +903,26 @@ func (s *Sync) processVideo(v video) (err error) {
 	if err != nil {
 		return err
 	}
+	sp := sources.SyncParams{
+		ClaimAddress:   s.claimAddress,
+		Amount:         publishAmount,
+		ChannelID:      s.lbryChannelID,
+		MaxVideoSize:   s.Manager.maxVideoSize,
+		Namer:          s.namer,
+		MaxVideoLength: s.Manager.maxVideoLength,
+		Fee:            s.Fee,
+	}
 
-	summary, err := v.Sync(s.daemon, s.claimAddress, publishAmount, s.lbryChannelID, s.Manager.maxVideoSize, s.namer, s.Manager.maxVideoLength)
+	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade, s.walletMux)
 	if err != nil {
 		return err
 	}
 
-	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size())
+	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName, summary.ClaimID, newMetadataVersion, *v.Size())
+	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size(), 2)
 	if err != nil {
 		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}
-
-	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName)
 
 	return nil
 }
