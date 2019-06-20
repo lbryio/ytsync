@@ -71,6 +71,8 @@ func SanitizeTags(tags []string, youtubeChannelID string) ([]string, error) {
 	return sanitizedTags, nil
 }
 
+const TagMaxLength = 255
+
 func normalizeTag(t string) (string, error) {
 	t = strings.ToLower(t)
 	multipleSpaces := regexp.MustCompile(`\s{2,}`)
@@ -87,7 +89,10 @@ func normalizeTag(t string) (string, error) {
 	if weirdChars.MatchString(t) {
 		log.Debugf("tag '%s' has weird stuff in it, skipping\n", t)
 		return "", nil
-
+	}
+	if len(t) > TagMaxLength {
+		log.Debugf("tag '%s' is too long, skipping\n", t)
+		return "", nil
 	}
 	return t, nil
 }
