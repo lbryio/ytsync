@@ -480,7 +480,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 		if claimIDDiffers {
 			log.Debugf("%s: Mismatch in database for claimID. DB: %s - Blockchain: %s", videoID, pv.ClaimID, c.ClaimID)
 		}
-		if claimIDDiffers {
+		if claimNameDiffers {
 			log.Debugf("%s: Mismatch in database for claimName. DB: %s - Blockchain: %s", videoID, pv.ClaimName, c.Name)
 		}
 		if claimMarkedUnpublished {

@@ -169,7 +169,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 
 	for _, utxo := range *utxolist {
 		amount, _ := strconv.ParseFloat(utxo.Amount, 64)
-		if !utxo.IsClaim && !utxo.IsSupport && !utxo.IsUpdate && amount != 0.0 {
+		if !utxo.IsClaim && !utxo.IsSupport && !utxo.IsUpdate && amount > 0.001 {
 			count++
 		}
 	}
