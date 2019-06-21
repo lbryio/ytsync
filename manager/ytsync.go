@@ -675,6 +675,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Watch this video on YouTube.",
 						"have blocked it on copyright grounds",
 						"the video must be republished as we can't get the right size",
+						"Invalid status code: 403",
 					}
 					if strings.Contains(err.Error(), "txn-mempool-conflict") ||
 						strings.Contains(err.Error(), "too-long-mempool-chain") {
