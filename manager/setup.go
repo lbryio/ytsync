@@ -90,12 +90,12 @@ func (s *Sync) walletSetup() error {
 	}
 	s.syncedVideosMux.RUnlock()
 
-	log.Debugf("We already allocated credits for %d videos", publishedCount)
+	log.Debugf("We already allocated credits for %d published videos and %d failed videos", publishedCount, failedCount)
 
 	if videosOnYoutube > s.Manager.videosLimit {
 		videosOnYoutube = s.Manager.videosLimit
 	}
-	unallocatedVideos := videosOnYoutube - publishedCount
+	unallocatedVideos := videosOnYoutube - (publishedCount + failedCount)
 	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelClaimAmount
 	if s.Manager.upgradeMetadata {
 		requiredBalance += float64(notUpgradedCount) * 0.001
@@ -103,7 +103,7 @@ func (s *Sync) walletSetup() error {
 
 	refillAmount := 0.0
 	if balance < requiredBalance || balance < minimumAccountBalance {
-		refillAmount = math.Max(requiredBalance-requiredBalance, minimumRefillAmount)
+		refillAmount = math.Max(requiredBalance-balance, minimumRefillAmount)
 	}
 
 	if s.Refill > 0 {
