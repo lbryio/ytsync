@@ -177,7 +177,7 @@ func (s *SyncManager) Start() error {
 						namer:                   namer.NewNamer(),
 						Fee:                     c.Fee,
 					})
-					break
+					continue
 				}
 			}
 		}
