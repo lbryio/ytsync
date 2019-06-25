@@ -295,6 +295,7 @@ func (s *Sync) FullCycle() (e error) {
 		return errors.Wrap(err, 0)
 	}
 
+	defer deleteSyncFolder(s.videoDirectory)
 	log.Printf("Starting daemon")
 	err = startDaemonViaSystemd()
 	if err != nil {
@@ -321,6 +322,16 @@ func (s *Sync) FullCycle() (e error) {
 	}
 
 	return nil
+}
+
+func deleteSyncFolder(videoDirectory string) {
+	if !strings.Contains(videoDirectory, "/tmp/ytsync") {
+		_ = util.SendToSlack(errors.Err("Trying to delete an unexpected directory: %s", videoDirectory).Error())
+	}
+	err := os.RemoveAll(videoDirectory)
+	if err != nil {
+		_ = util.SendToSlack(err.Error())
+	}
 }
 
 func (s *Sync) setChannelTerminationStatus(e *error) {

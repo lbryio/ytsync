@@ -187,6 +187,7 @@ func (v *YoutubeVideo) fallbackDownload() error {
 	log.Debugln(string(output))
 	if err != nil {
 		log.Printf("Command finished with error: %v", errors.Err(string(output)))
+		_ = v.delete()
 		return errors.Err(err)
 	}
 	fi, err := os.Stat(v.getFullPath())
