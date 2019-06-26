@@ -406,7 +406,7 @@ func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {
 	}
 
 	for _, utxo := range *utxolist {
-		if utxo.Confirmations < 0 {
+		if utxo.Confirmations <= 0 {
 			return false
 		}
 	}
