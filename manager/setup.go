@@ -166,14 +166,19 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	target := 40
 	slack := int(float32(0.1) * float32(target))
 	count := 0
+	confirmedCount := 0
 
 	for _, utxo := range *utxolist {
 		amount, _ := strconv.ParseFloat(utxo.Amount, 64)
-		if !utxo.IsClaim && !utxo.IsSupport && !utxo.IsUpdate && amount > 0.001 {
+		if !utxo.IsMine && utxo.Type == "payment" && amount > 0.001 {
+			if utxo.Confirmations > 0 {
+				confirmedCount++
+			}
 			count++
 		}
 	}
-	log.Infof("utxo count: %d", count)
+	log.Infof("utxo count: %d (%d confirmed)", count, confirmedCount)
+	UTXOWaitThreshold := 16
 	if count < target-slack {
 		balance, err := s.daemon.AccountBalance(&defaultAccount)
 		if err != nil {
@@ -200,12 +205,13 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		} else if prefillTx == nil {
 			return errors.Err("no response")
 		}
-
-		err = s.waitForNewBlock()
-		if err != nil {
-			return err
+		if confirmedCount < UTXOWaitThreshold {
+			err = s.waitForNewBlock()
+			if err != nil {
+				return err
+			}
 		}
-	} else if !allUTXOsConfirmed(utxolist) {
+	} else if confirmedCount < UTXOWaitThreshold {
 		log.Println("Waiting for previous txns to confirm")
 		err := s.waitForNewBlock()
 		if err != nil {
@@ -400,7 +406,7 @@ func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {
 	}
 
 	for _, utxo := range *utxolist {
-		if utxo.Height == 0 {
+		if utxo.Confirmations < 0 {
 			return false
 		}
 	}
