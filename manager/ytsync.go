@@ -475,7 +475,9 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 		tn := c.Value.GetThumbnail().GetUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 		videoIDMap[videoID] = c.ClaimID
+		s.syncedVideosMux.RLock()
 		pv, claimInDatabase := s.syncedVideos[videoID]
+		s.syncedVideosMux.RUnlock()
 		claimMetadataVersion := uint(1)
 		if strings.Contains(tn, thumbs.ThumbnailEndpoint) {
 			claimMetadataVersion = 2
@@ -722,7 +724,9 @@ func (s *Sync) startWorker(workerNum int) {
 					}
 					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
+				s.syncedVideosMux.RLock()
 				existingClaim, ok := s.syncedVideos[v.ID()]
+				s.syncedVideosMux.RUnlock()
 				existingClaimID := ""
 				existingClaimName := ""
 				existingClaimSize := int64(0)
