@@ -18,7 +18,7 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lbryio/errors.go v0.0.0-20180223142025-ad03d3cc6a5c
 	github.com/lbryio/lbry.go v1.0.15
-	github.com/lbryio/reflector.go v1.0.6-0.20190710153751-817fa4aa1df5
+	github.com/lbryio/reflector.go v1.0.6-0.20190710190215-191671b3cf71
 	github.com/lusis/slack-test v0.0.0-20190408224659-6cf59653add2 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
 	github.com/nikooo777/ytdl v0.0.0-20190215151411-9c7832eaf457
