@@ -78,6 +78,9 @@ func reflectBlobs() error {
 	if err != nil {
 		return errors.Err(err)
 	}
+	if uploader.GetSummary().Err > 0 {
+		return errors.Err("not al blobs were reflected. Errors: %d", uploader.GetSummary().Err)
+	}
 	return nil
 }
 
