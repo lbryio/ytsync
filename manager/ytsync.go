@@ -656,6 +656,8 @@ func (s *Sync) startWorker(workerNum int) {
 					"Cannot publish using channel",
 					"cannot concatenate 'str' and 'NoneType' objects",
 					"more than 90% of the space has been used.",
+					"Invalid status code: 429",
+					"HTTP Error 429",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
