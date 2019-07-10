@@ -311,17 +311,7 @@ func (s *Sync) FullCycle() (e error) {
 		return err
 	}
 
-	err = s.doSync()
-	if err != nil {
-		return err
-	} else {
-		// wait for reflection to finish???
-		wait := 15 * time.Second // should bump this up to a few min, but keeping it low for testing
-		log.Println("Waiting " + wait.String() + " to finish reflecting everything")
-		time.Sleep(wait)
-	}
-
-	return nil
+	return s.doSync()
 }
 
 func deleteSyncFolder(videoDirectory string) {

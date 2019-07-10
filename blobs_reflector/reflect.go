@@ -21,8 +21,7 @@ func ReflectAndClean() error {
 	if err != nil {
 		return err
 	}
-	return nil
-	//return cleanupLbrynet()
+	return cleanupLbrynet()
 }
 
 func loadConfig(path string) (cmd.Config, error) {
@@ -106,6 +105,10 @@ func cleanupLbrynet() error {
 		if err != nil {
 			return errors.Err(err)
 		}
+	}
+	err = os.RemoveAll(lbrynetDir + "/blobfiles/")
+	if err != nil {
+		return errors.Err(err)
 	}
 	return nil
 }
