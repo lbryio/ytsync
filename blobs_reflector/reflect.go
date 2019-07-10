@@ -63,6 +63,13 @@ func reflectBlobs() error {
 	if err != nil {
 		return errors.Err(err)
 	}
+	defer func() {
+		err := dbHandle.CloseDB()
+		if err != nil {
+			log.Errorf("failed to close db handle: %s", err.Error())
+		}
+
+	}()
 	st := store.NewDBBackedS3Store(
 		store.NewS3BlobStore(config.AwsID, config.AwsSecret, config.BucketRegion, config.BucketName),
 		dbHandle)
