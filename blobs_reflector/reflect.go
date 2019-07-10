@@ -109,7 +109,12 @@ func cleanupLbrynet() error {
 			return errors.Err(err)
 		}
 	}
-	err = os.RemoveAll(lbrynetDir + "/blobfiles/")
+	blobsDir := lbrynetDir + "/blobfiles/"
+	err = os.RemoveAll(blobsDir)
+	if err != nil {
+		return errors.Err(err)
+	}
+	err = os.Mkdir(blobsDir, 0755)
 	if err != nil {
 		return errors.Err(err)
 	}
