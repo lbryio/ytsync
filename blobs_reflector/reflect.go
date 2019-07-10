@@ -55,7 +55,7 @@ func reflectBlobs() error {
 		return errors.Err(err)
 	}
 	exPath := filepath.Dir(ex)
-	config, err := loadConfig(exPath + "/prismconfig.json")
+	config, err := loadConfig(exPath + "/prism_config.json")
 	if err != nil {
 		return errors.Err(err)
 	}
