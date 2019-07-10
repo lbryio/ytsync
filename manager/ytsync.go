@@ -689,24 +689,22 @@ func (s *Sync) startWorker(workerNum int) {
 						"the video must be republished as we can't get the right size",
 						"Invalid status code: 403",
 					}
-					if strings.Contains(err.Error(), "txn-mempool-conflict") ||
-						strings.Contains(err.Error(), "too-long-mempool-chain") {
-						log.Println("waiting for a block before retrying")
-						err := s.waitForNewBlock()
-						if err != nil {
-							s.grp.Stop()
-							SendErrorToSlack("something went wrong while waiting for a block: %v", err)
-							break
-						}
-					} else if util.SubstringInSlice(err.Error(), errorsNoRetry) {
+					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
-						if util.SubstringInSlice(err.Error(), []string{
+						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
+							strings.Contains(err.Error(), "too-long-mempool-chain") {
+							log.Println("waiting for a block before retrying")
+							err := s.waitForNewBlock()
+							if err != nil {
+								s.grp.Stop()
+								SendErrorToSlack("something went wrong while waiting for a block: %v", err)
+								break
+							}
+						} else if util.SubstringInSlice(err.Error(), []string{
 							"Not enough funds to cover this transaction",
 							"failed: Not enough funds",
 							"Error in daemon: Insufficient funds, please deposit additional LBC",
-							//	"txn-mempool-conflict", //TODO: uncomment the two lines when the SDK will start spending confirmed UTXOs before failing
-							//"too-long-mempool-chain",
 						}) {
 							log.Println("checking funds and UTXOs before retrying...")
 							err := s.walletSetup()

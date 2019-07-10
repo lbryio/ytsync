@@ -6,6 +6,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lbryio/ytsync/blobs_reflector"
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
 
@@ -206,6 +207,10 @@ func (s *SyncManager) Start() error {
 				if !shouldNotCount {
 					SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 				}
+			}
+			err = blobs_reflector.ReflectAndClean()
+			if err != nil {
+				return errors.Prefix("@Nikooo777 something went wrong while reflecting blobs", err)
 			}
 			SendInfoToSlack("Syncing %s (%s) reached an end. total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			if !shouldNotCount {
