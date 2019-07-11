@@ -25,7 +25,6 @@ import (
 
 	"github.com/ChannelMeter/iso8601duration"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/nikooo777/ytdl"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/youtube/v3"
@@ -176,8 +175,11 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 
 var ipPool []string
 var IPIndex int
+var ipMutex sync.Mutex
 
 func getNextIP() (string, error) {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
 	if len(ipPool) < 1 {
 		IPIndex = 0
 		addrs, err := net.InterfaceAddrs()
@@ -202,7 +204,7 @@ func getNextIP() (string, error) {
 	return nextIP, nil
 }
 
-func (v *YoutubeVideo) fallbackDownload() error {
+func (v *YoutubeVideo) download() error {
 	sourceAddress, err := getNextIP()
 	if err != nil {
 		return errors.Err(err)
@@ -233,89 +235,6 @@ func (v *YoutubeVideo) fallbackDownload() error {
 	videoSize := fi.Size()
 	v.size = &videoSize
 	return nil
-}
-
-func (v *YoutubeVideo) download() error {
-	videoPath := v.getFullPath()
-
-	err := os.Mkdir(v.videoDir(), 0750)
-	if err != nil && !strings.Contains(err.Error(), "file exists") {
-		return errors.Wrap(err, 0)
-	}
-
-	_, err = os.Stat(videoPath)
-	if err != nil && !os.IsNotExist(err) {
-		return errors.Err(err)
-	} else if err == nil {
-		log.Debugln(v.id + " already exists at " + videoPath)
-		return nil
-	}
-
-	videoUrl := "https://www.youtube.com/watch?v=" + v.id
-	videoInfo, err := ytdl.GetVideoInfo(videoUrl)
-	if err != nil {
-		return errors.Err(err)
-	}
-
-	codec := []string{"H.264"}
-	ext := []string{"mp4"}
-
-	//Filter requires a [] interface{}
-	codecFilter := make([]interface{}, len(codec))
-	for i, v := range codec {
-		codecFilter[i] = v
-	}
-
-	//Filter requires a [] interface{}
-	extFilter := make([]interface{}, len(ext))
-	for i, v := range ext {
-		extFilter[i] = v
-	}
-
-	formats := videoInfo.Formats.Filter(ytdl.FormatVideoEncodingKey, codecFilter).Filter(ytdl.FormatExtensionKey, extFilter)
-	if len(formats) == 0 {
-		return errors.Err("no compatible format available for this video")
-	}
-	maxRetryAttempts := 5
-	isLengthLimitSet := v.maxVideoLength > 0.01
-	if isLengthLimitSet && videoInfo.Duration.Hours() > v.maxVideoLength {
-		return errors.Err("video is too long to process")
-	}
-
-	for i := 0; i < len(formats) && i < maxRetryAttempts; i++ {
-		formatIndex := i
-		if i == maxRetryAttempts-1 {
-			formatIndex = len(formats) - 1
-		}
-		var downloadedFile *os.File
-		downloadedFile, err = os.Create(videoPath)
-		if err != nil {
-			return errors.Err(err)
-		}
-		err = videoInfo.Download(formats[formatIndex], downloadedFile)
-		_ = downloadedFile.Close()
-		if err != nil {
-			//delete the video and ignore the error
-			_ = v.delete()
-			return errors.Err(err.Error())
-		}
-		fi, err := os.Stat(v.getFullPath())
-		if err != nil {
-			return errors.Err(err)
-		}
-		videoSize := fi.Size()
-		v.size = &videoSize
-
-		isVideoSizeLimitSet := v.maxVideoSize > 0
-		if isVideoSizeLimitSet && videoSize > v.maxVideoSize {
-			//delete the video and ignore the error
-			_ = v.delete()
-			err = errors.Err("file is too big and there is no other format available")
-		} else {
-			break
-		}
-	}
-	return errors.Err(err)
 }
 
 func (v *YoutubeVideo) videoDir() string {
@@ -432,12 +351,7 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	err := v.download()
 	if err != nil {
-		log.Errorf("standard downloader failed: %s. Trying fallback downloader\n", err.Error())
-		fallBackErr := v.fallbackDownload()
-		if fallBackErr != nil {
-			log.Errorf("fallback downloader failed: %s\n", fallBackErr.Error())
-			return nil, errors.Prefix("download error", err) //return original error
-		}
+		return nil, errors.Prefix("download error", err)
 	}
 	log.Debugln("Downloaded " + v.id)
 
