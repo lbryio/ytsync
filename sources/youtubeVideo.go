@@ -223,7 +223,9 @@ func (v *YoutubeVideo) download(youtubeAntiThrottle bool) error {
 	useIPv4Env := os.Getenv("USE_IPV4")
 	ytdlArgs := []string{
 		"--no-progress",
-		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+best[ext=mp4,height<=1080,filesize<2000M]",
+		"--max-filesize",
+		fmt.Sprintf("%dM", v.maxVideoSize),
+		"-fbestvideo[ext=mp4][height<=1080]+bestaudio",
 		"-o" + strings.TrimRight(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
@@ -388,7 +390,7 @@ type SyncParams struct {
 }
 
 func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool, walletLock *sync.RWMutex) (*SyncSummary, error) {
-	v.maxVideoSize = int64(params.MaxVideoSize) * 1024 * 1024
+	v.maxVideoSize = int64(params.MaxVideoSize)
 	v.maxVideoLength = params.MaxVideoLength
 	v.lbryChannelID = params.ChannelID
 	v.walletLock = walletLock
