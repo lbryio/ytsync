@@ -204,29 +204,80 @@ func getNextIP() (string, error) {
 	return nextIP, nil
 }
 
-func (v *YoutubeVideo) download() error {
-	sourceAddress, err := getNextIP()
+func (v *YoutubeVideo) download(youtubeAntiThrottle bool) error {
+	videoPath := v.getFullPath()
+
+	err := os.Mkdir(v.videoDir(), 0750)
+	if err != nil && !strings.Contains(err.Error(), "file exists") {
+		return errors.Wrap(err, 0)
+	}
+
+	_, err = os.Stat(videoPath)
+	if err != nil && !os.IsNotExist(err) {
+		return errors.Err(err)
+	} else if err == nil {
+		log.Debugln(v.id + " already exists at " + videoPath)
+		return nil
+	}
+
+	useIPv4Env := os.Getenv("USE_IPV4")
+	ytdlArgs := []string{
+		"--no-progress",
+		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+best[ext=mp4,height<=1080,filesize<2000M]",
+		"-o" + strings.TrimRight(v.getFullPath(), ".mp4"),
+		"--merge-output-format",
+		"mp4",
+	}
+	useIPv4 := useIPv4Env != ""
+	if !useIPv4 || youtubeAntiThrottle {
+		sourceAddress, err := getNextIP()
+		if err != nil {
+			return errors.Err(err)
+		}
+		log.Infof("using IPv6: %s", sourceAddress)
+		ytdlArgs = append(ytdlArgs,
+			"-6",
+			"--source-address",
+			sourceAddress,
+		)
+	} else {
+		log.Infoln("using IPv4")
+		ytdlArgs = append(ytdlArgs, "-4")
+	}
+	ytdlArgs = append(ytdlArgs, "https://www.youtube.com/watch?v="+v.ID())
+	cmd := exec.Command("youtube-dl", ytdlArgs...)
+
+	log.Printf("Running command and waiting for it to finish...")
+
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return errors.Err(err)
 	}
-	cmd := exec.Command("youtube-dl",
-		"--no-progress",
-		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+best[ext=mp4,height<=1080,filesize<2000M]",
-		"-o"+strings.TrimRight(v.getFullPath(), ".mp4"),
-		"--merge-output-format",
-		"mp4",
-		"-6",
-		"--source-address",
-		sourceAddress,
-		"https://www.youtube.com/watch?v="+v.ID())
-
-	log.Printf("Running command and waiting for it to finish...")
-	output, err := cmd.CombinedOutput()
-	log.Debugln(string(output))
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Printf("Command finished with error: %v", errors.Err(string(output)))
-		_ = v.delete()
 		return errors.Err(err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return errors.Err(err)
+	}
+
+	errorLog, _ := ioutil.ReadAll(stderr)
+	outLog, _ := ioutil.ReadAll(stdout)
+
+	if err = cmd.Wait(); err != nil {
+		if strings.Contains(err.Error(), "exit status 1") {
+			return errors.Err(string(errorLog))
+		}
+		return errors.Err(err)
+	}
+
+	log.Debugln(string(outLog))
+
+	if string(errorLog) != "" {
+		log.Printf("Command finished with error: %v", errors.Err(string(errorLog)))
+		_ = v.delete()
+		return errors.Err(string(errorLog))
 	}
 	fi, err := os.Stat(v.getFullPath())
 	if err != nil {
@@ -349,9 +400,16 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 }
 
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
-	err := v.download()
+	err := v.download(false)
 	if err != nil {
-		return nil, errors.Prefix("download error", err)
+		if strings.Contains(err.Error(), "HTTP Error 429") {
+			err = v.download(true)
+			if err != nil {
+				return nil, errors.Prefix("download error", err)
+			}
+		} else {
+			return nil, errors.Prefix("download error", err)
+		}
 	}
 	log.Debugln("Downloaded " + v.id)
 

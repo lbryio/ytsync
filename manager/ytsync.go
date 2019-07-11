@@ -656,7 +656,6 @@ func (s *Sync) startWorker(workerNum int) {
 					"Cannot publish using channel",
 					"cannot concatenate 'str' and 'NoneType' objects",
 					"more than 90% of the space has been used.",
-					"Invalid status code: 429",
 					"HTTP Error 429",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) || s.StopOnError {
@@ -679,7 +678,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Watch this video on YouTube.",
 						"have blocked it on copyright grounds",
 						"the video must be republished as we can't get the right size",
-						"Invalid status code: 403",
+						"HTTP Error 403",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
