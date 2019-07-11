@@ -205,7 +205,7 @@ func getNextIP() (string, error) {
 	return nextIP, nil
 }
 
-func (v *YoutubeVideo) download(youtubeAntiThrottle bool) error {
+func (v *YoutubeVideo) download(useIPv6 bool) error {
 	videoPath := v.getFullPath()
 
 	err := os.Mkdir(v.videoDir(), 0750)
@@ -221,7 +221,6 @@ func (v *YoutubeVideo) download(youtubeAntiThrottle bool) error {
 		return nil
 	}
 
-	useIPv4Env := os.Getenv("USE_IPV4")
 	ytdlArgs := []string{
 		"--no-progress",
 		"--max-filesize",
@@ -231,8 +230,7 @@ func (v *YoutubeVideo) download(youtubeAntiThrottle bool) error {
 		"--merge-output-format",
 		"mp4",
 	}
-	useIPv4 := useIPv4Env != ""
-	if !useIPv4 || youtubeAntiThrottle {
+	if useIPv6 {
 		sourceAddress, err := getNextIP()
 		if err != nil {
 			return errors.Err(err)
@@ -402,11 +400,14 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 	return v.downloadAndPublish(daemon, params)
 }
 
+var isThrottled bool
+
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
-	err := v.download(false)
+	err := v.download(isThrottled)
 	if err != nil {
-		if strings.Contains(err.Error(), "HTTP Error 429") {
-			err = v.download(true)
+		if strings.Contains(err.Error(), "HTTP Error 429") && !isThrottled {
+			isThrottled = true
+			err = v.download(isThrottled)
 			if err != nil {
 				return nil, errors.Prefix("download error", err)
 			}
