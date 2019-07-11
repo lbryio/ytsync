@@ -24,6 +24,7 @@ import (
 	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/ChannelMeter/iso8601duration"
+	"github.com/asaskevich/govalidator"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -189,7 +190,7 @@ func getNextIP() (string, error) {
 
 		for _, address := range addrs {
 			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-				if ipnet.IP.To16() != nil && len(ipnet.IP) == net.IPv6len {
+				if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) {
 					ipPool = append(ipPool, ipnet.IP.String())
 				}
 			}
@@ -225,7 +226,7 @@ func (v *YoutubeVideo) download(youtubeAntiThrottle bool) error {
 		"--no-progress",
 		"--max-filesize",
 		fmt.Sprintf("%dM", v.maxVideoSize),
-		"-fbestvideo[ext=mp4][height<=1080]+bestaudio",
+		"-fbestvideo[ext=mp4][height<=1080]+bestaudio[ext!=webm]",
 		"-o" + strings.TrimRight(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
