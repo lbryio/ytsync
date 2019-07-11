@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -173,13 +174,48 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..." + additionalDescription
 }
 
+var ipPool []string
+var IPIndex int
+
+func getNextIP() (string, error) {
+	if len(ipPool) < 1 {
+		IPIndex = 0
+		addrs, err := net.InterfaceAddrs()
+		if err != nil {
+			return "", errors.Err(err)
+		}
+
+		for _, address := range addrs {
+			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To16() != nil && len(ipnet.IP) == net.IPv6len {
+					ipPool = append(ipPool, ipnet.IP.String())
+				}
+			}
+		}
+	}
+	nextIP := ipPool[IPIndex]
+	if IPIndex == len(ipPool)-1 {
+		IPIndex = 0
+	} else {
+		IPIndex++
+	}
+	return nextIP, nil
+}
+
 func (v *YoutubeVideo) fallbackDownload() error {
+	sourceAddress, err := getNextIP()
+	if err != nil {
+		return errors.Err(err)
+	}
 	cmd := exec.Command("youtube-dl",
 		"--no-progress",
 		"-fbestvideo[ext=mp4,height<=1080,filesize<2000M]+best[ext=mp4,height<=1080,filesize<2000M]",
 		"-o"+strings.TrimRight(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
+		"-6",
+		"--source-address",
+		sourceAddress,
 		"https://www.youtube.com/watch?v="+v.ID())
 
 	log.Printf("Running command and waiting for it to finish...")
