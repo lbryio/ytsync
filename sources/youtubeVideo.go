@@ -196,7 +196,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"--max-filesize",
 		fmt.Sprintf("%dM", v.maxVideoSize),
 		"--match-filter",
-		fmt.Sprintf("'duration <= %d'", int(math.Round(v.maxVideoLength*3600))),
+		fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
 		"-fbestvideo[ext=mp4][height<=1080]+bestaudio[ext!=webm]",
 		"-o" + strings.TrimRight(v.getFullPath(), ".mp4"),
 		"--merge-output-format",

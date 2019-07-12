@@ -667,7 +667,7 @@ func (s *Sync) startWorker(workerNum int) {
 				} else if s.MaxTries > 1 {
 					errorsNoRetry := []string{
 						"non 200 status code received",
-						" reason: 'This video contains content from",
+						"This video contains content from",
 						"dont know which claim to update",
 						"uploader has not made this video available in your country",
 						"download error: AccessDenied: Access Denied",

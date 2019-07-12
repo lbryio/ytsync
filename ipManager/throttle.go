@@ -22,14 +22,12 @@ var ipLastUsed map[string]time.Time
 var ipMutex sync.Mutex
 var stopper = stop.New()
 
-func SignalShutdown() {
-	stopper.Stop()
-}
-
 func GetNextIP(ipv6 bool) (string, error) {
 	ipMutex.Lock()
 	defer ipMutex.Unlock()
 	if len(ipv4Pool) < 1 || len(ipv6Pool) < 1 {
+		throttledIPs = make(map[string]bool)
+		ipLastUsed = make(map[string]time.Time)
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
 			return "", errors.Err(err)
@@ -94,18 +92,12 @@ func SetIpThrottled(ip string, stopGrp *stop.Group) {
 	go func() {
 		defer stopper.Done()
 		unbanTimer := time.NewTimer(unbanTimeout)
-		for {
-			select {
-			case <-unbanTimer.C:
-				throttledIPs[ip] = false
-				log.Printf("%s set back to not throttled", ip)
-				return
-			case <-stopGrp.Ch():
-				unbanTimer.Stop()
-				return
-			default:
-				time.Sleep(5 * time.Second)
-			}
+		select {
+		case <-unbanTimer.C:
+			throttledIPs[ip] = false
+			log.Printf("%s set back to not throttled", ip)
+		case <-stopGrp.Ch():
+			unbanTimer.Stop()
 		}
 	}()
 }
