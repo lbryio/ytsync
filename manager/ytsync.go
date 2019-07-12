@@ -649,7 +649,7 @@ func (s *Sync) startWorker(workerNum int) {
 			if err != nil {
 				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())
 				log.Errorln(logMsg)
-				if strings.Contains(err.Error(), "interrupted by user") {
+				if strings.Contains(strings.ToLower(err.Error()), "interrupted by user") {
 					return
 				}
 				fatalErrors := []string{
@@ -885,6 +885,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		"Unable to extract signature tokens",
 		"the video is too big to sync, skipping for now",
 		"video is too long to process",
+		"This video contains content from",
 		"no compatible format available for this video",
 		"Watch this video on YouTube.",
 		"have blocked it on copyright grounds",

@@ -198,7 +198,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"--match-filter",
 		fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
 		"-fbestvideo[ext=mp4][height<=1080]+bestaudio[ext!=webm]",
-		"-o" + strings.TrimRight(v.getFullPath(), ".mp4"),
+		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
 	}
@@ -229,7 +229,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 			sourceAddress,
 		)
 	} else {
-		log.Infoln("using IPv4: %s", sourceAddress)
+		log.Infof("using IPv4: %s", sourceAddress)
 		ytdlArgs = append(ytdlArgs,
 			"-4",
 			"--source-address",
