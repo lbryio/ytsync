@@ -225,6 +225,8 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"--no-progress",
 		"--max-filesize",
 		fmt.Sprintf("%dM", v.maxVideoSize),
+		"--match-filter",
+		fmt.Sprintf("'duration <= %d'", int(math.Round(v.maxVideoLength*3600))),
 		"-fbestvideo[ext=mp4][height<=1080]+bestaudio[ext!=webm]",
 		"-o" + strings.TrimRight(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
@@ -272,9 +274,12 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		}
 		return errors.Err(err)
 	}
-
 	log.Debugln(string(outLog))
 
+	if strings.Contains(string(outLog), "does not pass filter duration") {
+		_ = v.delete()
+		return errors.Err("video is too long to process")
+	}
 	if string(errorLog) != "" {
 		log.Printf("Command finished with error: %v", errors.Err(string(errorLog)))
 		_ = v.delete()
