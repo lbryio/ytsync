@@ -657,6 +657,7 @@ func (s *Sync) startWorker(workerNum int) {
 					"cannot concatenate 'str' and 'NoneType' objects",
 					"more than 90% of the space has been used.",
 					"HTTP Error 429",
+					"Couldn't find private key for id",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) || s.StopOnError {
 					s.grp.Stop()
