@@ -649,6 +649,9 @@ func (s *Sync) startWorker(workerNum int) {
 			if err != nil {
 				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())
 				log.Errorln(logMsg)
+				if strings.Contains(err.Error(), "interrupted by user") {
+					return
+				}
 				fatalErrors := []string{
 					":5279: read: connection reset by peer",
 					"no space left on device",
@@ -811,7 +814,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			return errors.Prefix("error getting videos info", err)
 		}
 		for _, item := range videosListResponse.Items {
-			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position, s.Manager.GetS3AWSConfig()))
+			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position, s.Manager.GetS3AWSConfig(), s.grp))
 		}
 
 		log.Infof("Got info for %d videos from youtube API", len(videos))
@@ -827,7 +830,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		}
 		_, ok := playlistMap[k]
 		if !ok {
-			videos = append(videos, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig()))
+			videos = append(videos, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig(), s.grp))
 		}
 
 	}
