@@ -18,6 +18,7 @@ const unbanTimeout = 3 * time.Hour
 var ipv6Pool []string
 var ipv4Pool []string
 var throttledIPs map[string]bool
+var ipInUse map[string]bool
 var ipLastUsed map[string]time.Time
 var ipMutex sync.Mutex
 var stopper = stop.New()
@@ -27,6 +28,7 @@ func GetNextIP(ipv6 bool) (string, error) {
 	defer ipMutex.Unlock()
 	if len(ipv4Pool) < 1 || len(ipv6Pool) < 1 {
 		throttledIPs = make(map[string]bool)
+		ipInUse = make(map[string]bool)
 		ipLastUsed = make(map[string]time.Time)
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
@@ -37,8 +39,10 @@ func GetNextIP(ipv6 bool) (string, error) {
 			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) {
 					ipv6Pool = append(ipv6Pool, ipnet.IP.String())
+					ipLastUsed[ipnet.IP.String()] = time.Now().Add(-IPCooldownPeriod)
 				} else if ipnet.IP.To4() != nil && govalidator.IsIPv4(ipnet.IP.String()) {
 					ipv4Pool = append(ipv4Pool, ipnet.IP.String())
+					ipLastUsed[ipnet.IP.String()] = time.Now().Add(-IPCooldownPeriod)
 				}
 			}
 		}
@@ -54,19 +58,30 @@ func GetNextIP(ipv6 bool) (string, error) {
 	}
 	lastUse := ipLastUsed[nextIP]
 	if time.Since(lastUse) < IPCooldownPeriod {
+		log.Debugf("The IP %s is too hot, waiting for %.1f seconds before continuing", nextIP, (IPCooldownPeriod - time.Since(lastUse)).Seconds())
 		time.Sleep(IPCooldownPeriod - time.Since(lastUse))
 	}
 
-	ipLastUsed[nextIP] = time.Now()
+	ipInUse[nextIP] = true
 	return nextIP, nil
 }
 
+func releaseIP(ip string) {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
+	ipLastUsed[ip] = time.Now()
+	ipInUse[ip] = false
+}
 func getLeastUsedIP(ipPool []string) string {
 	nextIP := ""
 	veryLastUse := time.Now()
 	for _, ip := range ipPool {
-		isThrottled, _ := throttledIPs[ip]
+		isThrottled := throttledIPs[ip]
 		if isThrottled {
+			continue
+		}
+		inUse := ipInUse[ip]
+		if inUse {
 			continue
 		}
 		lastUse := ipLastUsed[ip]
@@ -81,7 +96,7 @@ func getLeastUsedIP(ipPool []string) string {
 func SetIpThrottled(ip string, stopGrp *stop.Group) {
 	ipMutex.Lock()
 	defer ipMutex.Unlock()
-	isThrottled, _ := throttledIPs[ip]
+	isThrottled := throttledIPs[ip]
 	if isThrottled {
 		return
 	}
