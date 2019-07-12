@@ -54,7 +54,7 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 		Data    []YoutubeChannel `json:"data"`
 	}
 	endpoint := a.ApiURL + "/yt/jobs"
-	res, _ := http.PostForm(endpoint, url.Values{
+	res, err := http.PostForm(endpoint, url.Values{
 		"auth_token":  {a.ApiToken},
 		"sync_status": {status},
 		"min_videos":  {strconv.Itoa(1)},
@@ -63,10 +63,13 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 		"sync_server": {a.HostName},
 		"channel_id":  {cp.YoutubeChannelID},
 	})
+	if err != nil {
+		return nil, errors.Err(err)
+	}
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
 	var response apiJobsResponse
-	err := json.Unmarshal(body, &response)
+	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return nil, err
 	}
