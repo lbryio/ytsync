@@ -273,6 +273,10 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		_ = v.delete()
 		return errors.Err("video is too long to process")
 	}
+	if strings.Contains(string(outLog), "File is larger than max-filesize") {
+		_ = v.delete()
+		return errors.Err("the video is too big to sync, skipping for now")
+	}
 	if string(errorLog) != "" {
 		log.Printf("Command finished with error: %v", errors.Err(string(errorLog)))
 		_ = v.delete()
