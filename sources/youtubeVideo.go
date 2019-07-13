@@ -221,6 +221,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 			return errors.Err(err)
 		}
 	}
+	defer ipManager.ReleaseIP(sourceAddress)
 	if useIPv6 {
 		log.Infof("using IPv6: %s", sourceAddress)
 		ytdlArgs = append(ytdlArgs,

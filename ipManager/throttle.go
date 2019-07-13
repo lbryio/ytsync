@@ -66,12 +66,13 @@ func GetNextIP(ipv6 bool) (string, error) {
 	return nextIP, nil
 }
 
-func releaseIP(ip string) {
+func ReleaseIP(ip string) {
 	ipMutex.Lock()
 	defer ipMutex.Unlock()
 	ipLastUsed[ip] = time.Now()
 	ipInUse[ip] = false
 }
+
 func getLeastUsedIP(ipPool []string) string {
 	nextIP := ""
 	veryLastUse := time.Now()
