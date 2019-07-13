@@ -210,11 +210,12 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 				case <-v.stopGroup.Ch():
 					return errors.Err("interrupted by user")
 				default:
-					time.Sleep(20 * time.Second)
-					sourceAddress, err = ipManager.GetNextIP(useIPv6)
-					if err == nil {
-						break
-					}
+				}
+
+				time.Sleep(ipManager.IPCooldownPeriod)
+				sourceAddress, err = ipManager.GetNextIP(useIPv6)
+				if err == nil {
+					break
 				}
 			}
 		} else {
