@@ -2,6 +2,7 @@ package ipManager
 
 import (
 	"github.com/asaskevich/govalidator"
+	"github.com/lbryio/ytsync/util"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/lbryio/lbry.go/extras/errors"
@@ -12,7 +13,7 @@ import (
 	"time"
 )
 
-const IPCooldownPeriod = 20 * time.Second
+const IPCooldownPeriod = 25 * time.Second
 const unbanTimeout = 3 * time.Hour
 
 var ipv6Pool []string
@@ -96,13 +97,13 @@ func getLeastUsedIP(ipPool []string) string {
 
 func SetIpThrottled(ip string, stopGrp *stop.Group) {
 	ipMutex.Lock()
-	defer ipMutex.Unlock()
 	isThrottled := throttledIPs[ip]
 	if isThrottled {
 		return
 	}
 	throttledIPs[ip] = true
-	log.Printf("%s set to throttled", ip)
+	ipMutex.Unlock()
+	util.SendErrorToSlack("%s set to throttled", ip)
 
 	stopper.Add(1)
 	go func() {
@@ -110,8 +111,10 @@ func SetIpThrottled(ip string, stopGrp *stop.Group) {
 		unbanTimer := time.NewTimer(unbanTimeout)
 		select {
 		case <-unbanTimer.C:
+			ipMutex.Lock()
 			throttledIPs[ip] = false
-			log.Printf("%s set back to not throttled", ip)
+			ipMutex.Unlock()
+			util.SendInfoToSlack("%s set back to not throttled", ip)
 		case <-stopGrp.Ch():
 			unbanTimer.Stop()
 		}

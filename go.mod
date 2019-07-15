@@ -3,7 +3,6 @@ module github.com/lbryio/ytsync
 require (
 	cloud.google.com/go v0.37.4 // indirect
 	github.com/ChannelMeter/iso8601duration v0.0.0-20150204201828-8da3af7a2a61
-	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 	github.com/aws/aws-sdk-go v1.17.3
@@ -22,7 +21,6 @@ require (
 	github.com/lbryio/reflector.go v1.0.6-0.20190710201919-7c7ed9da72ce
 	github.com/lusis/slack-test v0.0.0-20190408224659-6cf59653add2 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
-	github.com/nikooo777/ytdl v0.0.0-20190215151411-9c7832eaf457
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2 // indirect

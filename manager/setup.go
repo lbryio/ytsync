@@ -15,6 +15,7 @@ import (
 
 	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
+	logUtils "github.com/lbryio/ytsync/util"
 
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -267,7 +268,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	if len((*channels).Items) > 1 {
 		// This wallet is probably not under our control anymore but we still want to publish to it
 		// here we shall check if within all the channels there is one that was created by ytsync
-		SendInfoToSlack("we are dealing with a wallet that has multiple channels. This indicates that the wallet was probably transferred but we still want to sync their content. YoutubeID: %s", s.YoutubeChannelID)
+		logUtils.SendInfoToSlack("we are dealing with a wallet that has multiple channels. This indicates that the wallet was probably transferred but we still want to sync their content. YoutubeID: %s", s.YoutubeChannelID)
 		if s.lbryChannelID == "" {
 			return errors.Err("this channel does not have a recorded claimID in the database. To prevent failures, updates are not supported until an entry is manually added in the database")
 		}

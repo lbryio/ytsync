@@ -9,6 +9,7 @@ import (
 	"github.com/lbryio/ytsync/blobs_reflector"
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
+	logUtils "github.com/lbryio/ytsync/util"
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/util"
@@ -188,7 +189,7 @@ func (s *SyncManager) Start() error {
 		}
 		for _, sync := range syncs {
 			shouldNotCount := false
-			SendInfoToSlack("Syncing %s (%s) to LBRY! total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
+			logUtils.SendInfoToSlack("Syncing %s (%s) to LBRY! total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			err := sync.FullCycle()
 			if err != nil {
 				fatalErrors := []string{
@@ -199,21 +200,20 @@ func (s *SyncManager) Start() error {
 					"failure uploading wallet",
 					"the channel in the wallet is different than the channel in the database",
 					"this channel does not belong to this wallet!",
-					"HTTP Error 429",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
 				}
 				shouldNotCount = strings.Contains(err.Error(), "this youtube channel is being managed by another server")
 				if !shouldNotCount {
-					SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
+					logUtils.SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
 				}
 			}
 			err = blobs_reflector.ReflectAndClean()
 			if err != nil {
 				return errors.Prefix("@Nikooo777 something went wrong while reflecting blobs", err)
 			}
-			SendInfoToSlack("Syncing %s (%s) reached an end. total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
+			logUtils.SendInfoToSlack("Syncing %s (%s) reached an end. total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			if !shouldNotCount {
 				syncCount++
 			}

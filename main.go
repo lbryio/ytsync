@@ -9,10 +9,11 @@ import (
 
 	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/ytsync/sdk"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/lbryio/ytsync/manager"
-	log "github.com/sirupsen/logrus"
+	logUtils "github.com/lbryio/ytsync/util"
 )
 
 var Version string
@@ -197,7 +198,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 	)
 	err := sm.Start()
 	if err != nil {
-		manager.SendErrorToSlack(err.Error())
+		logUtils.SendErrorToSlack(err.Error())
 	}
-	manager.SendInfoToSlack("Syncing process terminated!")
+	logUtils.SendInfoToSlack("Syncing process terminated!")
 }

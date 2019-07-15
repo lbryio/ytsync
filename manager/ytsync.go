@@ -18,6 +18,7 @@ import (
 	"github.com/lbryio/ytsync/sdk"
 	"github.com/lbryio/ytsync/sources"
 	"github.com/lbryio/ytsync/thumbs"
+	logUtils "github.com/lbryio/ytsync/util"
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
@@ -101,32 +102,6 @@ func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason s
 		ClaimName:       claimName,
 		MetadataVersion: metadataVersion,
 		Size:            size,
-	}
-}
-
-// SendErrorToSlack Sends an error message to the default channel and to the process log.
-func SendErrorToSlack(format string, a ...interface{}) {
-	message := format
-	if len(a) > 0 {
-		message = fmt.Sprintf(format, a...)
-	}
-	log.Errorln(message)
-	err := util.SendToSlack(":sos: " + message)
-	if err != nil {
-		log.Errorln(err)
-	}
-}
-
-// SendInfoToSlack Sends an info message to the default channel and to the process log.
-func SendInfoToSlack(format string, a ...interface{}) {
-	message := format
-	if len(a) > 0 {
-		message = fmt.Sprintf(format, a...)
-	}
-	log.Infoln(message)
-	err := util.SendToSlack(":information_source: " + message)
-	if err != nil {
-		log.Errorln(err)
 	}
 }
 
@@ -389,8 +364,8 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 	}
 }
 func logShutdownError(shutdownErr error) {
-	SendErrorToSlack("error shutting down daemon: %v", shutdownErr)
-	SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
+	logUtils.SendErrorToSlack("error shutting down daemon: %v", shutdownErr)
+	logUtils.SendErrorToSlack("WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR")
 }
 
 var thumbnailHosts = []string{
@@ -553,7 +528,7 @@ func (s *Sync) doSync() error {
 		return errors.Prefix("error checking for duplicates", err)
 	}
 	if hasDupes {
-		SendInfoToSlack("Channel had dupes and was fixed!")
+		logUtils.SendInfoToSlack("Channel had dupes and was fixed!")
 		err = s.waitForNewBlock()
 		if err != nil {
 			return err
@@ -574,10 +549,10 @@ func (s *Sync) doSync() error {
 			return err
 		}
 		if nFixed > 0 {
-			SendInfoToSlack("%d claims had mismatched database info or were completely missing and were fixed", nFixed)
+			logUtils.SendInfoToSlack("%d claims had mismatched database info or were completely missing and were fixed", nFixed)
 		}
 		if nRemoved > 0 {
-			SendInfoToSlack("%d were marked as published but weren't actually published and thus removed from the database", nRemoved)
+			logUtils.SendInfoToSlack("%d were marked as published but weren't actually published and thus removed from the database", nRemoved)
 		}
 	}
 	pubsOnDB := 0
@@ -588,11 +563,11 @@ func (s *Sync) doSync() error {
 	}
 
 	if pubsOnWallet > pubsOnDB { //This case should never happen
-		SendInfoToSlack("We're claiming to have published %d videos but in reality we published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
+		logUtils.SendInfoToSlack("We're claiming to have published %d videos but in reality we published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
 		return errors.Err("not all published videos are in the database")
 	}
 	if pubsOnWallet < pubsOnDB {
-		SendInfoToSlack("we're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
+		logUtils.SendInfoToSlack("we're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
 	}
 
 	if s.StopOnError {
@@ -659,7 +634,6 @@ func (s *Sync) startWorker(workerNum int) {
 					"Cannot publish using channel",
 					"cannot concatenate 'str' and 'NoneType' objects",
 					"more than 90% of the space has been used.",
-					"HTTP Error 429",
 					"Couldn't find private key for id",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) || s.StopOnError {
@@ -693,7 +667,7 @@ func (s *Sync) startWorker(workerNum int) {
 							err := s.waitForNewBlock()
 							if err != nil {
 								s.grp.Stop()
-								SendErrorToSlack("something went wrong while waiting for a block: %v", err)
+								logUtils.SendErrorToSlack("something went wrong while waiting for a block: %v", err)
 								break
 							}
 						} else if util.SubstringInSlice(err.Error(), []string{
@@ -705,7 +679,7 @@ func (s *Sync) startWorker(workerNum int) {
 							err := s.walletSetup()
 							if err != nil {
 								s.grp.Stop()
-								SendErrorToSlack("failed to setup the wallet for a refill: %v", err)
+								logUtils.SendErrorToSlack("failed to setup the wallet for a refill: %v", err)
 								break
 							}
 						} else if strings.Contains(err.Error(), "Error in daemon: 'str' object has no attribute 'get'") {
@@ -714,7 +688,7 @@ func (s *Sync) startWorker(workerNum int) {
 						log.Println("Retrying")
 						continue
 					}
-					SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
+					logUtils.SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
 				}
 				s.syncedVideosMux.RLock()
 				existingClaim, ok := s.syncedVideos[v.ID()]
@@ -740,7 +714,7 @@ func (s *Sync) startWorker(workerNum int) {
 				}
 				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), videoStatus, existingClaimID, existingClaimName, err.Error(), &existingClaimSize, 0)
 				if err != nil {
-					SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
+					logUtils.SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 				}
 			}
 			break
@@ -930,7 +904,7 @@ func (s *Sync) processVideo(v video) (err error) {
 	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName, summary.ClaimID, newMetadataVersion, *v.Size())
 	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size(), 2)
 	if err != nil {
-		SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
+		logUtils.SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
 	}
 
 	return nil
