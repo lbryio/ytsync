@@ -203,7 +203,6 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		fmt.Sprintf("%dM", v.maxVideoSize),
 		"--match-filter",
 		fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
-		"-fbestvideo[ext=mp4][height<=" + qualities[qualityIndex] + "]+bestaudio[ext!=webm]",
 		"-o\"" + strings.TrimSuffix(v.getFullPath(), ".mp4") + "\"",
 		"--merge-output-format",
 		"mp4",
@@ -249,9 +248,10 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 	}
 	ytdlArgs = append(ytdlArgs, "https://www.youtube.com/watch?v="+v.ID())
 runcmd:
-	cmd := exec.Command("youtube-dl", ytdlArgs...)
+	argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][height<="+qualities[qualityIndex]+"]+bestaudio[ext!=webm]")
+	cmd := exec.Command("youtube-dl", argsWithFilters...)
 
-	log.Printf("Running command youtube-dl %s", strings.Join(ytdlArgs, " "))
+	log.Printf("Running command youtube-dl %s", strings.Join(argsWithFilters, " "))
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -273,11 +273,11 @@ runcmd:
 		if strings.Contains(err.Error(), "exit status 1") {
 			if strings.Contains(string(errorLog), "HTTP Error 429") {
 				ipManager.SetIpThrottled(sourceAddress, v.stopGroup)
+			} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
+				qualityIndex++
+				goto runcmd
 			}
 			return errors.Err(string(errorLog))
-		} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
-			qualityIndex++
-			goto runcmd
 		}
 		return errors.Err(err)
 	}
