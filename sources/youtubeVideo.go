@@ -204,12 +204,12 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"--match-filter",
 		fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
 		"-fbestvideo[ext=mp4][height<=" + qualities[qualityIndex] + "]+bestaudio[ext!=webm]",
-		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
+		"-o\"" + strings.TrimSuffix(v.getFullPath(), ".mp4") + "\"",
 		"--merge-output-format",
+		"mp4",
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
 		"0",
-		"mp4",
 	}
 	sourceAddress, err := ipManager.GetNextIP(useIPv6)
 	if err != nil {
@@ -251,7 +251,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 runcmd:
 	cmd := exec.Command("youtube-dl", ytdlArgs...)
 
-	log.Printf("Running command and waiting for it to finish...")
+	log.Printf("Running command youtube-dl %s", strings.Join(ytdlArgs, " "))
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
