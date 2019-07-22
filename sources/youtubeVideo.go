@@ -203,7 +203,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		fmt.Sprintf("%dM", v.maxVideoSize),
 		"--match-filter",
 		fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
-		"-o\"" + strings.TrimSuffix(v.getFullPath(), ".mp4") + "\"",
+		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
 		"--abort-on-unavailable-fragment",
