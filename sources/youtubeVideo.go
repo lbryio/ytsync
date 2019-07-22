@@ -190,16 +190,25 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		log.Debugln(v.id + " already exists at " + videoPath)
 		return nil
 	}
-
+	qualities := []string{
+		//"1080",
+		"720",
+		"480",
+		"320",
+	}
+	qualityIndex := 0
 	ytdlArgs := []string{
 		"--no-progress",
 		"--max-filesize",
 		fmt.Sprintf("%dM", v.maxVideoSize),
 		"--match-filter",
 		fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
-		"-fbestvideo[ext=mp4][height<=1080]+bestaudio[ext!=webm]",
+		"-fbestvideo[ext=mp4][height<=" + qualities[qualityIndex] + "]+bestaudio[ext!=webm]",
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
+		"--abort-on-unavailable-fragment",
+		"--fragment-retries",
+		"0",
 		"mp4",
 	}
 	sourceAddress, err := ipManager.GetNextIP(useIPv6)
@@ -239,6 +248,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		)
 	}
 	ytdlArgs = append(ytdlArgs, "https://www.youtube.com/watch?v="+v.ID())
+runcmd:
 	cmd := exec.Command("youtube-dl", ytdlArgs...)
 
 	log.Printf("Running command and waiting for it to finish...")
@@ -265,6 +275,9 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 				ipManager.SetIpThrottled(sourceAddress, v.stopGroup)
 			}
 			return errors.Err(string(errorLog))
+		} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
+			qualityIndex++
+			goto runcmd
 		}
 		return errors.Err(err)
 	}
