@@ -24,7 +24,7 @@ import (
 	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
 
-	"github.com/ChannelMeter/iso8601duration"
+	duration "github.com/ChannelMeter/iso8601duration"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -208,6 +208,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"mp4",
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
+		"--postprocessor-args '-movflags faststart'",
 		"0",
 	}
 	sourceAddress, err := ipManager.GetNextIP(useIPv6)
