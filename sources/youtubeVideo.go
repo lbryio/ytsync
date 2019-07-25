@@ -199,10 +199,6 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 	qualityIndex := 0
 	ytdlArgs := []string{
 		"--no-progress",
-		"--max-filesize",
-		fmt.Sprintf("%dM", v.maxVideoSize),
-		"--match-filter",
-		fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
@@ -211,6 +207,18 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
 		"0",
+	}
+	if v.maxVideoSize > 0 {
+		ytdlArgs = append(ytdlArgs,
+			"--max-filesize",
+			fmt.Sprintf("%dM", v.maxVideoSize),
+		)
+	}
+	if v.maxVideoLength > 0 {
+		ytdlArgs = append(ytdlArgs,
+			"--match-filter",
+			fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
+		)
 	}
 	sourceAddress, err := ipManager.GetNextIP(useIPv6)
 	if err != nil {
