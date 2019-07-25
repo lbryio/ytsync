@@ -203,7 +203,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"--merge-output-format",
 		"mp4",
 		"--postprocessor-args",
-		"'-movflags faststart'",
+		"-movflags faststart",
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
 		"0",
