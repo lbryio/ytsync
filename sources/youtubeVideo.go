@@ -206,6 +206,8 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
+		"--postprocessor-args",
+		"'-movflags faststart'",
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
 		"0",
