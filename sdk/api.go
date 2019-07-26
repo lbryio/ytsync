@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lbryio/lbry.go/extras/api"
+
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/null"
 
@@ -98,6 +100,33 @@ func sanitizeFailureReason(s *string) {
 		*s = (*s)[:MaxReasonLength]
 	}
 }
+
+func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
+
+	endpoint := a.ApiURL + "/yt/channel_cert"
+
+	res, _ := http.PostForm(endpoint, url.Values{
+		"channel_id":   {channelID},
+		"channel_cert": {certHex},
+		"auth_token":   {a.ApiToken},
+	})
+
+	defer res.Body.Close()
+
+	body, _ := ioutil.ReadAll(res.Body)
+	var response api.Response
+	err := json.Unmarshal(body, &response)
+	if err != nil {
+		return errors.Err(err)
+	}
+	if response.Error != nil {
+		return errors.Err(response.Error)
+	}
+
+	return nil
+
+}
+
 func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string) (map[string]SyncedVideo, map[string]bool, error) {
 	type apiChannelStatusResponse struct {
 		Success bool          `json:"success"`
