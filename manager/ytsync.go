@@ -543,6 +543,16 @@ func (s *Sync) doSync() error {
 	if err != nil {
 		return errors.Prefix("error updating remote database", err)
 	}
+	if pubsOnWallet == 0 {
+		cert, err := s.daemon.ChannelExport(s.lbryChannelID, nil, nil)
+		if err != nil {
+			return errors.Prefix("error getting channel cert", err)
+		}
+		err = s.APIConfig.SetChannelCert(string(*cert), s.lbryChannelID)
+		if err != nil {
+			return errors.Prefix("error setting channel cert", err)
+		}
+	}
 	if nFixed > 0 || nRemoved > 0 {
 		err := s.setStatusSyncing()
 		if err != nil {

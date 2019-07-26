@@ -17,7 +17,7 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lbryio/errors.go v0.0.0-20180223142025-ad03d3cc6a5c
-	github.com/lbryio/lbry.go v1.0.15
+	github.com/lbryio/lbry.go v1.0.16-0.20190726033352-f69bba9977f8
 	github.com/lbryio/reflector.go v1.0.6-0.20190710201919-7c7ed9da72ce
 	github.com/lusis/slack-test v0.0.0-20190408224659-6cf59653add2 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
