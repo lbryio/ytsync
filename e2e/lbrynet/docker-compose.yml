@@ -1,0 +1,23 @@
+version: "3"
+networks:
+  lbry-network:
+    external: true
+
+services:
+  #############
+  ## Lbrynet ##
+  #############
+  lbrynet:
+    image: lbry/lbrynet:v0.38.5
+    restart: "no"
+    networks:
+      lbry-network:
+        ipv4_address: 10.6.1.3
+    ports:
+      - "15100:5279"
+      - "15101:5280"
+    environment:
+      - LBRY_STREAMING_SERVER=0.0.0.0:5280
+    volumes:
+      - "../persist/data/.lbrynet:/home/lbrynet"
+      - "./settings:/etc/lbry" #Put your daemon_settings.yml here
