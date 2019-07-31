@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -31,6 +32,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
@@ -116,17 +119,9 @@ func (s *Sync) IsInterrupted() bool {
 }
 
 func (s *Sync) downloadWallet() error {
-	defaultWalletDir := os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
-	defaultTempWalletDir := os.Getenv("HOME") + "/.lbryum/wallets/tmp_wallet"
-	key := aws.String("/wallets/" + s.YoutubeChannelID)
-	if os.Getenv("REGTEST") == "true" {
-		defaultWalletDir = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
-		defaultTempWalletDir = os.Getenv("HOME") + "/.lbryum_regtest/wallets/tmp_wallet"
-		key = aws.String("/regtest/" + s.YoutubeChannelID)
-	}
-
-	if _, err := os.Stat(defaultWalletDir); !os.IsNotExist(err) {
-		return errors.Err("default_wallet already exists")
+	defaultWalletDir, defaultTempWalletDir, key, err := s.getWalletPaths()
+	if err != nil {
+		return errors.Err(err)
 	}
 
 	creds := credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, "")
@@ -166,6 +161,29 @@ func (s *Sync) downloadWallet() error {
 	}
 
 	return os.Rename(defaultTempWalletDir, defaultWalletDir)
+}
+
+func (s *Sync) getWalletPaths() (defaultWallet, tempWallet string, key *string, err error) {
+
+	defaultWallet = os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
+	tempWallet = os.Getenv("HOME") + "/.lbryum/wallets/tmp_wallet"
+	key = aws.String("/wallets/" + s.YoutubeChannelID)
+	if os.Getenv("REGTEST") == "true" {
+		defaultWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
+		tempWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/tmp_wallet"
+		key = aws.String("/regtest/" + s.YoutubeChannelID)
+	}
+
+	walletPath := os.Getenv("LBRYNET_WALLETS_DIR")
+	if walletPath != "" {
+		defaultWallet = walletPath + "/wallets/default_wallet"
+		tempWallet = walletPath + "/wallets/tmp_wallet"
+	}
+
+	if _, err := os.Stat(defaultWallet); !os.IsNotExist(err) {
+		return "", "", nil, errors.Err("default_wallet already exists")
+	}
+	return
 }
 
 func (s *Sync) uploadWallet() error {
@@ -272,13 +290,13 @@ func (s *Sync) FullCycle() (e error) {
 
 	defer deleteSyncFolder(s.videoDirectory)
 	log.Printf("Starting daemon")
-	err = startDaemonViaSystemd()
+	err = startDaemon()
 	if err != nil {
 		return err
 	}
 
 	log.Infoln("Waiting for daemon to finish starting...")
-	s.daemon = jsonrpc.NewClient("")
+	s.daemon = jsonrpc.NewClient(os.Getenv("LBRYNET_ADDRESS"))
 	s.daemon.SetRPCTimeout(40 * time.Minute)
 
 	err = s.waitForDaemonStart()
@@ -340,7 +358,7 @@ func (s *Sync) waitForDaemonStart() error {
 
 func (s *Sync) stopAndUploadWallet(e *error) {
 	log.Printf("Stopping daemon")
-	shutdownErr := stopDaemonViaSystemd()
+	shutdownErr := stopDaemon()
 	if shutdownErr != nil {
 		logShutdownError(shutdownErr)
 	} else {
@@ -548,6 +566,7 @@ func (s *Sync) doSync() error {
 		if err != nil {
 			return errors.Prefix("error getting channel cert", err)
 		}
+		println("lbryChannelID:", s.lbryChannelID)
 		err = s.APIConfig.SetChannelCert(string(*cert), s.lbryChannelID)
 		if err != nil {
 			return errors.Prefix("error setting channel cert", err)
@@ -917,6 +936,58 @@ func (s *Sync) processVideo(v video) (err error) {
 	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size(), 2)
 	if err != nil {
 		logUtils.SendErrorToSlack("Failed to mark video on the database: %s", err.Error())
+	}
+
+	return nil
+}
+
+func startDaemon() error {
+	if logUtils.IsUsingDocker() {
+		return startDaemonViaDocker()
+	}
+	return startDaemonViaSystemd()
+}
+
+func stopDaemon() error {
+	if logUtils.IsUsingDocker() {
+		return stopDaemonViaDocker()
+	}
+	return stopDaemonViaSystemd()
+}
+
+func startDaemonViaDocker() error {
+	container, err := logUtils.GetLBRYNetContainer(true)
+	if err != nil {
+		return err
+	}
+
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		panic(err)
+	}
+
+	err = cli.ContainerStart(context.Background(), container.ID, types.ContainerStartOptions{})
+	if err != nil {
+		return errors.Err(err)
+	}
+
+	return nil
+}
+
+func stopDaemonViaDocker() error {
+	container, err := logUtils.GetLBRYNetContainer(false)
+	if err != nil {
+		return err
+	}
+
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		panic(err)
+	}
+
+	err = cli.ContainerStop(context.Background(), container.ID, nil)
+	if err != nil {
+		return errors.Err(err)
 	}
 
 	return nil
