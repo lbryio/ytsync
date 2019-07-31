@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lbryio/lbry.go/extras/api"
-
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/null"
 
@@ -103,24 +101,30 @@ func sanitizeFailureReason(s *string) {
 
 func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
 
+	type apiSetChannelCertResponse struct {
+		Success bool        `json:"success"`
+		Error   null.String `json:"error"`
+		Data    string      `json:"data"`
+	}
+
 	endpoint := a.ApiURL + "/yt/channel_cert"
 
 	res, _ := http.PostForm(endpoint, url.Values{
-		"channel_id":   {channelID},
-		"channel_cert": {certHex},
-		"auth_token":   {a.ApiToken},
+		"channel_claim_id": {channelID},
+		"channel_cert":     {certHex},
+		"auth_token":       {a.ApiToken},
 	})
 
 	defer res.Body.Close()
 
 	body, _ := ioutil.ReadAll(res.Body)
-	var response api.Response
+	var response apiSetChannelCertResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
 		return errors.Err(err)
 	}
-	if response.Error != nil {
-		return errors.Err(response.Error)
+	if !response.Error.IsNull() {
+		return errors.Err(response.Error.String)
 	}
 
 	return nil

@@ -2,16 +2,18 @@ package blobs_reflector
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"os"
+	"os/user"
+	"path/filepath"
+
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/reflector.go/cmd"
 	"github.com/lbryio/reflector.go/db"
 	"github.com/lbryio/reflector.go/reflector"
 	"github.com/lbryio/reflector.go/store"
+	"github.com/lbryio/ytsync/util"
 	"github.com/mitchellh/go-ps"
-	"io/ioutil"
-	"os"
-	"os/user"
-	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -100,12 +102,7 @@ func cleanupLbrynet() error {
 	if running {
 		return errors.Prefix("cannot cleanup lbrynet as the daemon is running", err)
 	}
-	usr, err := user.Current()
-	if err != nil {
-		log.Errorln(err.Error())
-		return errors.Err(err)
-	}
-	lbrynetDir := usr.HomeDir + "/.lbrynet/"
+	lbrynetDir := util.GetLBRYNetDir()
 	files, err := filepath.Glob(lbrynetDir + "lbrynet.sqlite*")
 	if err != nil {
 		return errors.Err(err)
@@ -116,7 +113,7 @@ func cleanupLbrynet() error {
 			return errors.Err(err)
 		}
 	}
-	blobsDir := lbrynetDir + "/blobfiles/"
+	blobsDir := util.GetBlobsDir()
 	err = os.RemoveAll(blobsDir)
 	if err != nil {
 		return errors.Err(err)
@@ -129,6 +126,14 @@ func cleanupLbrynet() error {
 }
 
 func isLbrynetRunning() (bool, error) {
+	if util.IsUsingDocker() {
+		container, err := util.GetLBRYNetContainer(false)
+		if err != nil {
+			return false, err
+		}
+		return container != nil, nil
+	}
+
 	processes, err := ps.Processes()
 	if err != nil {
 		return true, errors.Err(err)
