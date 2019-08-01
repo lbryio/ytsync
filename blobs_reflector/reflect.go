@@ -42,6 +42,9 @@ func loadConfig(path string) (cmd.Config, error) {
 }
 
 func reflectBlobs() error {
+	if util.IsBlobReflectionOff() {
+		return nil
+	}
 	//make sure lbrynet is off
 	running, err := isLbrynetRunning()
 	if err != nil {
@@ -127,7 +130,7 @@ func cleanupLbrynet() error {
 
 func isLbrynetRunning() (bool, error) {
 	if util.IsUsingDocker() {
-		container, err := util.GetLBRYNetContainer(false)
+		container, err := util.GetLBRYNetContainer(util.ONLINE)
 		if err != nil {
 			return false, err
 		}
