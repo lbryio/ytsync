@@ -24,7 +24,7 @@ import (
 	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
 
-	"github.com/ChannelMeter/iso8601duration"
+	duration "github.com/ChannelMeter/iso8601duration"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -294,16 +294,16 @@ runcmd:
 	log.Debugln(string(outLog))
 
 	if strings.Contains(string(outLog), "does not pass filter duration") {
-		_ = v.delete()
+		_ = v.delete("does not pass filter duration")
 		return errors.Err("video is too long to process")
 	}
 	if strings.Contains(string(outLog), "File is larger than max-filesize") {
-		_ = v.delete()
+		_ = v.delete("File is larger than max-filesize")
 		return errors.Err("the video is too big to sync, skipping for now")
 	}
 	if string(errorLog) != "" {
 		log.Printf("Command finished with error: %v", errors.Err(string(errorLog)))
-		_ = v.delete()
+		_ = v.delete("due to error")
 		return errors.Err(string(errorLog))
 	}
 	fi, err := os.Stat(v.getFullPath())
@@ -338,14 +338,14 @@ func (v *YoutubeVideo) getDownloadedPath() (string, error) {
 	return "", errors.Err("could not find any downloaded videos")
 
 }
-func (v *YoutubeVideo) delete() error {
+func (v *YoutubeVideo) delete(reason string) error {
 	videoPath, err := v.getDownloadedPath()
 	if err != nil {
 		log.Errorln(err)
 		return err
 	}
 	err = os.Remove(videoPath)
-	log.Debugf("%s deleted from disk (%s)", v.id, videoPath)
+	log.Debugf("%s deleted from disk for '%s' (%s)", v.id, reason, videoPath)
 
 	if err != nil {
 		err = errors.Prefix("delete error", err)
@@ -451,7 +451,7 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 
 	summary, err := v.publish(daemon, params)
 	//delete the video in all cases (and ignore the error)
-	_ = v.delete()
+	_ = v.delete("finished download and publish")
 
 	return summary, errors.Prefix("publish error", err)
 }
