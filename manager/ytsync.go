@@ -194,6 +194,11 @@ func (s *Sync) uploadWallet() error {
 		key = aws.String("/regtest/" + s.YoutubeChannelID)
 	}
 
+	walletPath := os.Getenv("LBRYNET_WALLETS_DIR")
+	if walletPath != "" {
+		defaultWalletDir = walletPath + "/wallets/default_wallet"
+	}
+
 	if _, err := os.Stat(defaultWalletDir); os.IsNotExist(err) {
 		return errors.Err("default_wallet does not exist")
 	}
@@ -283,7 +288,7 @@ func (s *Sync) FullCycle() (e error) {
 
 	defer s.stopAndUploadWallet(&e)
 
-	s.videoDirectory, err = ioutil.TempDir("", "ytsync")
+	s.videoDirectory, err = ioutil.TempDir(os.Getenv("TMP_DIR"), "ytsync")
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

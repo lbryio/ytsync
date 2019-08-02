@@ -51,3 +51,5 @@ services:
     volumes:
       - "./persist/.lbrynet:/home/lbrynet"
       - ".:/etc/lbry" #Put your daemon_settings.yml here
+      # /private/var/tmp for OSX and /var/tmp for Linux
+      - "/private/var/tmp:/var/tmp"
