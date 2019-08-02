@@ -162,17 +162,17 @@ func (v *YoutubeVideo) getFullPath() string {
 }
 
 func (v *YoutubeVideo) getAbbrevDescription() string {
-	maxLines := 10
+	maxLength := 2800
 	description := strings.TrimSpace(v.description)
 	additionalDescription := "\nhttps://www.youtube.com/watch?v=" + v.id
 	khanAcademyClaimID := "5fc52291980268b82413ca4c0ace1b8d749f3ffb"
 	if v.lbryChannelID == khanAcademyClaimID {
 		additionalDescription = additionalDescription + "\nNote: All Khan Academy content is available for free at (www.khanacademy.org)"
 	}
-	if strings.Count(description, "\n") < maxLines {
-		return description + "\n..." + additionalDescription
+	if len(description) > maxLength {
+		description = description[:maxLength]
 	}
-	return strings.Join(strings.Split(description, "\n")[:maxLines], "\n") + "\n..." + additionalDescription
+	return description + "\n..." + additionalDescription
 }
 
 func (v *YoutubeVideo) download(useIPv6 bool) error {
