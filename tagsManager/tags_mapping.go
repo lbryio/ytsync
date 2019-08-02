@@ -71,7 +71,7 @@ func SanitizeTags(tags []string, youtubeChannelID string) ([]string, error) {
 	return sanitizedTags, nil
 }
 
-const TagMaxLength = 255
+const TagMaxLength = 50
 
 func normalizeTag(t string) (string, error) {
 	t = strings.ToLower(t)
