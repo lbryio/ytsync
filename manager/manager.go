@@ -101,6 +101,13 @@ const (
 
 func (s *SyncManager) Start() error {
 
+	if logUtils.IsCleanOnStartup() {
+		err := logUtils.CleanForStartup()
+		if err != nil {
+			return err
+		}
+	}
+
 	syncCount := 0
 	for {
 		err := s.checkUsedSpace()
@@ -239,9 +246,10 @@ func (s *SyncManager) GetS3AWSConfig() aws.Config {
 	}
 }
 func (s *SyncManager) checkUsedSpace() error {
-	usedPctile, err := GetUsedSpace(s.blobsDir)
+	logUtils.SendInfoToSlack(logUtils.GetBlobsDir())
+	usedPctile, err := GetUsedSpace(logUtils.GetBlobsDir())
 	if err != nil {
-		return err
+		return errors.Err(err)
 	}
 	if usedPctile >= 0.90 && !s.skipSpaceCheck {
 		return errors.Err(fmt.Sprintf("more than 90%% of the space has been used. use --skip-space-check to ignore. Used: %.1f%%", usedPctile*100))

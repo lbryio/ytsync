@@ -1,15 +1,22 @@
-version: "3"
-
+version: "3.5"
+networks:
+  e2e:
+    external: false
 services:
   #############
   ## Lbrycrd ##
   #############
   lbrycrd:
     image: lbry/lbrycrd:v0.12.4.1
+    networks:
+      - e2e
     restart: always
     ports:
       - "15201:29246"
       - "15200:29245"
+    expose:
+      - "29246"
+      - "29245"
     ## host volumes for persistent data such as wallet private keys.
     volumes:
       - "./persist:/data"
@@ -19,22 +26,28 @@ services:
   ## Wallet Server ##
   ###################
   walletserver:
-    image: lbry/wallet-server:v0.38.5
+    image: lbry/wallet-server:master
+    networks:
+      - e2e
     restart: always
-    volumes:
-      - "./persist/.walletserver/database:/database"
     environment:
-      - DB_DIRECTORY=/database
+      - DB_DIRECTORY=/tmp/
       - MAX_SEND=1000000000000000000000
-      - DAEMON_URL=http://lbry:lbry@lbrycrd:29245/
+      - DAEMON_URL=http://lbry:lbry@lbrycrd:29245
       - MAX_SUBS=1000000000000
       - BANDWIDTH_LIMIT=80000000000
       - SESSION_TIMEOUT=10000000000000000000000000
       - TCP_PORT=50001
     ports:
       - "15300:50001"
+    expose:
+      - "50001"
+    depends_on:
+      - lbrycrd
     ulimits:
-      nofile: 90000
+      nofile:
+        soft: 90000
+        hard: 90000
     #    command: lbry.wallet.server.coin.LBC
     command: lbry.wallet.server.coin.LBCRegTest
   #############
@@ -42,14 +55,63 @@ services:
   #############
   lbrynet:
     image: lbry/lbrynet:v0.38.5
+    networks:
+      - e2e
     restart: "no"
     ports:
       - "15100:5279"
       - "15101:5280"
+    expose:
+      - "5279"
+      - "5280"
+    depends_on:
+      - walletserver
     environment:
       - LBRY_STREAMING_SERVER=0.0.0.0:5280
     volumes:
       - "./persist/.lbrynet:/home/lbrynet"
       - ".:/etc/lbry" #Put your daemon_settings.yml here
       # /private/var/tmp for OSX and /var/tmp for Linux
-      - "/private/var/tmp:/var/tmp"
+      - "${LOCAL_TMP_DIR}:/var/tmp"
+    #entrypoint: wait-for-it walletserver:50001 -- start
+  ###########
+  ## MySQL ##
+  ###########
+  mysql:
+    image: mysql/mysql-server:5.7.27
+    networks:
+      - e2e
+    restart: "no"
+    ports:
+      - "15500:3306"
+    expose:
+      - "3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+      - MYSQL_DATABASE=lbry
+      - MYSQL_USER=lbry
+      - MYSQL_PASSWORD=lbry
+      - MYSQL_LOG_CONSOLE=true
+  ###################
+  ## Internal APIs ##
+  ###################
+  internalapis:
+    image: lbry/internal-apis:latest
+    networks:
+      - e2e
+    restart: "no"
+    ports:
+      - "15400:8080"
+    expose:
+      - "8080"
+    depends_on:
+      - mysql
+      - lbrycrd
+      - lbrynet
+    environment:
+      - MYSQL_DSN=lbry:lbry@tcp(mysql:3306)/lbry
+      - LBRYCRD_CONNECT=rpc://lbry:lbry@lbrycrd:29245
+      - MYSQL_USER=lbry
+      - MYSQL_PASS=lbry
+      - MYSQL_DATABASE=lbry
+    entrypoint: wait-for-it mysql:3306 -- wait-for-it lbrynet:5279 -- ./latest serve

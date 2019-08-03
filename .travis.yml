@@ -1,15 +1,35 @@
 os: linux
-dist: xenial
+dist: bionic
 language: go
-go_import_path: github.com/lbryio/ytsync
 go:
-- 1.11.5
-- master
+  - 1.12.1
+  - master
+
+install: true
+
+cache:
+  directories:
+    - $HOME/.cache/go-build
+    - $HOME/gopath/pkg/mod
+
+services:
+  - docker
+
+addons:
+  apt:
+    update: true
+    packages:
+      - youtube-dl
+      - ffmpeg
+      - tree
+
 env:
   global:
     - GO111MODULE=on
     #GITHUB_TOKEN
     - secure: "Ps3KocRP5xnM3/uA99CeYhDTVxRIuW7fGyrtqBeRWZW0cXzeA4XCTKxqcFbrPUPw67XkrBVgE58JDdWoQEJ7tm67PjMm/ltp5Evhx/QAJDh+YSofXyGDVpG1mrTZFI66R3NVVJLkSGALMkuWWXvfYZeU//AworJbyRoaIK/CVt5OP23i5N4tdd5UXc5dfLuYqnKRynyMmCkz9c3yEIQMXoPhG2hx7l7L2BeMJvcKmVhkSN7nQayjnrbUXGm/IRqrb88lvkyBevN5E3IB2V5IKEieIPZjbD/N0IfcnAt89Z96tgDhtIbx3ZvXm92lsvHA8buqQpG9d2AmSi6GKs64lQcnGeM5o0wER2JHWl1OSa1Nr/UAo5Xb/PM65Yt3yZE8AuMKHBmbfDSBzdkTXx58AeDzFUd3kMXD/fFjeQQWyXFlOss3ygH9SObl827Txmz9OJqZaxabs5Q3AP6m3EjKjz7zfLfrgpcxJM2WBiU1bN0ZxUgZkImy/CHk5gCZ7vhcnaLiDO4HZnzY/aRJwKYQPE5i0O2nHpIfovqkc0DFBA7U/7Cjin7e1E0UZvF3meLOxMqkfc6X7QTxqQpt2Tej6jlpdxw4CTLwGUhGkAw9IAPkUB3L0EbZ1/ksGhNvGDvUeSTq8hYdMAPmA+k9jS6653V4SQ+qBMy5++tbr5AeZQI="
+script:
+  - ./e2e/e2e.sh
 deploy:
   provider: script
   skip_cleanup: true
