@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/lbryio/lbry.go/extras/errors"
 	"math/rand"
 	"os"
 	"time"
@@ -87,6 +88,10 @@ func ytSync(cmd *cobra.Command, args []string) {
 			log.Error("could not detect system hostname")
 			hostname = "ytsync-unknown"
 		}
+		if len(hostname) > 30 {
+			hostname = hostname[0:30]
+		}
+
 		util.InitSlack(os.Getenv("SLACK_TOKEN"), os.Getenv("SLACK_CHANNEL"), hostname)
 	}
 
@@ -190,7 +195,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 	)
 	err := sm.Start()
 	if err != nil {
-		ytUtils.SendErrorToSlack(err.Error())
+		ytUtils.SendErrorToSlack(errors.FullTrace(err))
 	}
 	ytUtils.SendInfoToSlack("Syncing process terminated!")
 }

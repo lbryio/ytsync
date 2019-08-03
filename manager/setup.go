@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -27,7 +26,7 @@ func (s *Sync) enableAddressReuse() error {
 		return errors.Err(err)
 	}
 	accounts := accountsResponse.LBCMainnet
-	if os.Getenv("REGTEST") == "true" {
+	if logUtils.IsRegTest() {
 		accounts = accountsResponse.LBCRegtest
 	}
 	for _, a := range accounts {
@@ -141,7 +140,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		return errors.Err(err)
 	}
 	accountsNet := (*accounts).LBCMainnet
-	if os.Getenv("REGTEST") == "true" {
+	if logUtils.IsRegTest() {
 		accountsNet = (*accounts).LBCRegtest
 	}
 	defaultAccount := ""

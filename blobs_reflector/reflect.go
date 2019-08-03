@@ -13,7 +13,6 @@ import (
 	"github.com/lbryio/reflector.go/reflector"
 	"github.com/lbryio/reflector.go/store"
 	"github.com/lbryio/ytsync/util"
-	"github.com/mitchellh/go-ps"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -23,7 +22,7 @@ func ReflectAndClean() error {
 	if err != nil {
 		return err
 	}
-	return cleanupLbrynet()
+	return util.CleanupLbrynet()
 }
 
 func loadConfig(path string) (cmd.Config, error) {
@@ -46,7 +45,7 @@ func reflectBlobs() error {
 		return nil
 	}
 	//make sure lbrynet is off
-	running, err := isLbrynetRunning()
+	running, err := util.IsLbrynetRunning()
 	if err != nil {
 		return err
 	}
@@ -94,61 +93,4 @@ func reflectBlobs() error {
 		return errors.Err("not al blobs were reflected. Errors: %d", uploader.GetSummary().Err)
 	}
 	return nil
-}
-
-func cleanupLbrynet() error {
-	//make sure lbrynet is off
-	running, err := isLbrynetRunning()
-	if err != nil {
-		return err
-	}
-	if running {
-		return errors.Prefix("cannot cleanup lbrynet as the daemon is running", err)
-	}
-	lbrynetDir := util.GetLBRYNetDir()
-	files, err := filepath.Glob(lbrynetDir + "lbrynet.sqlite*")
-	if err != nil {
-		return errors.Err(err)
-	}
-	for _, f := range files {
-		err = os.Remove(f)
-		if err != nil {
-			return errors.Err(err)
-		}
-	}
-	blobsDir := util.GetBlobsDir()
-	err = os.RemoveAll(blobsDir)
-	if err != nil {
-		return errors.Err(err)
-	}
-	err = os.Mkdir(blobsDir, 0755)
-	if err != nil {
-		return errors.Err(err)
-	}
-	return nil
-}
-
-func isLbrynetRunning() (bool, error) {
-	if util.IsUsingDocker() {
-		container, err := util.GetLBRYNetContainer(util.ONLINE)
-		if err != nil {
-			return false, err
-		}
-		return container != nil, nil
-	}
-
-	processes, err := ps.Processes()
-	if err != nil {
-		return true, errors.Err(err)
-	}
-	var daemonProcessId = -1
-	for _, p := range processes {
-		if p.Executable() == "lbrynet" {
-			daemonProcessId = p.Pid()
-			break
-		}
-	}
-
-	running := daemonProcessId != -1
-	return running, nil
 }
