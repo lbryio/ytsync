@@ -191,7 +191,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 		return nil
 	}
 	qualities := []string{
-		//"1080",
+		"1080",
 		"720",
 		"480",
 		"320",
