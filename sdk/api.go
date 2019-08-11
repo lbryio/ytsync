@@ -71,7 +71,7 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 	var response apiJobsResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return nil, err
+		return nil, errors.Err(err)
 	}
 	if response.Data == nil {
 		return nil, errors.Err(response.Error)
@@ -152,7 +152,7 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 	var response apiChannelStatusResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Err(err)
 	}
 	if !response.Error.IsNull() {
 		return nil, nil, errors.Err(response.Error.String)

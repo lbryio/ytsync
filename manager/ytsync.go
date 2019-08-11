@@ -289,6 +289,10 @@ func (s *Sync) FullCycle() (e error) {
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
+	err = os.Chmod(s.videoDirectory, 0766)
+	if err != nil {
+		return errors.Err(err)
+	}
 
 	defer deleteSyncFolder(s.videoDirectory)
 	log.Printf("Starting daemon")

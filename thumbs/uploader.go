@@ -25,7 +25,7 @@ const thumbnailPath = "/tmp/ytsync_thumbnails/"
 const ThumbnailEndpoint = "https://thumbnails.lbry.com/"
 
 func (u *thumbnailUploader) downloadThumbnail() error {
-	_ = os.Mkdir(thumbnailPath, 0750)
+	_ = os.Mkdir(thumbnailPath, 0777)
 	img, err := os.Create("/tmp/ytsync_thumbnails/" + u.name)
 	if err != nil {
 		return errors.Err(err)

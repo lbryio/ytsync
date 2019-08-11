@@ -112,7 +112,7 @@ func (s *SyncManager) Start() error {
 	for {
 		err := s.checkUsedSpace()
 		if err != nil {
-			return err
+			return errors.Err(err)
 		}
 
 		var syncs []Sync
@@ -122,7 +122,7 @@ func (s *SyncManager) Start() error {
 		if isSingleChannelSync {
 			channels, err := s.apiConfig.FetchChannels("", s.syncProperties)
 			if err != nil {
-				return err
+				return errors.Err(err)
 			}
 			if len(channels) != 1 {
 				return errors.Err("Expected 1 channel, %d returned", len(channels))
