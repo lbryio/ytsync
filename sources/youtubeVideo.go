@@ -178,7 +178,7 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 func (v *YoutubeVideo) download(useIPv6 bool) error {
 	videoPath := v.getFullPath()
 
-	err := os.Mkdir(v.videoDir(), 0750)
+	err := os.Mkdir(v.videoDir(), 0777)
 	if err != nil && !strings.Contains(err.Error(), "file exists") {
 		return errors.Wrap(err, 0)
 	}
@@ -307,6 +307,10 @@ runcmd:
 		return errors.Err(string(errorLog))
 	}
 	fi, err := os.Stat(v.getFullPath())
+	if err != nil {
+		return errors.Err(err)
+	}
+	err = os.Chmod(v.getFullPath(), 0777)
 	if err != nil {
 		return errors.Err(err)
 	}

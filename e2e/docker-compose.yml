@@ -26,12 +26,14 @@ services:
   ## Wallet Server ##
   ###################
   walletserver:
-    image: lbry/wallet-server:master
+    image: lbry/wallet-server:v0.38.5
     networks:
       - e2e
     restart: always
+    #volumes:
+    # - "./persist/.walletserver:/database"
     environment:
-      - DB_DIRECTORY=/tmp/
+      - DB_DIRECTORY=/database
       - MAX_SEND=1000000000000000000000
       - DAEMON_URL=http://lbry:lbry@lbrycrd:29245
       - MAX_SUBS=1000000000000
@@ -57,7 +59,7 @@ services:
     image: lbry/lbrynet:v0.38.5
     networks:
       - e2e
-    restart: "no"
+    restart: always
     ports:
       - "15100:5279"
       - "15101:5280"
@@ -72,7 +74,12 @@ services:
       - "./persist/.lbrynet:/home/lbrynet"
       - ".:/etc/lbry" #Put your daemon_settings.yml here
       # /private/var/tmp for OSX and /var/tmp for Linux
-      - "${LOCAL_TMP_DIR}:/var/tmp"
+      - "${LOCAL_TMP_DIR}"
+#      - type: bind
+#        source: "${LOCAL_TMP_DIR}"
+#        target: "/tmp"
+#        bind:
+#        propagation: rshared
     #entrypoint: wait-for-it walletserver:50001 -- start
   ###########
   ## MySQL ##
@@ -96,7 +103,7 @@ services:
   ## Internal APIs ##
   ###################
   internalapis:
-    image: lbry/internal-apis:latest
+    image: lbry/internal-apis:master
     networks:
       - e2e
     restart: "no"

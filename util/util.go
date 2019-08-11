@@ -166,7 +166,7 @@ func CleanForStartup() error {
 
 	err = CleanupLbrynet()
 	if err != nil {
-		return err
+		return errors.Err(err)
 	}
 
 	lbrycrd, err := GetLbrycrdClient(os.Getenv("LBRYCRD_STRING"))
@@ -187,7 +187,11 @@ func CleanForStartup() error {
 	}
 
 	defaultWalletDir := GetDefaultWalletPath()
-	return os.Remove(defaultWalletDir)
+	_, err = os.Stat(defaultWalletDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return errors.Err(os.Remove(defaultWalletDir))
 }
 
 func CleanupLbrynet() error {
@@ -215,7 +219,7 @@ func CleanupLbrynet() error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	err = os.Mkdir(blobsDir, 0755)
+	err = os.Mkdir(blobsDir, 0777)
 	if err != nil {
 		return errors.Err(err)
 	}
