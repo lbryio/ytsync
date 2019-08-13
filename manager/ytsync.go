@@ -324,14 +324,19 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 }
 
 func (s *Sync) waitForDaemonStart() error {
+	beginTime := time.Now()
 	for {
 		select {
 		case <-s.grp.Ch():
 			return errors.Err("interrupted during daemon startup")
 		default:
-			s, err := s.daemon.Status()
-			if err == nil && s.StartupStatus.Wallet && s.IsRunning {
+			status, err := s.daemon.Status()
+			if err == nil && status.StartupStatus.Wallet && status.IsRunning {
 				return nil
+			}
+			if time.Since(beginTime).Minutes() > 60 {
+				s.grp.Stop()
+				return errors.Err("the daemon is taking too long to start. Something is wrong")
 			}
 			time.Sleep(5 * time.Second)
 		}
