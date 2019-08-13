@@ -2,7 +2,6 @@ package util
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
@@ -68,9 +67,6 @@ func getDockerContainer(name string, all bool) (*types.Container, error) {
 	if err != nil {
 		panic(err)
 	}
-	for _, container := range containers {
-		fmt.Printf("%s %s\n", container.ID[:10], container.Image)
-	}
 	if len(containers) == 0 {
 		return nil, nil
 	}
@@ -115,7 +111,7 @@ func GetLbrycrdClient(lbrycrdString string) (*lbrycrd.Client, error) {
 	return lbrycrdd, nil
 }
 
-func IsCleanOnStartup() bool {
+func ShouldCleanOnStartup() bool {
 	shouldClean, err := strconv.ParseBool(os.Getenv("CLEAN_ON_STARTUP"))
 	if err != nil {
 		return false
@@ -177,7 +173,8 @@ func CleanForStartup() error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	if height < 110 {
+	const minBlocksForUTXO = 110
+	if height < minBlocksForUTXO {
 		//Start reg test will some credits
 		txs, err := lbrycrd.Generate(uint32(110) - uint32(height))
 		if err != nil {

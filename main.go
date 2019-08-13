@@ -2,18 +2,18 @@ package main
 
 import (
 	"fmt"
-	"github.com/lbryio/lbry.go/extras/errors"
 	"math/rand"
 	"os"
 	"time"
 
+	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/util"
+	"github.com/lbryio/ytsync/manager"
 	"github.com/lbryio/ytsync/sdk"
+	ytUtils "github.com/lbryio/ytsync/util"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/lbryio/ytsync/manager"
-	ytUtils "github.com/lbryio/ytsync/util"
 )
 
 var Version string

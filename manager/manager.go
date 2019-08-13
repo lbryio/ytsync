@@ -101,7 +101,7 @@ const (
 
 func (s *SyncManager) Start() error {
 
-	if logUtils.IsCleanOnStartup() {
+	if logUtils.ShouldCleanOnStartup() {
 		err := logUtils.CleanForStartup()
 		if err != nil {
 			return err

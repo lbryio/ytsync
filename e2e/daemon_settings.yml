@@ -9,4 +9,4 @@ save_files: false
 share_usage_data: false
 tcp_port: 3333
 udp_port: 4444
-use_upnp: true
+use_upnp: false

@@ -2,7 +2,7 @@ os: linux
 dist: bionic
 language: go
 go:
-  - 1.12.1
+  - 1.12.7
   - master
 
 install: true
@@ -25,6 +25,7 @@ addons:
 
 before_script:
   - sudo pip install -U youtube-dl
+  - sudo add-apt-repository ppa:jonathonf/ffmpeg-4
 
 env:
   global:

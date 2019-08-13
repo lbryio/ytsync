@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -126,7 +125,6 @@ func (s *Sync) downloadWallet() error {
 	if err != nil {
 		return errors.Prefix("error starting session: ", err)
 	}
-	test()
 	downloader := s3manager.NewDownloader(s3Session)
 	out, err := os.Create(defaultTempWalletDir)
 	if err != nil {
@@ -572,12 +570,11 @@ func (s *Sync) doSync() error {
 	if err != nil {
 		return errors.Prefix("error updating remote database", err)
 	}
-	if pubsOnWallet == 0 {
+	if pubsOnWallet == 0 { //Todo - This needs to be done if the cert is nil in internal-apis
 		cert, err := s.daemon.ChannelExport(s.lbryChannelID, nil, nil)
 		if err != nil {
 			return errors.Prefix("error getting channel cert", err)
 		}
-		println("lbryChannelID:", s.lbryChannelID)
 		err = s.APIConfig.SetChannelCert(string(*cert), s.lbryChannelID)
 		if err != nil {
 			return errors.Prefix("error setting channel cert", err)
@@ -989,24 +986,4 @@ func waitForDaemonProcess(timeout time.Duration) error {
 		}
 	}
 	return errors.Err("timeout reached")
-}
-
-func test() {
-	var files []string
-	root, err := os.Getwd()
-	if err != nil {
-		log.Error("cant get pwd!")
-		return
-	}
-	root = root + "/persist/.lbrynet"
-	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		files = append(files, path)
-		return nil
-	})
-	if err != nil {
-		panic(err)
-	}
-	for _, file := range files {
-		fmt.Println(file)
-	}
 }
