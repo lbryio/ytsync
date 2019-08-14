@@ -2,16 +2,17 @@ package blobs_reflector
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"os"
+	"os/user"
+	"path/filepath"
+
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/reflector.go/cmd"
 	"github.com/lbryio/reflector.go/db"
 	"github.com/lbryio/reflector.go/reflector"
 	"github.com/lbryio/reflector.go/store"
-	"github.com/mitchellh/go-ps"
-	"io/ioutil"
-	"os"
-	"os/user"
-	"path/filepath"
+	"github.com/lbryio/ytsync/util"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -21,7 +22,7 @@ func ReflectAndClean() error {
 	if err != nil {
 		return err
 	}
-	return cleanupLbrynet()
+	return util.CleanupLbrynet()
 }
 
 func loadConfig(path string) (cmd.Config, error) {
@@ -40,8 +41,11 @@ func loadConfig(path string) (cmd.Config, error) {
 }
 
 func reflectBlobs() error {
+	if util.IsBlobReflectionOff() {
+		return nil
+	}
 	//make sure lbrynet is off
-	running, err := isLbrynetRunning()
+	running, err := util.IsLbrynetRunning()
 	if err != nil {
 		return err
 	}
@@ -89,58 +93,4 @@ func reflectBlobs() error {
 		return errors.Err("not al blobs were reflected. Errors: %d", uploader.GetSummary().Err)
 	}
 	return nil
-}
-
-func cleanupLbrynet() error {
-	//make sure lbrynet is off
-	running, err := isLbrynetRunning()
-	if err != nil {
-		return err
-	}
-	if running {
-		return errors.Prefix("cannot cleanup lbrynet as the daemon is running", err)
-	}
-	usr, err := user.Current()
-	if err != nil {
-		log.Errorln(err.Error())
-		return errors.Err(err)
-	}
-	lbrynetDir := usr.HomeDir + "/.lbrynet/"
-	files, err := filepath.Glob(lbrynetDir + "lbrynet.sqlite*")
-	if err != nil {
-		return errors.Err(err)
-	}
-	for _, f := range files {
-		err = os.Remove(f)
-		if err != nil {
-			return errors.Err(err)
-		}
-	}
-	blobsDir := lbrynetDir + "/blobfiles/"
-	err = os.RemoveAll(blobsDir)
-	if err != nil {
-		return errors.Err(err)
-	}
-	err = os.Mkdir(blobsDir, 0755)
-	if err != nil {
-		return errors.Err(err)
-	}
-	return nil
-}
-
-func isLbrynetRunning() (bool, error) {
-	processes, err := ps.Processes()
-	if err != nil {
-		return true, errors.Err(err)
-	}
-	var daemonProcessId = -1
-	for _, p := range processes {
-		if p.Executable() == "lbrynet" {
-			daemonProcessId = p.Pid()
-			break
-		}
-	}
-
-	running := daemonProcessId != -1
-	return running, nil
 }

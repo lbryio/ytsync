@@ -1,7 +1,6 @@
 package thumbs
 
 import (
-	"google.golang.org/api/youtube/v3"
 	"io"
 	"net/http"
 	"os"
@@ -11,7 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/prometheus/common/log"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/api/youtube/v3"
 )
 
 type thumbnailUploader struct {
@@ -25,7 +25,7 @@ const thumbnailPath = "/tmp/ytsync_thumbnails/"
 const ThumbnailEndpoint = "https://thumbnails.lbry.com/"
 
 func (u *thumbnailUploader) downloadThumbnail() error {
-	_ = os.Mkdir(thumbnailPath, 0750)
+	_ = os.Mkdir(thumbnailPath, 0777)
 	img, err := os.Create("/tmp/ytsync_thumbnails/" + u.name)
 	if err != nil {
 		return errors.Err(err)

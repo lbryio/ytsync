@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
-	"github.com/lbryio/lbry.go/lbrycrd"
-
 	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
 	logUtils "github.com/lbryio/ytsync/util"
@@ -29,7 +26,7 @@ func (s *Sync) enableAddressReuse() error {
 		return errors.Err(err)
 	}
 	accounts := accountsResponse.LBCMainnet
-	if os.Getenv("REGTEST") == "true" {
+	if logUtils.IsRegTest() {
 		accounts = accountsResponse.LBCRegtest
 	}
 	for _, a := range accounts {
@@ -143,7 +140,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		return errors.Err(err)
 	}
 	accountsNet := (*accounts).LBCMainnet
-	if os.Getenv("REGTEST") == "true" {
+	if logUtils.IsRegTest() {
 		accountsNet = (*accounts).LBCRegtest
 	}
 	defaultAccount := ""
@@ -224,6 +221,16 @@ func (s *Sync) ensureEnoughUTXOs() error {
 }
 
 func (s *Sync) waitForNewBlock() error {
+	if logUtils.IsRegTest() && logUtils.IsUsingDocker() {
+		lbrycrd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
+		if err != nil {
+			return errors.Prefix("error getting lbrycrd client: ", err)
+		}
+		txs, err := lbrycrd.Generate(1)
+		for _, tx := range txs {
+			log.Info("Generated tx: ", tx.String())
+		}
+	}
 	status, err := s.daemon.Status()
 	if err != nil {
 		return err
@@ -417,18 +424,9 @@ func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {
 
 func (s *Sync) addCredits(amountToAdd float64) error {
 	log.Printf("Adding %f credits", amountToAdd)
-	var lbrycrdd *lbrycrd.Client
-	var err error
-	if s.LbrycrdString == "" {
-		lbrycrdd, err = lbrycrd.NewWithDefaultURL()
-		if err != nil {
-			return err
-		}
-	} else {
-		lbrycrdd, err = lbrycrd.New(s.LbrycrdString)
-		if err != nil {
-			return err
-		}
+	lbrycrdd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
+	if err != nil {
+		return err
 	}
 
 	addressResp, err := s.daemon.AddressUnused(nil)

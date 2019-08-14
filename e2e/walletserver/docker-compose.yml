@@ -1,0 +1,35 @@
+version: "3"
+networks:
+  lbry-network:
+    external: true
+
+services:
+  ###################
+  ## Wallet Server ##
+  ###################
+  walletserver:
+    image: lbry/wallet-server:v0.38.5
+    restart: always
+    networks:
+      lbry-network:
+        ipv4_address: 10.6.1.2
+    volumes:
+      - "../persist/data/.walletserver/database:/database"
+    environment:
+      - DB_DIRECTORY=/database
+      - MAX_SEND=1000000000000000000000
+      - DAEMON_URL=http://lbry:lbry@lbrycrd:29245/
+      - MAX_SUBS=1000000000000
+      - BANDWIDTH_LIMIT=80000000000
+      - SESSION_TIMEOUT=10000000000000000000000000
+      - TCP_PORT=50001
+    #network_mode: host
+    #network_mode: bridge
+    ports:
+      - "50001:50001"
+    expose:
+      - "50001"
+    ulimits:
+      nofile: 90000
+#    command: lbry.wallet.server.coin.LBC
+    command: lbry.wallet.server.coin.LBCRegTest

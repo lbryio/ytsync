@@ -1,0 +1,12 @@
+#blockchain_name: lbrycrd_main
+#blockchain_name: lbrycrd_testnet
+blockchain_name: lbrycrd_regtest
+lbryum_servers:
+#  - spv1.lbry.com:50001 #Production Wallet Server
+  - walletserver:50001
+save_blobs: true
+save_files: false
+share_usage_data: false
+tcp_port: 3333
+udp_port: 4444
+use_upnp: false

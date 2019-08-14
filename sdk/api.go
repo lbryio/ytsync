@@ -71,7 +71,7 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 	var response apiJobsResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return nil, err
+		return nil, errors.Err(err)
 	}
 	if response.Data == nil {
 		return nil, errors.Err(response.Error)
@@ -98,6 +98,39 @@ func sanitizeFailureReason(s *string) {
 		*s = (*s)[:MaxReasonLength]
 	}
 }
+
+func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
+
+	type apiSetChannelCertResponse struct {
+		Success bool        `json:"success"`
+		Error   null.String `json:"error"`
+		Data    string      `json:"data"`
+	}
+
+	endpoint := a.ApiURL + "/yt/channel_cert"
+
+	res, _ := http.PostForm(endpoint, url.Values{
+		"channel_claim_id": {channelID},
+		"channel_cert":     {certHex},
+		"auth_token":       {a.ApiToken},
+	})
+
+	defer res.Body.Close()
+
+	body, _ := ioutil.ReadAll(res.Body)
+	var response apiSetChannelCertResponse
+	err := json.Unmarshal(body, &response)
+	if err != nil {
+		return errors.Err(err)
+	}
+	if !response.Error.IsNull() {
+		return errors.Err(response.Error.String)
+	}
+
+	return nil
+
+}
+
 func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string) (map[string]SyncedVideo, map[string]bool, error) {
 	type apiChannelStatusResponse struct {
 		Success bool          `json:"success"`
@@ -119,7 +152,7 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 	var response apiChannelStatusResponse
 	err := json.Unmarshal(body, &response)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Err(err)
 	}
 	if !response.Error.IsNull() {
 		return nil, nil, errors.Err(response.Error.String)

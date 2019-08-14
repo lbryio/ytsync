@@ -1,1 +1,4 @@
 bin/
+e2e/persist
+.env
+blobsfiles

@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/user"
 	"time"
 
+	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/util"
+	"github.com/lbryio/ytsync/manager"
 	"github.com/lbryio/ytsync/sdk"
+	ytUtils "github.com/lbryio/ytsync/util"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/lbryio/ytsync/manager"
-	logUtils "github.com/lbryio/ytsync/util"
 )
 
 var Version string
@@ -88,6 +88,10 @@ func ytSync(cmd *cobra.Command, args []string) {
 			log.Error("could not detect system hostname")
 			hostname = "ytsync-unknown"
 		}
+		if len(hostname) > 30 {
+			hostname = hostname[0:30]
+		}
+
 		util.InitSlack(os.Getenv("SLACK_TOKEN"), os.Getenv("SLACK_CHANNEL"), hostname)
 	}
 
@@ -113,7 +117,6 @@ func ytSync(cmd *cobra.Command, args []string) {
 	apiURL := os.Getenv("LBRY_WEB_API")
 	apiToken := os.Getenv("LBRY_API_TOKEN")
 	youtubeAPIKey := os.Getenv("YOUTUBE_API_KEY")
-	blobsDir := os.Getenv("BLOBS_DIRECTORY")
 	lbrycrdString := os.Getenv("LBRYCRD_STRING")
 	awsS3ID := os.Getenv("AWS_S3_ID")
 	awsS3Secret := os.Getenv("AWS_S3_SECRET")
@@ -150,14 +153,8 @@ func ytSync(cmd *cobra.Command, args []string) {
 	if lbrycrdString == "" {
 		log.Infoln("Using default (local) lbrycrd instance. Set LBRYCRD_STRING if you want to use something else")
 	}
-	if blobsDir == "" {
-		usr, err := user.Current()
-		if err != nil {
-			log.Errorln(err.Error())
-			return
-		}
-		blobsDir = usr.HomeDir + "/.lbrynet/blobfiles/"
-	}
+
+	blobsDir := ytUtils.GetBlobsDir()
 
 	syncProperties := &sdk.SyncProperties{
 		SyncFrom:         syncFrom,
@@ -198,7 +195,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 	)
 	err := sm.Start()
 	if err != nil {
-		logUtils.SendErrorToSlack(err.Error())
+		ytUtils.SendErrorToSlack(errors.FullTrace(err))
 	}
-	logUtils.SendInfoToSlack("Syncing process terminated!")
+	ytUtils.SendInfoToSlack("Syncing process terminated!")
 }
