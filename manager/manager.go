@@ -246,7 +246,6 @@ func (s *SyncManager) GetS3AWSConfig() aws.Config {
 	}
 }
 func (s *SyncManager) checkUsedSpace() error {
-	logUtils.SendInfoToSlack(logUtils.GetBlobsDir())
 	usedPctile, err := GetUsedSpace(logUtils.GetBlobsDir())
 	if err != nil {
 		return errors.Err(err)
