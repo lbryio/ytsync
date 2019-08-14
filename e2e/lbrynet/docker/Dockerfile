@@ -1,10 +1,10 @@
 ## This base image is for running the latest lbrynet-daemon release.
-FROM ubuntu:16.04 as prep
+FROM ubuntu:18.04 as prep
 LABEL MAINTAINER="leopere [at] nixc [dot] us"
 RUN apt-get update && apt-get -y install unzip curl telnet wait-for-it
 
 ## Add lbrynet
-ARG VERSION="v0.38.5"
+ARG VERSION="v0.38.6"
 RUN URL=$(curl -s https://api.github.com/repos/lbryio/lbry-sdk/releases/$(if [ "${VERSION}" = 'latest' ]; then echo "latest"; else echo "tags/${VERSION}"; fi) | grep browser_download_url | grep lbrynet-linux.zip | cut -d'"' -f4) && echo $URL && curl -L -o /lbrynet.linux.zip $URL
 
 COPY start.sh /usr/bin/start
@@ -13,7 +13,7 @@ RUN unzip /lbrynet.linux.zip -d /lbrynet/ && \
     mv /lbrynet/lbrynet /usr/bin && \
     chmod a+x /usr/bin/checkmount /usr/bin/start /usr/bin/lbrynet
 
-FROM ubuntu:16.04 as app
+FROM ubuntu:18.04 as app
 COPY --from=prep /usr/bin/start /usr/bin/checkmount /usr/bin/lbrynet /usr/bin/
 RUN adduser lbrynet --gecos GECOS --shell /bin/bash --disabled-password --home /home/lbrynet
 ## Daemon port [Intended for internal use]
