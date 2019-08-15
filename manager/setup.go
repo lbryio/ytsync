@@ -271,40 +271,33 @@ func (s *Sync) ensureChannelOwnership() error {
 	} else if channels == nil {
 		return errors.Err("no channel response")
 	}
-	//special case for wallets we don't retain full control anymore
-	if len((*channels).Items) > 1 {
-		// This wallet is probably not under our control anymore but we still want to publish to it
-		// here we shall check if within all the channels there is one that was created by ytsync
-		logUtils.SendInfoToSlack("we are dealing with a wallet that has multiple channels. This indicates that the wallet was probably transferred but we still want to sync their content. YoutubeID: %s", s.YoutubeChannelID)
+
+	var channelToUse *jsonrpc.Transaction
+	if len((*channels).Items) > 0 {
 		if s.lbryChannelID == "" {
 			return errors.Err("this channel does not have a recorded claimID in the database. To prevent failures, updates are not supported until an entry is manually added in the database")
 		}
 		for _, c := range (*channels).Items {
+			log.Debugf("checking listed channel %s (%s)", c.ClaimID, c.Name)
 			if c.ClaimID != s.lbryChannelID {
-				if c.Name != s.LbryChannelName {
-					return errors.Err("the channel in the wallet is different than the channel in the database")
-				}
-				return nil // we have the ytsync channel and both the claimID and the channelName from the database are correct
+				continue
 			}
-		}
-	}
-	channelUsesOldMetadata := false
-	if len((*channels).Items) == 1 {
-		channel := ((*channels).Items)[0]
-		if channel.Name == s.LbryChannelName {
-			channelUsesOldMetadata = channel.Value.GetThumbnail() == nil
-			//TODO: eventually get rid of this when the whole db is filled
-			if s.lbryChannelID == "" {
-				err = s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, channel.ClaimID)
-			} else if channel.ClaimID != s.lbryChannelID {
+			if c.Name != s.LbryChannelName {
 				return errors.Err("the channel in the wallet is different than the channel in the database")
 			}
-			s.lbryChannelID = channel.ClaimID
-			if !channelUsesOldMetadata {
-				return err
-			}
-		} else {
-			return errors.Err("this channel does not belong to this wallet! Expected: %s, found: %s", s.LbryChannelName, channel.Name)
+			channelToUse = &c
+			break
+		}
+		if channelToUse == nil {
+			return errors.Err("this wallet has channels but not a single one is ours! Expected claim_id: %s (%s)", s.lbryChannelID, s.LbryChannelName)
+		}
+	}
+
+	channelUsesOldMetadata := false
+	if channelToUse != nil {
+		channelUsesOldMetadata = channelToUse.Value.GetThumbnail() == nil
+		if !channelUsesOldMetadata {
+			return nil
 		}
 	}
 
@@ -402,24 +395,6 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 	s.lbryChannelID = c.Outputs[0].ClaimID
 	return s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, s.lbryChannelID)
-}
-
-func allUTXOsConfirmed(utxolist *jsonrpc.UTXOListResponse) bool {
-	if utxolist == nil {
-		return false
-	}
-
-	if len(*utxolist) < 1 {
-		return false
-	}
-
-	for _, utxo := range *utxolist {
-		if utxo.Confirmations <= 0 {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (s *Sync) addCredits(amountToAdd float64) error {
