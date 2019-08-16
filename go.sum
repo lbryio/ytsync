@@ -181,6 +181,8 @@ github.com/lbryio/lbry.go v1.0.17 h1:Lt7xIguw6Q5LMKcEMfxD7IB7kUdP7xwrc0OxvBUl39E
 github.com/lbryio/lbry.go v1.0.17/go.mod h1:JtyI30bU51rm0LZ/po3mQuzf++14OWb6kR/6mMRAmKU=
 github.com/lbryio/lbry.go v1.0.18 h1:88ot2tNyMFM0g8xCxyruCra2c+e0huazcwihT3pX/Lc=
 github.com/lbryio/lbry.go v1.0.18/go.mod h1:JtyI30bU51rm0LZ/po3mQuzf++14OWb6kR/6mMRAmKU=
+github.com/lbryio/lbry.go v1.1.0 h1:LDOjMROscAVbmjLYBh988E/UFqzunPik35kcRd/PUR4=
+github.com/lbryio/lbry.go v1.1.0/go.mod h1:JtyI30bU51rm0LZ/po3mQuzf++14OWb6kR/6mMRAmKU=
 github.com/lbryio/lbryschema.go v0.0.0-20190428231007-c54836bca002 h1:urfYK5ElpUrAv90auPLldoVC60LwiGAcY0OE6HJB9KI=
 github.com/lbryio/lbryschema.go v0.0.0-20190428231007-c54836bca002/go.mod h1:dAzPCBj3CKKWBGYBZxK6tKBP5SCgY2tqd9SnQd/OyKo=
 github.com/lbryio/ozzo-validation v0.0.0-20170323141101-d1008ad1fd04 h1:Nze+C2HbeKvhjI/kVn+9Poj/UuEW5sOQxcsxqO7L3GI=
