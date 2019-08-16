@@ -147,6 +147,8 @@ func (s *SyncManager) Start() error {
 				AwsS3Bucket:             s.awsS3Bucket,
 				namer:                   namer.NewNamer(),
 				Fee:                     channels[0].Fee,
+				publishAddress:          channels[0].PublishAddress,
+				transferState:           channels[0].TransferState,
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -189,6 +191,8 @@ func (s *SyncManager) Start() error {
 						AwsS3Bucket:             s.awsS3Bucket,
 						namer:                   namer.NewNamer(),
 						Fee:                     c.Fee,
+						publishAddress:          c.PublishAddress,
+						transferState:           c.TransferState,
 					})
 					if q != StatusFailed {
 						continue queues

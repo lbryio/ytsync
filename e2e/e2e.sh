@@ -50,16 +50,25 @@ echo "successfully started..."
 #Data Setup for test
 ./data_setup.sh
 
-# Execute the test!
+# Execute the sync test!
 ./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
-# Assert the status
 status=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM youtube_data WHERE id=1')
 videoStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM synced_video WHERE id=1')
-if [[ $status != "synced" || $videoStatus != "published" ]]; then
-docker-compose logs --tail="all" lbrycrd
-docker-compose logs --tail="all" walletserver
-docker-compose logs --tail="all" lbrynet
-docker-compose logs --tail="all" internalapis
+# Reset status for tranfer test
+mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e "UPDATE youtube_data SET status = 'queued' WHERE id = 1"
+# Trigger transfer api
+echo "curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' http://localhost:15400/yt/transfer?auth_token=youtubertoken&address=n1Ygra2pyD6cpESv9GtPM9kDkr4bPeu1Dc"
+# Execute the transfer test!
+./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
+transferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transferred FROM youtube_data WHERE id=1')
+if [[ $status != "synced" || $videoStatus != "published" || transferStatus != "1" ]]; then
+echo "Channel Status: $status"
+echo "Video Status: $videoStatus"
+echo "Transfer Status: $transferStatus"
+#docker-compose logs --tail="all" lbrycrd
+#docker-compose logs --tail="all" walletserver
+#docker-compose logs --tail="all" lbrynet
+#docker-compose logs --tail="all" internalapis
 echo "List local /var/tmp"
 find /var/tmp
  exit 1; fi;

@@ -125,6 +125,9 @@ func (s *Sync) walletSetup() error {
 	if s.claimAddress == "" {
 		return errors.Err("found blank claim address")
 	}
+	if s.transferState > 0 && s.publishAddress != "" {
+		s.claimAddress = s.publishAddress
+	}
 
 	err = s.ensureEnoughUTXOs()
 	if err != nil {

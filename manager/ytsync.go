@@ -88,6 +88,8 @@ type Sync struct {
 	namer                   *namer.Namer
 	walletMux               *sync.RWMutex
 	queue                   chan video
+	transferState           int
+	publishAddress          string
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -308,7 +310,16 @@ func (s *Sync) FullCycle() (e error) {
 		return err
 	}
 
-	return s.doSync()
+	err = s.doSync()
+	if err != nil {
+		return err
+	}
+
+	if s.transferState == 1 && s.publishAddress != "" { // Channel needs transfer
+		return TransferChannel(s)
+	}
+
+	return nil
 }
 
 func deleteSyncFolder(videoDirectory string) {
