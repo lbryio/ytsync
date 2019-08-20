@@ -4,8 +4,8 @@ services:
   ## Lbrycrd ##
   #############
   lbrycrd:
-    image: lbry/lbrycrd:v0.12.4.1
-    restart: always
+    image: lbry/lbrycrd:v0.17.2.1
+    restart: "no"
     ports:
       - "15201:29246"
       - "15200:29245"
@@ -21,7 +21,7 @@ services:
   ## Wallet Server ##
   ###################
   walletserver:
-    image: lbry/wallet-server:v0.38.5
+    image: lbry/wallet-server:v0.39.1
     restart: always
     environment:
       - DB_DIRECTORY=/database
@@ -47,7 +47,7 @@ services:
   ## Lbrynet ##
   #############
   lbrynet:
-    image: lbry/lbrynet:v0.38.6
+    image: lbry/lbrynet:v0.39.1
     restart: always
     ports:
       - "15100:5279"

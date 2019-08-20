@@ -38,12 +38,15 @@ function set_config() {
   else
       echo "Creating a fresh config file from environment variables."
       ## Set config params
-      echo "port=${PORT=9246}" > $CONFIG_PATH
-      echo "rpcuser=${RPC_USER=lbry}" >> $CONFIG_PATH
-      echo "rpcpassword=${RPC_PASSWORD=lbry}" >> $CONFIG_PATH
+      echo "port=${PORT=9246}" >                        $CONFIG_PATH
+      echo "rpcuser=${RPC_USER=lbry}" >>                $CONFIG_PATH
+      echo "rpcpassword=${RPC_PASSWORD=lbry}" >>        $CONFIG_PATH
       echo "rpcallowip=${RPC_ALLOW_IP=127.0.0.1/24}" >> $CONFIG_PATH
-      echo "rpcport=${RPC_PORT=9245}" >> $CONFIG_PATH
-      echo "rpcbind=${RPC_BIND=0.0.0.0}" >> $CONFIG_PATH
+      echo "rpcport=${RPC_PORT=9245}" >>                $CONFIG_PATH
+      echo "rpcbind=${RPC_BIND=0.0.0.0}" >>             $CONFIG_PATH
+      echo "deprecatedrpc=accounts" >>                  $CONFIG_PATH
+      echo "deprecatedrpc=validateaddress" >>           $CONFIG_PATH
+      echo "deprecatedrpc=signrawtransaction" >>        $CONFIG_PATH
   fi
   echo "Config: "
   cat $CONFIG_PATH
@@ -77,15 +80,20 @@ case $RUN_MODE in
     ## Set config params
     ## TODO: Make this more automagic in the future.
     mkdir -p `dirname $CONFIG_PATH`
-    echo "rpcuser=lbry" >           $CONFIG_PATH
-    echo "rpcpassword=lbry" >>      $CONFIG_PATH
-    echo "rpcport=29245" >>         $CONFIG_PATH
-    echo "rpcbind=0.0.0.0" >>       $CONFIG_PATH
-    echo "rpcallowip=0.0.0.0/0" >>  $CONFIG_PATH
-    echo "regtest=1" >>             $CONFIG_PATH
-    echo "txindex=1" >>             $CONFIG_PATH
-    echo "server=1" >>              $CONFIG_PATH
-    echo "printtoconsole=1" >>      $CONFIG_PATH
+    echo "rpcuser=lbry" >                       $CONFIG_PATH
+    echo "rpcpassword=lbry" >>                  $CONFIG_PATH
+    echo "rpcport=29245" >>                     $CONFIG_PATH
+    echo "rpcbind=0.0.0.0" >>                   $CONFIG_PATH
+    echo "rpcallowip=0.0.0.0/0" >>              $CONFIG_PATH
+    echo "regtest=1" >>                         $CONFIG_PATH
+    echo "txindex=1" >>                         $CONFIG_PATH
+    echo "server=1" >>                          $CONFIG_PATH
+    echo "printtoconsole=1" >>                  $CONFIG_PATH
+    echo "deprecatedrpc=accounts" >>            $CONFIG_PATH
+    echo "deprecatedrpc=validateaddress" >>     $CONFIG_PATH
+    echo "deprecatedrpc=signrawtransaction" >>  $CONFIG_PATH
+    echo "vbparams=segwit:0:999999999999" >>    $CONFIG_PATH
+    echo "addresstype=legacy" >>                $CONFIG_PATH
 
     #nohup advance &>/dev/null &
     lbrycrdd -conf=$CONFIG_PATH $1
@@ -94,15 +102,18 @@ case $RUN_MODE in
     ## Set config params
     ## TODO: Make this more automagic in the future.
     mkdir -p `dirname $CONFIG_PATH`
-    echo "rpcuser=lbry" >           $CONFIG_PATH
-    echo "rpcpassword=lbry" >>      $CONFIG_PATH
-    echo "rpcport=29245" >>         $CONFIG_PATH
-    echo "rpcbind=0.0.0.0" >>       $CONFIG_PATH
-    echo "rpcallowip=0.0.0.0/0" >>  $CONFIG_PATH
-    echo "testnet=1" >>             $CONFIG_PATH
-    echo "txindex=1" >>             $CONFIG_PATH
-    echo "server=1" >>              $CONFIG_PATH
-    echo "printtoconsole=1" >>      $CONFIG_PATH
+    echo "rpcuser=lbry" >                       $CONFIG_PATH
+    echo "rpcpassword=lbry" >>                  $CONFIG_PATH
+    echo "rpcport=29245" >>                     $CONFIG_PATH
+    echo "rpcbind=0.0.0.0" >>                   $CONFIG_PATH
+    echo "rpcallowip=0.0.0.0/0" >>              $CONFIG_PATH
+    echo "testnet=1" >>                         $CONFIG_PATH
+    echo "txindex=1" >>                         $CONFIG_PATH
+    echo "server=1" >>                          $CONFIG_PATH
+    echo "printtoconsole=1" >>                  $CONFIG_PATH
+    echo "deprecatedrpc=accounts" >>            $CONFIG_PATH
+    echo "deprecatedrpc=validateaddress" >>     $CONFIG_PATH
+    echo "deprecatedrpc=signrawtransaction" >>  $CONFIG_PATH
 
     #nohup advance &>/dev/null &
     lbrycrdd -conf=$CONFIG_PATH $1

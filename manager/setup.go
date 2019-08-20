@@ -55,7 +55,7 @@ func (s *Sync) walletSetup() error {
 	} else if balanceResp == nil {
 		return errors.Err("no response")
 	}
-	balance, err := strconv.ParseFloat((string)(*balanceResp), 64)
+	balance, err := strconv.ParseFloat(balanceResp.Total.String(), 64)
 	if err != nil {
 		return errors.Err(err)
 	}
@@ -188,7 +188,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 			return errors.Err("no response")
 		}
 
-		balanceAmount, err := strconv.ParseFloat((string)(*balance), 64)
+		balanceAmount, err := strconv.ParseFloat(balance.Total.String(), 64)
 		if err != nil {
 			return errors.Err(err)
 		}
@@ -312,7 +312,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	} else if balanceResp == nil {
 		return errors.Err("no response")
 	}
-	balance, err := decimal.NewFromString((string)(*balanceResp))
+	balance, err := decimal.NewFromString(balanceResp.Total.String())
 	if err != nil {
 		return errors.Err(err)
 	}
