@@ -236,32 +236,47 @@ func (a *APIConfig) DeleteVideos(videos []string) error {
 	return errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
 
-func (a *APIConfig) MarkVideoStatus(channelID string, videoID string, status string, claimID string, claimName string, failureReason string, size *int64, metadataVersion uint) error {
+type VideoStatus struct {
+	ChannelID       string
+	VideoID         string
+	Status          string
+	ClaimID         string
+	ClaimName       string
+	FailureReason   string
+	Size            *int64
+	MetaDataVersion uint
+	IsTransferred   *bool
+}
+
+func (a *APIConfig) MarkVideoStatus(status VideoStatus) error {
 	endpoint := a.ApiURL + "/yt/video_status"
 
-	sanitizeFailureReason(&failureReason)
+	sanitizeFailureReason(&status.FailureReason)
 	vals := url.Values{
-		"youtube_channel_id": {channelID},
-		"video_id":           {videoID},
-		"status":             {status},
+		"youtube_channel_id": {status.ChannelID},
+		"video_id":           {status.VideoID},
+		"status":             {status.Status},
 		"auth_token":         {a.ApiToken},
 	}
-	if status == VideoStatusPublished || status == VideoStatusUpgradeFailed {
-		if claimID == "" || claimName == "" {
-			return errors.Err("claimID (%s) or claimName (%s) missing", claimID, claimName)
+	if status.Status == VideoStatusPublished || status.Status == VideoStatusUpgradeFailed {
+		if status.ClaimID == "" || status.ClaimName == "" {
+			return errors.Err("claimID (%s) or claimName (%s) missing", status.ClaimID, status.ClaimName)
 		}
 		vals.Add("published_at", strconv.FormatInt(time.Now().Unix(), 10))
-		vals.Add("claim_id", claimID)
-		vals.Add("claim_name", claimName)
-		if metadataVersion > 0 {
-			vals.Add("metadata_version", fmt.Sprintf("%d", metadataVersion))
+		vals.Add("claim_id", status.ClaimID)
+		vals.Add("claim_name", status.ClaimName)
+		if status.MetaDataVersion > 0 {
+			vals.Add("metadata_version", fmt.Sprintf("%d", status.MetaDataVersion))
 		}
-		if size != nil {
-			vals.Add("size", strconv.FormatInt(*size, 10))
+		if status.Size != nil {
+			vals.Add("size", strconv.FormatInt(*status.Size, 10))
 		}
 	}
-	if failureReason != "" {
-		vals.Add("failure_reason", failureReason)
+	if status.FailureReason != "" {
+		vals.Add("failure_reason", status.FailureReason)
+	}
+	if status.IsTransferred != nil {
+		vals.Add("transferred", strconv.FormatBool(*status.IsTransferred))
 	}
 	res, _ := http.PostForm(endpoint, vals)
 	defer res.Body.Close()

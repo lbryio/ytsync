@@ -97,6 +97,7 @@ const (
 	VideoStatusFailed        = "failed"
 	VideoStatusUpgradeFailed = "upgradefailed"
 	VideoStatusUnpublished   = "unpublished"
+	VideoStatusTranferFailed = "transferfailed"
 )
 
 func (s *SyncManager) Start() error {

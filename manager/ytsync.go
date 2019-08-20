@@ -511,7 +511,15 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 			}
 			fixed++
 			log.Debugf("updating %s in the database", videoID)
-			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", util.PtrToInt64(int64(claimSize)), claimMetadataVersion)
+			err = s.Manager.apiConfig.MarkVideoStatus(sdk.VideoStatus{
+				ChannelID:       s.YoutubeChannelID,
+				VideoID:         videoID,
+				Status:          VideoStatusPublished,
+				ClaimID:         c.ClaimID,
+				ClaimName:       c.Name,
+				Size:            util.PtrToInt64(int64(claimSize)),
+				MetaDataVersion: claimMetadataVersion,
+			})
 			if err != nil {
 				return count, fixed, 0, err
 			}
@@ -763,7 +771,15 @@ func (s *Sync) startWorker(workerNum int) {
 				} else {
 					s.AppendSyncedVideo(v.ID(), false, err.Error(), existingClaimName, existingClaimID, 0, existingClaimSize)
 				}
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), videoStatus, existingClaimID, existingClaimName, err.Error(), &existingClaimSize, 0)
+				err = s.Manager.apiConfig.MarkVideoStatus(sdk.VideoStatus{
+					ChannelID:     s.YoutubeChannelID,
+					VideoID:       v.ID(),
+					Status:        videoStatus,
+					ClaimID:       existingClaimID,
+					ClaimName:     existingClaimName,
+					FailureReason: err.Error(),
+					Size:          &existingClaimSize,
+				})
 				if err != nil {
 					logUtils.SendErrorToSlack("Failed to mark video on the database: %s", errors.FullTrace(err))
 				}
@@ -954,7 +970,15 @@ func (s *Sync) processVideo(v video) (err error) {
 	}
 
 	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName, summary.ClaimID, newMetadataVersion, *v.Size())
-	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size(), 2)
+	err = s.Manager.apiConfig.MarkVideoStatus(sdk.VideoStatus{
+		ChannelID:       s.YoutubeChannelID,
+		VideoID:         v.ID(),
+		Status:          VideoStatusPublished,
+		ClaimID:         summary.ClaimID,
+		ClaimName:       summary.ClaimName,
+		Size:            v.Size(),
+		MetaDataVersion: 2,
+	})
 	if err != nil {
 		logUtils.SendErrorToSlack("Failed to mark video on the database: %s", errors.FullTrace(err))
 	}

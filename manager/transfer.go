@@ -4,13 +4,13 @@ import (
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
+	"github.com/lbryio/ytsync/sdk"
 )
 
 func TransferChannel(channel *Sync) error {
 	//Transfer channel
 	for _, video := range channel.syncedVideos {
 		//Todo - Wait for prior sync to see that the publish is confirmed in lbrycrd?
-		//Todo - We need to fix the ClaimSearch call in lbry.go for 38.5 lbrynet
 		c, err := channel.daemon.ClaimSearch(nil, &video.ClaimID, nil, nil)
 		if err != nil {
 			errors.Err(err)
@@ -28,11 +28,28 @@ func TransferChannel(channel *Sync) error {
 			Bid: util.PtrToString("0.009"), // Todo - Dont hardcode
 		}
 
+		videoStatus := sdk.VideoStatus{
+			ChannelID:     channel.YoutubeChannelID,
+			VideoID:       video.VideoID,
+			ClaimID:       video.ClaimID,
+			ClaimName:     video.ClaimName,
+			Status:        VideoStatusPublished,
+			IsTransferred: util.PtrToBool(true),
+		}
+
 		_, err = channel.daemon.StreamUpdate(video.ClaimID, streamUpdateOptions)
 		if err != nil {
-			return err
+			videoStatus.FailureReason = err.Error()
+			videoStatus.Status = VideoStatusTranferFailed
+			videoStatus.IsTransferred = util.PtrToBool(false)
 		}
-		// Todo - Post to remote db that video is transferred
+		statusErr := channel.APIConfig.MarkVideoStatus(videoStatus)
+		if statusErr != nil {
+			return errors.Err(err)
+		}
+		if err != nil {
+			return errors.Err(err)
+		}
 	}
 
 	// Todo - Transfer Channel as last step and post back to remote db that channel is transferred.
