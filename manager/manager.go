@@ -159,6 +159,7 @@ func (s *SyncManager) Start() error {
 			} else {
 				queuesToSync = append(queuesToSync, StatusSyncing, StatusQueued)
 			}
+		queues:
 			for _, q := range queuesToSync {
 				//temporary override for sync-until to give tom the time to review the channels
 				if q == StatusQueued {
@@ -168,9 +169,8 @@ func (s *SyncManager) Start() error {
 				if err != nil {
 					return err
 				}
-				log.Infof("There are %d channels in the \"%s\" queue", len(channels), q)
-				if len(channels) > 0 {
-					c := channels[0]
+				for i, c := range channels {
+					log.Infof("There are %d channels in the \"%s\" queue", len(channels)-i, q)
 					syncs = append(syncs, Sync{
 						APIConfig:               s.apiConfig,
 						YoutubeChannelID:        c.ChannelId,
@@ -190,7 +190,9 @@ func (s *SyncManager) Start() error {
 						namer:                   namer.NewNamer(),
 						Fee:                     c.Fee,
 					})
-					continue
+					if q != StatusFailed {
+						continue queues
+					}
 				}
 			}
 		}
