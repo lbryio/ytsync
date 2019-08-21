@@ -89,6 +89,7 @@ const (
 	StatusFinalized      = "finalized" // no more changes allowed
 	StatusAbandoned      = "abandoned" // deleted on youtube or banned
 )
+const LatestMetadataVersion = 2
 
 var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
 

@@ -227,7 +227,7 @@ func (s *Sync) uploadWallet() error {
 }
 
 func (s *Sync) setStatusSyncing() error {
-	syncedVideos, claimNames, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSyncing, "")
+	syncedVideos, claimNames, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSyncing, "", nil)
 	if err != nil {
 		return err
 	}
@@ -315,8 +315,8 @@ func (s *Sync) FullCycle() (e error) {
 		return err
 	}
 
-	if s.transferState == 1 && s.publishAddress != "" { // Channel needs transfer
-		return TransferChannel(s)
+	if s.shouldTransfer() {
+		return TransferChannelAndVideos(s)
 	}
 
 	return nil
@@ -331,8 +331,19 @@ func deleteSyncFolder(videoDirectory string) {
 		_ = util.SendToSlack(err.Error())
 	}
 }
-
+func (s *Sync) shouldTransfer() bool {
+	return s.transferState == 1 && s.publishAddress != ""
+}
 func (s *Sync) setChannelTerminationStatus(e *error) {
+	var transferState *int
+
+	if s.shouldTransfer() {
+		if *e != nil {
+			transferState = util.PtrToInt(TransferStateComplete)
+		} else {
+			transferState = util.PtrToInt(TransferStateFailed)
+		}
+	}
 	if *e != nil {
 		//conditions for which a channel shouldn't be marked as failed
 		noFailConditions := []string{
@@ -343,13 +354,13 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 			return
 		}
 		failureReason := (*e).Error()
-		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
+		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason, transferState)
 		if err != nil {
 			msg := fmt.Sprintf("Failed setting failed state for channel %s", s.LbryChannelName)
 			*e = errors.Prefix(msg+err.Error(), *e)
 		}
 	} else if !s.IsInterrupted() {
-		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSynced, "")
+		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSynced, "", transferState)
 		if err != nil {
 			*e = err
 		}

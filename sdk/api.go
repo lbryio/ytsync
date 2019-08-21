@@ -90,6 +90,7 @@ type SyncedVideo struct {
 	ClaimID         string `json:"claim_id"`
 	Size            int64  `json:"size"`
 	MetadataVersion int8   `json:"metadata_version"`
+	Transferred     bool   `json:"transferred"`
 }
 
 func sanitizeFailureReason(s *string) {
@@ -133,7 +134,7 @@ func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
 
 }
 
-func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string, transferState int) (map[string]SyncedVideo, map[string]bool, error) {
+func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string, transferState *int) (map[string]SyncedVideo, map[string]bool, error) {
 	type apiChannelStatusResponse struct {
 		Success bool          `json:"success"`
 		Error   null.String   `json:"error"`
@@ -142,14 +143,17 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 	endpoint := a.ApiURL + "/yt/channel_status"
 
 	sanitizeFailureReason(&failureReason)
-	res, _ := http.PostForm(endpoint, url.Values{
+	params := url.Values{
 		"channel_id":     {channelID},
 		"sync_server":    {a.HostName},
 		"auth_token":     {a.ApiToken},
 		"sync_status":    {status},
 		"failure_reason": {failureReason},
-		"transferred":    {strconv.Itoa(transferState)},
-	})
+	}
+	if transferState != nil {
+		params.Add("transferred", strconv.Itoa(*transferState))
+	}
+	res, _ := http.PostForm(endpoint, params)
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
 	var response apiChannelStatusResponse
