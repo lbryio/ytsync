@@ -133,7 +133,7 @@ func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
 
 }
 
-func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string) (map[string]SyncedVideo, map[string]bool, error) {
+func (a *APIConfig) SetChannelStatus(channelID string, status string, failureReason string, transferState int) (map[string]SyncedVideo, map[string]bool, error) {
 	type apiChannelStatusResponse struct {
 		Success bool          `json:"success"`
 		Error   null.String   `json:"error"`
@@ -148,6 +148,7 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 		"auth_token":     {a.ApiToken},
 		"sync_status":    {status},
 		"failure_reason": {failureReason},
+		"transferred":    {strconv.Itoa(transferState)},
 	})
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
