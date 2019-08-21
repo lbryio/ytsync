@@ -988,7 +988,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		ClaimID:         summary.ClaimID,
 		ClaimName:       summary.ClaimName,
 		Size:            v.Size(),
-		MetaDataVersion: 2,
+		MetaDataVersion: LatestMetadataVersion,
 	})
 	if err != nil {
 		logUtils.SendErrorToSlack("Failed to mark video on the database: %s", errors.FullTrace(err))
