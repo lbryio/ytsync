@@ -5,12 +5,43 @@ import (
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/ytsync/sdk"
+	log "github.com/sirupsen/logrus"
 )
 
+func waitConfirmations(s *Sync) error {
+	allConfirmed := false
+waiting:
+	for !allConfirmed {
+		utxolist, err := s.daemon.UTXOList(nil)
+		if err != nil {
+			return err
+		} else if utxolist == nil {
+			return errors.Err("no response")
+		}
+
+		for _, utxo := range *utxolist {
+			if utxo.Confirmations <= 0 {
+				err = s.waitForNewBlock()
+				if err != nil {
+					return err
+				}
+				continue waiting
+			}
+		}
+		allConfirmed = true
+	}
+	return nil
+}
+
 func TransferChannelAndVideos(channel *Sync) error {
+	err := waitConfirmations(channel)
+	if err != nil {
+		return err
+	}
 	cleanTransfer := true
 	for _, video := range channel.syncedVideos {
-		if !channel.syncedVideos[video.ClaimID].Published || channel.syncedVideos[video.ClaimID].Transferred || channel.syncedVideos[video.ClaimID].MetadataVersion != LatestMetadataVersion {
+		if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
+			log.Debugf("skipping video: %s", video.VideoID)
 			continue
 		}
 
@@ -41,18 +72,19 @@ func TransferChannelAndVideos(channel *Sync) error {
 			IsTransferred: util.PtrToBool(true),
 		}
 
-		_, err = channel.daemon.StreamUpdate(video.ClaimID, streamUpdateOptions)
-		if err != nil {
+		result, updateError := channel.daemon.StreamUpdate(video.ClaimID, streamUpdateOptions)
+		if updateError != nil {
 			cleanTransfer = false
-			videoStatus.FailureReason = err.Error()
+			videoStatus.FailureReason = updateError.Error()
 			videoStatus.Status = VideoStatusTranferFailed
 			videoStatus.IsTransferred = util.PtrToBool(false)
 		}
+		log.Printf("TRANSFER RESULT %+v", *result) //TODO: actually check the results to be sure it worked
 		statusErr := channel.APIConfig.MarkVideoStatus(videoStatus)
 		if statusErr != nil {
-			return errors.Err(err)
+			return errors.Err(statusErr)
 		}
-		if err != nil {
+		if updateError != nil {
 			return errors.Err(err)
 		}
 	}
@@ -65,7 +97,7 @@ func TransferChannelAndVideos(channel *Sync) error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	if channelClaim == nil {
+	if channelClaim == nil || len(channelClaim.Claims) == 0 {
 		return errors.Err("There is no channel claim for channel %s", channel.LbryChannelName)
 	}
 	updateOptions := jsonrpc.ChannelUpdateOptions{
@@ -75,6 +107,8 @@ func TransferChannelAndVideos(channel *Sync) error {
 			},
 		},
 	}
-	_, err = channel.daemon.ChannelUpdate(channel.lbryChannelID, updateOptions)
+	result, err := channel.daemon.ChannelUpdate(channel.lbryChannelID, updateOptions)
+	log.Printf("TRANSFER RESULT %+v", *result) //TODO: actually check the results to be sure it worked
+
 	return errors.Err(err)
 }

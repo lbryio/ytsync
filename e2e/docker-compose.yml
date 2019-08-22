@@ -21,7 +21,7 @@ services:
   ## Wallet Server ##
   ###################
   walletserver:
-    image: lbry/wallet-server:v0.39.1
+    image: lbry/wallet-server:v0.39.2
     restart: always
     environment:
       - DB_DIRECTORY=/database
@@ -84,7 +84,7 @@ services:
   ## Internal APIs ##
   ###################
   internalapis:
-    image: lbry/internal-apis:master
+    image: lbry/internal-apis:transfers
     restart: "no"
     ports:
       - "15400:8080"

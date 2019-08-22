@@ -197,7 +197,8 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if desiredUTXOCount > maxUTXOs {
 			desiredUTXOCount = maxUTXOs
 		}
-		log.Infof("Splitting balance of %s evenly between %d UTXOs", *balance, desiredUTXOCount)
+		availableBalance, _ := balance.Available.Float64()
+		log.Infof("Splitting balance of %.3f evenly between %d UTXOs", availableBalance, desiredUTXOCount)
 
 		broadcastFee := 0.1
 		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, fmt.Sprintf("%.4f", balanceAmount-broadcastFee), desiredUTXOCount, false)
@@ -266,6 +267,9 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 	//@TODO: get rid of this when imported channels are supported
 	if s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
+		return nil
+	}
+	if s.transferState == TransferStateComplete {
 		return nil
 	}
 	channels, err := s.daemon.ChannelList(nil, 1, 50)

@@ -61,14 +61,19 @@ curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http:
 # Execute the transfer test!
 ./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
 # ALSO CHECK THAT VIDEO IS MARKED TRANSFERRED
-transferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transferred FROM youtube_data WHERE id=1')
-if [[ $status != "synced" || $videoStatus != "published" || transferStatus != "1" ]]; then
-echo "~~!!!~~~FAILED~~~!!!~~"
-echo "Channel Status: $status"
-echo "Video Status: $videoStatus"
-echo "Transfer Status: $transferStatus"
-#docker-compose logs --tail="all" lbrycrd
-#docker-compose logs --tail="all" walletserver
-#docker-compose logs --tail="all" lbrynet
-#docker-compose logs --tail="all" internalapis
- exit 1; fi;
+channelTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transfer_state FROM youtube_data WHERE id=1')
+videoTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transferred FROM synced_video WHERE id=1')
+if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStatus != "2" || $videoTransferStatus != "1" ]]; then
+    echo "~~!!!~~~FAILED~~~!!!~~"
+    echo "Channel Status: $status"
+    echo "Video Status: $videoStatus"
+    echo "Channel Transfer Status: $channelTransferStatus"
+    echo "Video Transfer Status: $videoTransferStatus"
+    #docker-compose logs --tail="all" lbrycrd
+    #docker-compose logs --tail="all" walletserver
+    #docker-compose logs --tail="all" lbrynet
+    #docker-compose logs --tail="all" internalapis
+    exit 1;
+fi;
+
+#perhaps query lbrynet again (should be restarted) to see if the claim and the channel are actually on the right address
