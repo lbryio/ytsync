@@ -151,7 +151,7 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 		"failure_reason": {failureReason},
 	}
 	if transferState != nil {
-		params.Add("transferred", strconv.Itoa(*transferState))
+		params.Add("transfer_state", strconv.Itoa(*transferState))
 	}
 	res, _ := http.PostForm(endpoint, params)
 	defer res.Body.Close()
