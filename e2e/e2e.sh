@@ -74,6 +74,8 @@ if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStat
     #docker-compose logs --tail="all" lbrynet
     #docker-compose logs --tail="all" internalapis
     exit 1;
+    else
+      echo "SUCCESSSSSSSSSSSSS!"
 fi;
 
 #perhaps query lbrynet again (should be restarted) to see if the claim and the channel are actually on the right address
