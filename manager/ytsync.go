@@ -316,7 +316,11 @@ func (s *Sync) FullCycle() (e error) {
 	}
 
 	if s.shouldTransfer() {
-		return TransferChannelAndVideos(s)
+		err = transferVideos(s)
+		if err != nil {
+			return err
+		}
+		return transferChannel(s)
 	}
 
 	return nil

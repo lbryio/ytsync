@@ -33,20 +33,34 @@ waiting:
 	return nil
 }
 
-func TransferChannelAndVideos(channel *Sync) error {
-	err := waitConfirmations(channel)
+func abandonSupports(s *Sync) error {
+	totalPages := uint64(1)
+	var allSupports []jsonrpc.Claim
+	for page := uint64(1); page <= totalPages; page++ {
+		supports, err := s.daemon.SupportList(nil, page, 50)
+		if err != nil {
+			return errors.Prefix("cannot list claims", err)
+		}
+		allSupports = append(allSupports, (*supports).Items...)
+		totalPages = (*supports).TotalPages
+	}
+	return nil
+}
+
+func transferVideos(s *Sync) error {
+	err := waitConfirmations(s)
 	if err != nil {
 		return err
 	}
 	cleanTransfer := true
-	for _, video := range channel.syncedVideos {
+	for _, video := range s.syncedVideos {
 		if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
 			log.Debugf("skipping video: %s", video.VideoID)
 			continue
 		}
 
 		//Todo - Wait for prior sync to see that the publish is confirmed in lbrycrd?
-		c, err := channel.daemon.ClaimSearch(nil, &video.ClaimID, nil, nil)
+		c, err := s.daemon.ClaimSearch(nil, &video.ClaimID, nil, nil)
 		if err != nil {
 			return errors.Err(err)
 		}
@@ -58,13 +72,13 @@ func TransferChannelAndVideos(channel *Sync) error {
 
 		streamUpdateOptions := jsonrpc.StreamUpdateOptions{
 			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
-				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &channel.publishAddress},
+				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.publishAddress},
 			},
 			Bid: util.PtrToString("0.009"), // Todo - Dont hardcode
 		}
 
 		videoStatus := sdk.VideoStatus{
-			ChannelID:     channel.YoutubeChannelID,
+			ChannelID:     s.YoutubeChannelID,
 			VideoID:       video.VideoID,
 			ClaimID:       video.ClaimID,
 			ClaimName:     video.ClaimName,
@@ -72,7 +86,7 @@ func TransferChannelAndVideos(channel *Sync) error {
 			IsTransferred: util.PtrToBool(true),
 		}
 
-		result, updateError := channel.daemon.StreamUpdate(video.ClaimID, streamUpdateOptions)
+		result, updateError := s.daemon.StreamUpdate(video.ClaimID, streamUpdateOptions)
 		if updateError != nil {
 			cleanTransfer = false
 			videoStatus.FailureReason = updateError.Error()
@@ -80,7 +94,7 @@ func TransferChannelAndVideos(channel *Sync) error {
 			videoStatus.IsTransferred = util.PtrToBool(false)
 		}
 		log.Printf("TRANSFER RESULT %+v", *result) //TODO: actually check the results to be sure it worked
-		statusErr := channel.APIConfig.MarkVideoStatus(videoStatus)
+		statusErr := s.APIConfig.MarkVideoStatus(videoStatus)
 		if statusErr != nil {
 			return errors.Err(statusErr)
 		}
@@ -93,21 +107,24 @@ func TransferChannelAndVideos(channel *Sync) error {
 	if !cleanTransfer {
 		return errors.Err("A video has failed to transfer for the channel...skipping channel transfer")
 	}
-	channelClaim, err := channel.daemon.ClaimSearch(nil, &channel.lbryChannelID, nil, nil)
+	return nil
+}
+func transferChannel(s *Sync) error {
+	channelClaim, err := s.daemon.ClaimSearch(nil, &s.lbryChannelID, nil, nil)
 	if err != nil {
 		return errors.Err(err)
 	}
 	if channelClaim == nil || len(channelClaim.Claims) == 0 {
-		return errors.Err("There is no channel claim for channel %s", channel.LbryChannelName)
+		return errors.Err("There is no channel claim for channel %s", s.LbryChannelName)
 	}
 	updateOptions := jsonrpc.ChannelUpdateOptions{
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-				ClaimAddress: &channel.publishAddress,
+				ClaimAddress: &s.publishAddress,
 			},
 		},
 	}
-	result, err := channel.daemon.ChannelUpdate(channel.lbryChannelID, updateOptions)
+	result, err := s.daemon.ChannelUpdate(s.lbryChannelID, updateOptions)
 	log.Printf("TRANSFER RESULT %+v", *result) //TODO: actually check the results to be sure it worked
 
 	return errors.Err(err)
