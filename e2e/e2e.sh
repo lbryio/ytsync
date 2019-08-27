@@ -54,11 +54,13 @@ echo "successfully started..."
 ./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
 status=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM youtube_data WHERE id=1')
 videoStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM synced_video WHERE id=1')
-videoClaimID =$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=1')
+videoClaimID=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=1')
 # Create Supports for published claim
-curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"supportclaim","params":["@BeamerTest","${videoClaimID}",1.0]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
-curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"supportclaim","params":["@BeamerTest","${videoClaimID}",2.0]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
-curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"supportclaim","params":["@BeamerTest","${videoClaimID}",3.0]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
+curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"supportclaim","params":["@BeamerTest","'${videoClaimID}'",1.0]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
+curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"supportclaim","params":["@BeamerTest","'${videoClaimID}'",2.0]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
+curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"supportclaim","params":["@BeamerTest","'${videoClaimID}'",3.0]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
+curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"supportclaim","params":["@BeamerTest","'${videoClaimID}'",3.0]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
+curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"generate","params":[1]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
 # Reset status for tranfer test
 mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e "UPDATE youtube_data SET status = 'queued' WHERE id = 1"
 # Trigger transfer api

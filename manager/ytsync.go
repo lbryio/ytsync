@@ -316,6 +316,14 @@ func (s *Sync) FullCycle() (e error) {
 	}
 
 	if s.shouldTransfer() {
+		err := waitConfirmations(s)
+		if err != nil {
+			return err
+		}
+		err = abandonSupports(s)
+		if err != nil {
+			return err
+		}
 		err = transferVideos(s)
 		if err != nil {
 			return err

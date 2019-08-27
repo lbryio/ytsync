@@ -44,14 +44,23 @@ func abandonSupports(s *Sync) error {
 		allSupports = append(allSupports, (*supports).Items...)
 		totalPages = (*supports).TotalPages
 	}
+	alreadyAbandoned := make(map[string]bool, len(allSupports))
+	for _, support := range allSupports {
+		_, ok := alreadyAbandoned[support.ClaimID]
+		if ok {
+			continue
+		}
+		alreadyAbandoned[support.ClaimID] = true
+		summary, err := s.daemon.SupportAbandon(&support.ClaimID, nil, nil, nil, nil)
+		if err != nil {
+			return errors.Err(err)
+		}
+		log.Infof("Abandoned support of %s (%s total output) LBC for claim %s", support.Amount, summary.Outputs[0].Amount, support.ClaimID)
+	}
 	return nil
 }
 
 func transferVideos(s *Sync) error {
-	err := waitConfirmations(s)
-	if err != nil {
-		return err
-	}
 	cleanTransfer := true
 	for _, video := range s.syncedVideos {
 		if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
