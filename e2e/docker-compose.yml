@@ -100,7 +100,7 @@ services:
       - MYSQL_USER=lbry
       - MYSQL_PASS=lbry
       - MYSQL_DATABASE=lbry
-    entrypoint: wait-for-it mysql:3306 -- wait-for-it lbrynet:5279 -- ./latest serve
+    entrypoint: wait-for-it -t 0 mysql:3306 -- wait-for-it -t 0 lbrynet:5279 -- ./latest serve
   ######################
   ## MySQL Chainquery ##
   ######################
@@ -123,12 +123,14 @@ services:
   ## Chainquery ##
   ################
   chainquery:
-    image: lbry/chainquery:v1.8.1
+    image: lbry/chainquery:master
     restart: "no"
     ports:
       - 6300:6300
     depends_on:
-      - mysql
+      - lbrycrd
+      - mysqlCQ
     ## TODO: Uncomment this in a docker-compose.override.yml to allow for external configurations.
     volumes:
       - ./chainqueryconfig.toml:/etc/lbry/chainqueryconfig.toml
+    entrypoint: wait-for-it -t 0 lbrycrd:29245 -- wait-for-it -t 0 mysqlCQ:3306 -- start

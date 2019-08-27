@@ -3,7 +3,7 @@
 FROM ubuntu:18.04 as prep
 LABEL MAINTAINER="leopere [at] nixc [dot] us"
 RUN apt-get update && \
-  apt-get -y install unzip curl && \
+  apt-get -y install unzip curl telnet wait-for-it && \
   apt-get autoclean -y && \
   rm -rf /var/lib/apt/lists/*
 WORKDIR /
@@ -16,6 +16,10 @@ RUN curl -s -o /chainquery http://build.lbry.io/chainquery/branch-"${VERSION}"/c
 
 
 FROM ubuntu:18.04 as app
+RUN apt-get update && \
+  apt-get -y install telnet wait-for-it && \
+  apt-get autoclean -y && \
+  rm -rf /var/lib/apt/lists/*
 ARG VERSION="master"
 ADD https://raw.githubusercontent.com/lbryio/chainquery/"${VERSION}"/config/default/chainqueryconfig.toml /etc/lbry/chainqueryconfig.toml.orig
 RUN adduser chainquery --gecos GECOS --shell /bin/bash --disabled-password --home /home/chainquery && \
