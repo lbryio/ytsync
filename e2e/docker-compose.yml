@@ -101,3 +101,34 @@ services:
       - MYSQL_PASS=lbry
       - MYSQL_DATABASE=lbry
     entrypoint: wait-for-it mysql:3306 -- wait-for-it lbrynet:5279 -- ./latest serve
+  ######################
+  ## MySQL Chainquery ##
+  ######################
+  mysqlCQ:
+    image: mysql/mysql-server:5.7.27
+    restart: "no"
+    ports:
+      - "15600:3306"
+    expose:
+      - "3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+      - MYSQL_DATABASE=chainquery
+      - MYSQL_USER=lbry
+      - MYSQL_PASSWORD=lbry
+      - MYSQL_LOG_CONSOLE=true
+    volumes:
+      - "./chainquery/docker/my.cnf:/etc/mysql/conf.d/chainquery-optimizations.cnf"
+  ################
+  ## Chainquery ##
+  ################
+  chainquery:
+    image: lbry/chainquery:v1.8.1
+    restart: "no"
+    ports:
+      - 6300:6300
+    depends_on:
+      - mysql
+    ## TODO: Uncomment this in a docker-compose.override.yml to allow for external configurations.
+    volumes:
+      - ./chainqueryconfig.toml:/etc/lbry/chainqueryconfig.toml

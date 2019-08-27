@@ -1,0 +1,99 @@
+#Debug mode outputs specific information to the console
+#DEFAULT: false
+#debugmode=
+
+#DebugQueryMode outputs SQL Boiler queries to the console.
+#DEFAULT: false
+#debugquerymode=
+
+#LBRYcrd URL is required for chainquery to query the blockchain
+#DEFAULT: "rpc://lbry:lbry@localhost:9245"
+lbrycrdurl="rpc://lbry:lbry@lbrycrd:29245"
+
+#MySQL DSN is required for chainquery to store information.
+#DEFAULT: "lbry:lbry@tcp(localhost:3306)/chainquery"
+#SUGGESTED: "lbry:lbry@unix(/var/run/mysqld/mysqld.sock)/chainquery"
+mysqldsn="lbry:lbry@tcp(mysqlCQ:3306)/chainquery"
+
+#API MySQL DSN is required for chainquery to expose a SQL query service
+#DEFAULT: "lbry:lbry@tcp(localhost:3306)/chainquery"
+#SUGGESTED: "lbry:lbry@unix(/var/run/mysqld/mysqld.sock)/chainquery"
+#apimysqldsn=
+
+#API Host and Port is required for the API Server to bind and listen on.
+#DEFAULT: "0.0.0.0:6300"
+#apihostport=
+
+#Profile mode enables and disables the reporting of a profile for chainquery
+#DEFAULT: false
+#profilemode=
+
+#Daemon mode tells chainquery how hard it should work catch up processing the blockchain
+#deamonmode=0 #BeastMode it continuously process block after block until caughtup.
+#daemonmode=1 #SlowAndSteadyMode it will process block with a frequency of 1 block every 100ms
+#daemonmode=2 #DelayMode it will process a block with a configured delay frequency (set via 'processingdelay')
+#daemonmode=3 #DaemonMode it will process a block every iteration of the daemon.
+#DEFAULT: 0
+#deamonmode=
+
+#Default client timeout is for communication with the api of chainquery
+#DEFAULT: 20 #Measured in seconds
+#defaultclienttimeout=
+
+#Processing delay is used to determine how frequently chainquery should process a block
+# It is only used if Daemon mode is set to delay mode
+#DEFAULT: 100 #Measured in milliseconds
+#processingdelay=
+
+#Daemon delay is the frequency at which chainquery checks for work to do.
+#DEFAULT: 1 #Measured in seconds
+#daemondelay=
+
+#Profiling options - will output the time take for certain opertions related to the below category
+#DEFAULT: false (for all 3 params)
+#daemonprofile=
+#lbrycrdprofile=
+#mysqlprofile=
+
+#Slack Hook URL allows slack integration. All logging info level and above is posted to a slack channel.
+#DEFAULT: ""
+#slackhookurl=
+
+#Slack Channel is the channel that you want the messages to appear. Works together with the hook url.
+#DEFAULT: ""
+#slackchannel=
+
+#Slack Log Level tells chainquery what level of logging will be sent to the slack channel. It will log all levels below
+# it as well. Panic=0,Fatal=1,Error=2,Warning=3,Info=4,Debug=5
+#DEFAULT: 0
+#slackloglevel=
+
+#The command that should be executed to trigger a self update of the software. For linux, for example, `<yourscript>.sh`
+#DEFAULT: ""
+#autoupdatecommand=
+
+#Twilio service of chainquery to send specifically important information to key users of the Chainquery install.
+#DEFAULT:
+##twiliosid=""
+##twilioauthtoken=""
+##smsrecipients=["",""]
+##smsfromphonenumber=""
+#twiliosid=
+#twilioauthtoken=
+#smsrecipients=
+#smsfromphonenumber=
+
+#API Keys - Disallowed by default unless keys are entered.
+#DEFAULT: []
+#apikeys=
+
+#Max Failures - Specifies the  number of failures that can happen in processing a transaction. This is for parallel
+#transaction processing which puts a transaction to the back of the processing queue if it fails. It can fail say if its
+#source output to spend is not already processed.
+#DEFAULT: 1000
+#maxfailures=
+
+#Block Chain Name - Specifies the chain params for parsing blocks, transactions, claims, and addresses. valid choices are
+#lbrycrd_main, lbrycrd_testnet, and lbrycrd_regtest.
+#DEFAULT: "lbrycrd_main"
+blockchainname="lbrycrd_regtest"
