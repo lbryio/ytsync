@@ -173,10 +173,10 @@ func CleanForStartup() error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	const minBlocksForUTXO = 110
+	const minBlocksForUTXO = 200
 	if height < minBlocksForUTXO {
-		//Start reg test will some credits
-		txs, err := lbrycrd.Generate(uint32(110) - uint32(height))
+		//Start reg test with some credits
+		txs, err := lbrycrd.Generate(uint32(minBlocksForUTXO) - uint32(height))
 		if err != nil {
 			return errors.Err(err)
 		}

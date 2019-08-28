@@ -1,4 +1,5 @@
 bin/
 e2e/persist
+e2e/supporty/supporty
 .env
 blobsfiles

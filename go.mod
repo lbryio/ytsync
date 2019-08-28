@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/serf v0.8.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lbryio/errors.go v0.0.0-20180223142025-ad03d3cc6a5c
-	github.com/lbryio/lbry.go v0.0.0-20190826222547-3a3377d0e5ec
+	github.com/lbryio/lbry.go v0.0.0-20190828031244-ecbd404da042
 	github.com/lbryio/reflector.go v1.0.6-0.20190806185326-2e4f235489f4
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect

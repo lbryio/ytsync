@@ -102,7 +102,7 @@ func transferVideos(s *Sync) error {
 			videoStatus.Status = VideoStatusTranferFailed
 			videoStatus.IsTransferred = util.PtrToBool(false)
 		}
-		log.Printf("TRANSFER RESULT %+v", *result) //TODO: actually check the results to be sure it worked
+		log.Infof("TRANSFERRED %t", len(result.Outputs) != 0)
 		statusErr := s.APIConfig.MarkVideoStatus(videoStatus)
 		if statusErr != nil {
 			return errors.Err(statusErr)
@@ -134,7 +134,7 @@ func transferChannel(s *Sync) error {
 		},
 	}
 	result, err := s.daemon.ChannelUpdate(s.lbryChannelID, updateOptions)
-	log.Printf("TRANSFER RESULT %+v", *result) //TODO: actually check the results to be sure it worked
+	log.Infof("TRANSFERRED %t", len(result.Outputs) != 0)
 
 	return errors.Err(err)
 }
