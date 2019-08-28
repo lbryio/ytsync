@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/lbryio/errors.go"
+	"github.com/lbryio/lbry.go/extras/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
