@@ -55,7 +55,7 @@ func (s *Sync) walletSetup() error {
 	} else if balanceResp == nil {
 		return errors.Err("no response")
 	}
-	balance, err := strconv.ParseFloat((string)(*balanceResp), 64)
+	balance, err := strconv.ParseFloat(balanceResp.Available.String(), 64)
 	if err != nil {
 		return errors.Err(err)
 	}
@@ -125,6 +125,9 @@ func (s *Sync) walletSetup() error {
 	if s.claimAddress == "" {
 		return errors.Err("found blank claim address")
 	}
+	if s.transferState > 0 && s.publishAddress != "" {
+		s.claimAddress = s.publishAddress
+	}
 
 	err = s.ensureEnoughUTXOs()
 	if err != nil {
@@ -185,7 +188,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 			return errors.Err("no response")
 		}
 
-		balanceAmount, err := strconv.ParseFloat((string)(*balance), 64)
+		balanceAmount, err := strconv.ParseFloat(balance.Available.String(), 64)
 		if err != nil {
 			return errors.Err(err)
 		}
@@ -194,7 +197,8 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if desiredUTXOCount > maxUTXOs {
 			desiredUTXOCount = maxUTXOs
 		}
-		log.Infof("Splitting balance of %s evenly between %d UTXOs", *balance, desiredUTXOCount)
+		availableBalance, _ := balance.Available.Float64()
+		log.Infof("Splitting balance of %.3f evenly between %d UTXOs", availableBalance, desiredUTXOCount)
 
 		broadcastFee := 0.1
 		prefillTx, err := s.daemon.AccountFund(defaultAccount, defaultAccount, fmt.Sprintf("%.4f", balanceAmount-broadcastFee), desiredUTXOCount, false)
@@ -265,6 +269,9 @@ func (s *Sync) ensureChannelOwnership() error {
 	if s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
 		return nil
 	}
+	if s.transferState == TransferStateComplete {
+		return nil
+	}
 	channels, err := s.daemon.ChannelList(nil, 1, 50)
 	if err != nil {
 		return err
@@ -309,7 +316,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	} else if balanceResp == nil {
 		return errors.Err("no response")
 	}
-	balance, err := decimal.NewFromString((string)(*balanceResp))
+	balance, err := decimal.NewFromString(balanceResp.Available.String())
 	if err != nil {
 		return errors.Err(err)
 	}

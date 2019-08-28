@@ -4,8 +4,8 @@ services:
   ## Lbrycrd ##
   #############
   lbrycrd:
-    image: lbry/lbrycrd:v0.12.4.1
-    restart: always
+    image: lbry/lbrycrd:v0.17.2.1
+    restart: "no"
     ports:
       - "15201:29246"
       - "15200:29245"
@@ -21,7 +21,7 @@ services:
   ## Wallet Server ##
   ###################
   walletserver:
-    image: lbry/wallet-server:v0.38.5
+    image: lbry/wallet-server:v0.39.3
     restart: always
     environment:
       - DB_DIRECTORY=/database
@@ -47,7 +47,7 @@ services:
   ## Lbrynet ##
   #############
   lbrynet:
-    image: lbry/lbrynet:v0.38.6
+    image: lbry/lbrynet:v0.39.3
     restart: always
     ports:
       - "15100:5279"
@@ -84,7 +84,7 @@ services:
   ## Internal APIs ##
   ###################
   internalapis:
-    image: lbry/internal-apis:master
+    image: lbry/internal-apis:transfers
     restart: "no"
     ports:
       - "15400:8080"
@@ -93,11 +93,43 @@ services:
     depends_on:
       - mysql
       - lbrycrd
-      - lbrynet
     environment:
       - MYSQL_DSN=lbry:lbry@tcp(mysql:3306)/lbry
       - LBRYCRD_CONNECT=rpc://lbry:lbry@lbrycrd:29245
       - MYSQL_USER=lbry
       - MYSQL_PASS=lbry
       - MYSQL_DATABASE=lbry
-    entrypoint: wait-for-it mysql:3306 -- wait-for-it lbrynet:5279 -- ./latest serve
+    entrypoint: wait-for-it -t 0 mysql:3306 -- wait-for-it -t 0 lbrycrd:29245 -- ./latest serve
+  ######################
+  ## MySQL Chainquery ##
+  ######################
+  mysqlCQ:
+    image: mysql/mysql-server:5.7.27
+    restart: "no"
+    ports:
+      - "15600:3306"
+    expose:
+      - "3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+      - MYSQL_DATABASE=chainquery
+      - MYSQL_USER=lbry
+      - MYSQL_PASSWORD=lbry
+      - MYSQL_LOG_CONSOLE=true
+    volumes:
+      - "./chainquery/docker/my.cnf:/etc/mysql/conf.d/chainquery-optimizations.cnf"
+  ################
+  ## Chainquery ##
+  ################
+  chainquery:
+    image: lbry/chainquery:master
+    restart: "no"
+    ports:
+      - 6300:6300
+    depends_on:
+      - lbrycrd
+      - mysqlCQ
+    ## TODO: Uncomment this in a docker-compose.override.yml to allow for external configurations.
+    volumes:
+      - ./chainqueryconfig.toml:/etc/lbry/chainqueryconfig.toml
+    entrypoint: wait-for-it -t 0 lbrycrd:29245 -- wait-for-it -t 0 mysqlCQ:3306 -- start

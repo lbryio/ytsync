@@ -12,10 +12,11 @@ import (
 	"github.com/lbryio/reflector.go/db"
 	"github.com/lbryio/reflector.go/reflector"
 	"github.com/lbryio/reflector.go/store"
-	"github.com/lbryio/ytsync/util"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/lbryio/ytsync/util"
 )
+
+var dbHandle *db.SQL
 
 func ReflectAndClean() error {
 	err := reflectBlobs()
@@ -53,7 +54,6 @@ func reflectBlobs() error {
 		return errors.Prefix("cannot reflect blobs as the daemon is running", err)
 	}
 
-	dbHandle := new(db.SQL)
 	ex, err := os.Executable()
 	if err != nil {
 		return errors.Err(err)
@@ -63,17 +63,13 @@ func reflectBlobs() error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	err = dbHandle.Connect(config.DBConn)
-	if err != nil {
-		return errors.Err(err)
-	}
-	defer func() {
-		err := dbHandle.CloseDB()
+	if dbHandle == nil {
+		dbHandle = new(db.SQL)
+		err = dbHandle.Connect(config.DBConn)
 		if err != nil {
-			log.Errorf("failed to close db handle: %s", err.Error())
+			return errors.Err(err)
 		}
-
-	}()
+	}
 	st := store.NewDBBackedS3Store(
 		store.NewS3BlobStore(config.AwsID, config.AwsSecret, config.BucketRegion, config.BucketName),
 		dbHandle)

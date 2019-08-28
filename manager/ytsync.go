@@ -88,6 +88,8 @@ type Sync struct {
 	namer                   *namer.Namer
 	walletMux               *sync.RWMutex
 	queue                   chan video
+	transferState           int
+	publishAddress          string
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -225,7 +227,7 @@ func (s *Sync) uploadWallet() error {
 }
 
 func (s *Sync) setStatusSyncing() error {
-	syncedVideos, claimNames, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSyncing, "")
+	syncedVideos, claimNames, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSyncing, "", nil)
 	if err != nil {
 		return err
 	}
@@ -308,7 +310,28 @@ func (s *Sync) FullCycle() (e error) {
 		return err
 	}
 
-	return s.doSync()
+	err = s.doSync()
+	if err != nil {
+		return err
+	}
+
+	if s.shouldTransfer() {
+		err := waitConfirmations(s)
+		if err != nil {
+			return err
+		}
+		err = abandonSupports(s)
+		if err != nil {
+			return err
+		}
+		err = transferVideos(s)
+		if err != nil {
+			return err
+		}
+		return transferChannel(s)
+	}
+
+	return nil
 }
 
 func deleteSyncFolder(videoDirectory string) {
@@ -320,8 +343,19 @@ func deleteSyncFolder(videoDirectory string) {
 		_ = util.SendToSlack(err.Error())
 	}
 }
-
+func (s *Sync) shouldTransfer() bool {
+	return s.transferState == 1 && s.publishAddress != ""
+}
 func (s *Sync) setChannelTerminationStatus(e *error) {
+	var transferState *int
+
+	if s.shouldTransfer() {
+		if *e != nil {
+			transferState = util.PtrToInt(TransferStateFailed)
+		} else {
+			transferState = util.PtrToInt(TransferStateComplete)
+		}
+	}
 	if *e != nil {
 		//conditions for which a channel shouldn't be marked as failed
 		noFailConditions := []string{
@@ -332,13 +366,13 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 			return
 		}
 		failureReason := (*e).Error()
-		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason)
+		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusFailed, failureReason, transferState)
 		if err != nil {
 			msg := fmt.Sprintf("Failed setting failed state for channel %s", s.LbryChannelName)
 			*e = errors.Prefix(msg+err.Error(), *e)
 		}
 	} else if !s.IsInterrupted() {
-		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSynced, "")
+		_, _, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSynced, "", transferState)
 		if err != nil {
 			*e = err
 		}
@@ -500,7 +534,15 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 			}
 			fixed++
 			log.Debugf("updating %s in the database", videoID)
-			err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, videoID, VideoStatusPublished, c.ClaimID, c.Name, "", util.PtrToInt64(int64(claimSize)), claimMetadataVersion)
+			err = s.Manager.apiConfig.MarkVideoStatus(sdk.VideoStatus{
+				ChannelID:       s.YoutubeChannelID,
+				VideoID:         videoID,
+				Status:          VideoStatusPublished,
+				ClaimID:         c.ClaimID,
+				ClaimName:       c.Name,
+				Size:            util.PtrToInt64(int64(claimSize)),
+				MetaDataVersion: claimMetadataVersion,
+			})
 			if err != nil {
 				return count, fixed, 0, err
 			}
@@ -508,6 +550,10 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 	}
 	idsToRemove := make([]string, 0, len(videoIDMap))
 	for vID, sv := range s.syncedVideos {
+		if sv.Transferred {
+			log.Infof("%s: claim was transferred, ignoring")
+			continue
+		}
 		_, ok := videoIDMap[vID]
 		if !ok && sv.Published {
 			log.Debugf("%s: claims to be published but wasn't found in the list of claims and will be removed if --remove-db-unpublished was specified", vID)
@@ -517,10 +563,10 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 	if s.Manager.removeDBUnpublished && len(idsToRemove) > 0 {
 		err := s.Manager.apiConfig.DeleteVideos(idsToRemove)
 		if err != nil {
-			return count, fixed, 0, err
+			return count, fixed, len(idsToRemove), err
 		}
 	}
-	return count, fixed, len(idsToRemove), nil
+	return count, fixed, 0, nil
 }
 
 func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
@@ -537,15 +583,7 @@ func (s *Sync) getClaims() ([]jsonrpc.Claim, error) {
 	return allClaims, nil
 }
 
-func (s *Sync) doSync() error {
-	err := s.enableAddressReuse()
-	if err != nil {
-		return errors.Prefix("could not set address reuse policy", err)
-	}
-	err = s.walletSetup()
-	if err != nil {
-		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
-	}
+func (s *Sync) checkIntegrity() error {
 	allClaims, err := s.getClaims()
 	if err != nil {
 		return err
@@ -569,17 +607,6 @@ func (s *Sync) doSync() error {
 	pubsOnWallet, nFixed, nRemoved, err := s.updateRemoteDB(allClaims)
 	if err != nil {
 		return errors.Prefix("error updating remote database", err)
-	}
-
-	cert, err := s.daemon.ChannelExport(s.lbryChannelID, nil, nil)
-	if err != nil {
-		return errors.Prefix("error getting channel cert", err)
-	}
-	if cert != nil {
-		err = s.APIConfig.SetChannelCert(string(*cert), s.lbryChannelID)
-		if err != nil {
-			return errors.Prefix("error setting channel cert", err)
-		}
 	}
 
 	if nFixed > 0 || nRemoved > 0 {
@@ -607,6 +634,36 @@ func (s *Sync) doSync() error {
 	}
 	if pubsOnWallet < pubsOnDB {
 		logUtils.SendInfoToSlack("we're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.YoutubeChannelID)
+	}
+	return nil
+}
+
+func (s *Sync) doSync() error {
+	err := s.enableAddressReuse()
+	if err != nil {
+		return errors.Prefix("could not set address reuse policy", err)
+	}
+	err = s.walletSetup()
+	if err != nil {
+		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
+	}
+
+	err = s.checkIntegrity()
+	if err != nil {
+		return err
+	}
+
+	if s.transferState != TransferStateComplete {
+		cert, err := s.daemon.ChannelExport(s.lbryChannelID, nil, nil)
+		if err != nil {
+			return errors.Prefix("error getting channel cert", err)
+		}
+		if cert != nil {
+			err = s.APIConfig.SetChannelCert(string(*cert), s.lbryChannelID)
+			if err != nil {
+				return errors.Prefix("error setting channel cert", err)
+			}
+		}
 	}
 
 	if s.StopOnError {
@@ -752,7 +809,15 @@ func (s *Sync) startWorker(workerNum int) {
 				} else {
 					s.AppendSyncedVideo(v.ID(), false, err.Error(), existingClaimName, existingClaimID, 0, existingClaimSize)
 				}
-				err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), videoStatus, existingClaimID, existingClaimName, err.Error(), &existingClaimSize, 0)
+				err = s.Manager.apiConfig.MarkVideoStatus(sdk.VideoStatus{
+					ChannelID:     s.YoutubeChannelID,
+					VideoID:       v.ID(),
+					Status:        videoStatus,
+					ClaimID:       existingClaimID,
+					ClaimName:     existingClaimName,
+					FailureReason: err.Error(),
+					Size:          &existingClaimSize,
+				})
 				if err != nil {
 					logUtils.SendErrorToSlack("Failed to mark video on the database: %s", errors.FullTrace(err))
 				}
@@ -943,7 +1008,16 @@ func (s *Sync) processVideo(v video) (err error) {
 	}
 
 	s.AppendSyncedVideo(v.ID(), true, "", summary.ClaimName, summary.ClaimID, newMetadataVersion, *v.Size())
-	err = s.Manager.apiConfig.MarkVideoStatus(s.YoutubeChannelID, v.ID(), VideoStatusPublished, summary.ClaimID, summary.ClaimName, "", v.Size(), 2)
+	err = s.Manager.apiConfig.MarkVideoStatus(sdk.VideoStatus{
+		ChannelID:       s.YoutubeChannelID,
+		VideoID:         v.ID(),
+		Status:          VideoStatusPublished,
+		ClaimID:         summary.ClaimID,
+		ClaimName:       summary.ClaimName,
+		Size:            v.Size(),
+		MetaDataVersion: LatestMetadataVersion,
+		IsTransferred:   util.PtrToBool(s.shouldTransfer()),
+	})
 	if err != nil {
 		logUtils.SendErrorToSlack("Failed to mark video on the database: %s", errors.FullTrace(err))
 	}

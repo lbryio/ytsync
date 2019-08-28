@@ -4,7 +4,7 @@ LABEL MAINTAINER="leopere [at] nixc [dot] us"
 RUN apt-get update && apt-get -y install unzip curl telnet wait-for-it
 
 ## Add lbrynet
-ARG VERSION="v0.38.6"
+ARG VERSION="latest"
 RUN URL=$(curl -s https://api.github.com/repos/lbryio/lbry-sdk/releases/$(if [ "${VERSION}" = 'latest' ]; then echo "latest"; else echo "tags/${VERSION}"; fi) | grep browser_download_url | grep lbrynet-linux.zip | cut -d'"' -f4) && echo $URL && curl -L -o /lbrynet.linux.zip $URL
 
 COPY start.sh /usr/bin/start

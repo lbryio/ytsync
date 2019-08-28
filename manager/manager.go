@@ -89,6 +89,7 @@ const (
 	StatusFinalized      = "finalized" // no more changes allowed
 	StatusAbandoned      = "abandoned" // deleted on youtube or banned
 )
+const LatestMetadataVersion = 2
 
 var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
 
@@ -97,6 +98,14 @@ const (
 	VideoStatusFailed        = "failed"
 	VideoStatusUpgradeFailed = "upgradefailed"
 	VideoStatusUnpublished   = "unpublished"
+	VideoStatusTranferFailed = "transferfailed"
+)
+
+const (
+	TransferStateNotTouched = iota
+	TransferStatePending
+	TransferStateComplete
+	TransferStateFailed = -1
 )
 
 func (s *SyncManager) Start() error {
@@ -147,6 +156,8 @@ func (s *SyncManager) Start() error {
 				AwsS3Bucket:             s.awsS3Bucket,
 				namer:                   namer.NewNamer(),
 				Fee:                     channels[0].Fee,
+				publishAddress:          channels[0].PublishAddress,
+				transferState:           channels[0].TransferState,
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -189,6 +200,8 @@ func (s *SyncManager) Start() error {
 						AwsS3Bucket:             s.awsS3Bucket,
 						namer:                   namer.NewNamer(),
 						Fee:                     c.Fee,
+						publishAddress:          c.PublishAddress,
+						transferState:           c.TransferState,
 					})
 					if q != StatusFailed {
 						continue queues

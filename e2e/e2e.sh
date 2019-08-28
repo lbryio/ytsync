@@ -4,6 +4,8 @@ set -e
 
 #Always compile ytsync
 make
+#Always compile supporty
+cd e2e/supporty && make && cd ../..
 
 #OVERRIDE this in your .env file if running from mac. Check docker-compose.yml for details
 export LOCAL_TMP_DIR="/var/tmp:/var/tmp"
@@ -50,16 +52,42 @@ echo "successfully started..."
 #Data Setup for test
 ./data_setup.sh
 
-# Execute the test!
+# Execute the sync test!
 ./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
-# Assert the status
 status=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM youtube_data WHERE id=1')
 videoStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM synced_video WHERE id=1')
-if [[ $status != "synced" || $videoStatus != "published" ]]; then
-docker-compose logs --tail="all" lbrycrd
-docker-compose logs --tail="all" walletserver
-docker-compose logs --tail="all" lbrynet
-docker-compose logs --tail="all" internalapis
-echo "List local /var/tmp"
-find /var/tmp
- exit 1; fi;
+videoClaimID=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=1')
+videoClaimAddress=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15600 -e 'SELECT claim_address FROM claim WHERE id=2')
+# Create Supports for published claim
+./supporty/supporty @BeamerTest "${videoClaimID}" "${videoClaimAddress}" lbrycrd_regtest 1.0
+./supporty/supporty @BeamerTest "${videoClaimID}" "${videoClaimAddress}" lbrycrd_regtest 2.0
+./supporty/supporty @BeamerTest "${videoClaimID}" "${videoClaimAddress}" lbrycrd_regtest 3.0
+./supporty/supporty @BeamerTest "${videoClaimID}" "${videoClaimAddress}" lbrycrd_regtest 3.0
+curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"generate","params":[1]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
+# Reset status for tranfer test
+mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e "UPDATE youtube_data SET status = 'queued' WHERE id = 1"
+# Trigger transfer api
+curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http://localhost:15400/yt/transfer?auth_token=youtubertoken&address=n1Ygra2pyD6cpESv9GtPM9kDkr4bPeu1Dc'
+# Execute the transfer test!
+./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
+# ALSO CHECK THAT VIDEO IS MARKED TRANSFERRED
+channelTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transfer_state FROM youtube_data WHERE id=1')
+videoTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transferred FROM synced_video WHERE id=1')
+nrUnspentSupports=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15600 -e 'SELECT COUNT(*) FROM chainquery.support INNER JOIN output ON output.transaction_hash = support.transaction_hash_id AND output.vout = support.vout WHERE output.is_spent = 0')
+if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStatus != "2" || $videoTransferStatus != "1" || $nrUnspentSupports != "0" ]]; then
+    echo "~~!!!~~~FAILED~~~!!!~~"
+    echo "Channel Status: $status"
+    echo "Video Status: $videoStatus"
+    echo "Channel Transfer Status: $channelTransferStatus"
+    echo "Video Transfer Status: $videoTransferStatus"
+    echo "Nr Unspent Supports: $nrUnspentSupports"
+    #docker-compose logs --tail="all" lbrycrd
+    #docker-compose logs --tail="all" walletserver
+    #docker-compose logs --tail="all" lbrynet
+    #docker-compose logs --tail="all" internalapis
+    exit 1;
+    else
+      echo "SUCCESSSSSSSSSSSSS!"
+fi;
+
+#perhaps query lbrynet again (should be restarted) to see if the claim and the channel are actually on the right address
