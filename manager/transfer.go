@@ -6,6 +6,7 @@ import (
 	"github.com/lbryio/lbry.go/extras/util"
 	"github.com/lbryio/ytsync/sdk"
 	log "github.com/sirupsen/logrus"
+	"strconv"
 )
 
 func waitConfirmations(s *Sync) error {
@@ -33,18 +34,19 @@ waiting:
 	return nil
 }
 
-func abandonSupports(s *Sync) error {
+func abandonSupports(s *Sync) (float64, error) {
 	totalPages := uint64(1)
 	var allSupports []jsonrpc.Claim
 	for page := uint64(1); page <= totalPages; page++ {
 		supports, err := s.daemon.SupportList(nil, page, 50)
 		if err != nil {
-			return errors.Prefix("cannot list claims", err)
+			return 0, errors.Prefix("cannot list claims", err)
 		}
 		allSupports = append(allSupports, (*supports).Items...)
 		totalPages = (*supports).TotalPages
 	}
 	alreadyAbandoned := make(map[string]bool, len(allSupports))
+	totalAbandoned := 0.0
 	for _, support := range allSupports {
 		_, ok := alreadyAbandoned[support.ClaimID]
 		if ok {
@@ -53,11 +55,19 @@ func abandonSupports(s *Sync) error {
 		alreadyAbandoned[support.ClaimID] = true
 		summary, err := s.daemon.SupportAbandon(&support.ClaimID, nil, nil, nil, nil)
 		if err != nil {
-			return errors.Err(err)
+			return totalAbandoned, errors.Err(err)
 		}
-		log.Infof("Abandoned support of %s (%s total output) LBC for claim %s", support.Amount, summary.Outputs[0].Amount, support.ClaimID)
+		if len(summary.Outputs) < 1 {
+			return totalAbandoned, errors.Err("error abandoning supports: no outputs while abandoning %s", support.ClaimID)
+		}
+		outputAmount, err := strconv.ParseFloat(summary.Outputs[0].Amount, 64)
+		if err != nil {
+			return totalAbandoned, errors.Err(err)
+		}
+		totalAbandoned += outputAmount
+		log.Infof("Abandoned supports of %.4f LBC for claim %s", outputAmount, support.ClaimID)
 	}
-	return nil
+	return totalAbandoned, nil
 }
 
 func transferVideos(s *Sync) error {

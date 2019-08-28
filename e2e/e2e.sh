@@ -70,11 +70,11 @@ mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e "UPDATE youtube_data
 curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http://localhost:15400/yt/transfer?auth_token=youtubertoken&address=n1Ygra2pyD6cpESv9GtPM9kDkr4bPeu1Dc'
 # Execute the transfer test!
 ./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
-# ALSO CHECK THAT VIDEO IS MARKED TRANSFERRED
+# Check that the channel and the video are marked as transferred and that all supports are spent
 channelTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transfer_state FROM youtube_data WHERE id=1')
 videoTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT transferred FROM synced_video WHERE id=1')
 nrUnspentSupports=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15600 -e 'SELECT COUNT(*) FROM chainquery.support INNER JOIN output ON output.transaction_hash = support.transaction_hash_id AND output.vout = support.vout WHERE output.is_spent = 0')
-if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStatus != "2" || $videoTransferStatus != "1" || $nrUnspentSupports != "0" ]]; then
+if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStatus != "2" || $videoTransferStatus != "1" || $nrUnspentSupports != "1" ]]; then
     echo "~~!!!~~~FAILED~~~!!!~~"
     echo "Channel Status: $status"
     echo "Video Status: $videoStatus"
@@ -89,5 +89,3 @@ if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStat
     else
       echo "SUCCESSSSSSSSSSSSS!"
 fi;
-
-#perhaps query lbrynet again (should be restarted) to see if the claim and the channel are actually on the right address

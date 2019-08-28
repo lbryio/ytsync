@@ -84,7 +84,7 @@ services:
   ## Internal APIs ##
   ###################
   internalapis:
-    image: lbry/internal-apis:transfers
+    image: lbry/internal-apis:master
     restart: "no"
     ports:
       - "15400:8080"

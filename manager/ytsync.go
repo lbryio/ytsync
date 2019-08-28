@@ -320,15 +320,35 @@ func (s *Sync) FullCycle() (e error) {
 		if err != nil {
 			return err
 		}
-		err = abandonSupports(s)
+		supportAmount, err := abandonSupports(s)
 		if err != nil {
-			return err
+			return errors.Prefix(fmt.Sprintf("%.6f LBCs were abandoned before failing", supportAmount), err)
 		}
 		err = transferVideos(s)
 		if err != nil {
 			return err
 		}
-		return transferChannel(s)
+		err = transferChannel(s)
+		if err != nil {
+			return err
+		}
+
+		reallocateSupports := supportAmount > 0.01
+		if reallocateSupports {
+			err = waitConfirmations(s)
+			if err != nil {
+				return err
+			}
+			isTip := true
+			summary, err := s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, nil)
+			if err != nil {
+				return errors.Err(err)
+			}
+			if len(summary.Outputs) < 1 {
+				return errors.Err("something went wrong while tipping the channel for %.6f LBCs", supportAmount)
+			}
+		}
+		return nil
 	}
 
 	return nil
