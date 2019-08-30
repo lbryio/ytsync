@@ -34,6 +34,17 @@ type SyncProperties struct {
 	YoutubeChannelID string
 }
 
+type SyncFlags struct {
+	StopOnError             bool
+	TakeOverExistingChannel bool
+	SkipSpaceCheck          bool
+	SyncUpdate              bool
+	SingleRun               bool
+	RemoveDBUnpublished     bool
+	UpgradeMetadata         bool
+	DisableTransfers        bool
+}
+
 type Fee struct {
 	Amount   string `json:"amount"`
 	Address  string `json:"address"`

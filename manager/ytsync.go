@@ -63,33 +63,31 @@ func (a byPublishedAt) Less(i, j int) bool { return a[i].PublishedAt().Before(a[
 
 // Sync stores the options that control how syncing happens
 type Sync struct {
-	APIConfig               *sdk.APIConfig
-	YoutubeChannelID        string
-	LbryChannelName         string
-	StopOnError             bool
-	MaxTries                int
-	ConcurrentVideos        int
-	TakeOverExistingChannel bool
-	Refill                  int
-	Manager                 *SyncManager
-	LbrycrdString           string
-	AwsS3ID                 string
-	AwsS3Secret             string
-	AwsS3Region             string
-	AwsS3Bucket             string
-	Fee                     *sdk.Fee
-	daemon                  *jsonrpc.Client
-	claimAddress            string
-	videoDirectory          string
-	syncedVideosMux         *sync.RWMutex
-	syncedVideos            map[string]sdk.SyncedVideo
-	grp                     *stop.Group
-	lbryChannelID           string
-	namer                   *namer.Namer
-	walletMux               *sync.RWMutex
-	queue                   chan video
-	transferState           int
-	publishAddress          string
+	APIConfig        *sdk.APIConfig
+	YoutubeChannelID string
+	LbryChannelName  string
+	MaxTries         int
+	ConcurrentVideos int
+	Refill           int
+	Manager          *SyncManager
+	LbrycrdString    string
+	AwsS3ID          string
+	AwsS3Secret      string
+	AwsS3Region      string
+	AwsS3Bucket      string
+	Fee              *sdk.Fee
+	daemon           *jsonrpc.Client
+	claimAddress     string
+	videoDirectory   string
+	syncedVideosMux  *sync.RWMutex
+	syncedVideos     map[string]sdk.SyncedVideo
+	grp              *stop.Group
+	lbryChannelID    string
+	namer            *namer.Namer
+	walletMux        *sync.RWMutex
+	queue            chan video
+	transferState    int
+	publishAddress   string
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -364,7 +362,7 @@ func deleteSyncFolder(videoDirectory string) {
 	}
 }
 func (s *Sync) shouldTransfer() bool {
-	return s.transferState == 1 && s.publishAddress != ""
+	return s.transferState == 1 && s.publishAddress != "" && !s.Manager.SyncFlags.DisableTransfers
 }
 func (s *Sync) setChannelTerminationStatus(e *error) {
 	var transferState *int
@@ -576,11 +574,11 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 		}
 		_, ok := videoIDMap[vID]
 		if !ok && sv.Published {
-			log.Debugf("%s: claims to be published but wasn't found in the list of claims and will be removed if --remove-db-unpublished was specified (%t)", vID, s.Manager.removeDBUnpublished)
+			log.Debugf("%s: claims to be published but wasn't found in the list of claims and will be removed if --remove-db-unpublished was specified (%t)", vID, s.Manager.SyncFlags.RemoveDBUnpublished)
 			idsToRemove = append(idsToRemove, vID)
 		}
 	}
-	if s.Manager.removeDBUnpublished && len(idsToRemove) > 0 {
+	if s.Manager.SyncFlags.RemoveDBUnpublished && len(idsToRemove) > 0 {
 		log.Infof("removing: %s", strings.Join(idsToRemove, ","))
 		err := s.Manager.apiConfig.DeleteVideos(idsToRemove)
 		if err != nil {
@@ -687,7 +685,7 @@ func (s *Sync) doSync() error {
 		}
 	}
 
-	if s.StopOnError {
+	if s.Manager.SyncFlags.StopOnError {
 		log.Println("Will stop publishing if an error is detected")
 	}
 
@@ -753,7 +751,7 @@ func (s *Sync) startWorker(workerNum int) {
 					"more than 90% of the space has been used.",
 					"Couldn't find private key for id",
 				}
-				if util.SubstringInSlice(err.Error(), fatalErrors) || s.StopOnError {
+				if util.SubstringInSlice(err.Error(), fatalErrors) || s.Manager.SyncFlags.StopOnError {
 					s.grp.Stop()
 				} else if s.MaxTries > 1 {
 					errorsNoRetry := []string{
@@ -979,7 +977,7 @@ func (s *Sync) processVideo(v video) (err error) {
 	s.syncedVideosMux.RUnlock()
 	newMetadataVersion := int8(2)
 	alreadyPublished := ok && sv.Published
-	videoRequiresUpgrade := ok && s.Manager.upgradeMetadata && sv.MetadataVersion < newMetadataVersion
+	videoRequiresUpgrade := ok && s.Manager.SyncFlags.UpgradeMetadata && sv.MetadataVersion < newMetadataVersion
 
 	neverRetryFailures := []string{
 		"Error extracting sts from embedded url response",

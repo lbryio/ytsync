@@ -95,7 +95,7 @@ func (s *Sync) walletSetup() error {
 	}
 	unallocatedVideos := videosOnYoutube - (publishedCount + failedCount)
 	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelClaimAmount
-	if s.Manager.upgradeMetadata {
+	if s.Manager.SyncFlags.UpgradeMetadata {
 		requiredBalance += float64(notUpgradedCount) * 0.001
 	}
 

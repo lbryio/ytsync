@@ -20,61 +20,48 @@ import (
 )
 
 type SyncManager struct {
-	stopOnError             bool
-	maxTries                int
-	takeOverExistingChannel bool
-	refill                  int
-	limit                   int
-	skipSpaceCheck          bool
-	syncUpdate              bool
-	concurrentJobs          int
-	concurrentVideos        int
-	blobsDir                string
-	videosLimit             int
-	maxVideoSize            int
-	maxVideoLength          float64
-	lbrycrdString           string
-	awsS3ID                 string
-	awsS3Secret             string
-	awsS3Region             string
-	syncStatus              string
-	awsS3Bucket             string
-	singleRun               bool
-	syncProperties          *sdk.SyncProperties
-	apiConfig               *sdk.APIConfig
-	removeDBUnpublished     bool
-	upgradeMetadata         bool
+	SyncFlags        sdk.SyncFlags
+	maxTries         int
+	refill           int
+	limit            int
+	concurrentJobs   int
+	concurrentVideos int
+	blobsDir         string
+	videosLimit      int
+	maxVideoSize     int
+	maxVideoLength   float64
+	lbrycrdString    string
+	awsS3ID          string
+	awsS3Secret      string
+	awsS3Region      string
+	syncStatus       string
+	awsS3Bucket      string
+	syncProperties   *sdk.SyncProperties
+	apiConfig        *sdk.APIConfig
 }
 
-func NewSyncManager(stopOnError bool, maxTries int, takeOverExistingChannel bool, refill int, limit int,
-	skipSpaceCheck bool, syncUpdate bool, concurrentJobs int, concurrentVideos int, blobsDir string, videosLimit int,
+func NewSyncManager(syncFlags sdk.SyncFlags, maxTries int, refill int, limit int, concurrentJobs int, concurrentVideos int, blobsDir string, videosLimit int,
 	maxVideoSize int, lbrycrdString string, awsS3ID string, awsS3Secret string, awsS3Region string, awsS3Bucket string,
-	syncStatus string, singleRun bool, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64, removeDBUnpublished bool, upgradeMetadata bool) *SyncManager {
+	syncStatus string, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64) *SyncManager {
 	return &SyncManager{
-		stopOnError:             stopOnError,
-		maxTries:                maxTries,
-		takeOverExistingChannel: takeOverExistingChannel,
-		refill:                  refill,
-		limit:                   limit,
-		skipSpaceCheck:          skipSpaceCheck,
-		syncUpdate:              syncUpdate,
-		concurrentJobs:          concurrentJobs,
-		concurrentVideos:        concurrentVideos,
-		blobsDir:                blobsDir,
-		videosLimit:             videosLimit,
-		maxVideoSize:            maxVideoSize,
-		maxVideoLength:          maxVideoLength,
-		lbrycrdString:           lbrycrdString,
-		awsS3ID:                 awsS3ID,
-		awsS3Secret:             awsS3Secret,
-		awsS3Region:             awsS3Region,
-		awsS3Bucket:             awsS3Bucket,
-		syncStatus:              syncStatus,
-		singleRun:               singleRun,
-		syncProperties:          syncProperties,
-		apiConfig:               apiConfig,
-		removeDBUnpublished:     removeDBUnpublished,
-		upgradeMetadata:         upgradeMetadata,
+		SyncFlags:        syncFlags,
+		maxTries:         maxTries,
+		refill:           refill,
+		limit:            limit,
+		concurrentJobs:   concurrentJobs,
+		concurrentVideos: concurrentVideos,
+		blobsDir:         blobsDir,
+		videosLimit:      videosLimit,
+		maxVideoSize:     maxVideoSize,
+		maxVideoLength:   maxVideoLength,
+		lbrycrdString:    lbrycrdString,
+		awsS3ID:          awsS3ID,
+		awsS3Secret:      awsS3Secret,
+		awsS3Region:      awsS3Region,
+		awsS3Bucket:      awsS3Bucket,
+		syncStatus:       syncStatus,
+		syncProperties:   syncProperties,
+		apiConfig:        apiConfig,
 	}
 }
 
@@ -139,25 +126,23 @@ func (s *SyncManager) Start() error {
 			lbryChannelName := channels[0].DesiredChannelName
 			syncs = make([]Sync, 1)
 			syncs[0] = Sync{
-				APIConfig:               s.apiConfig,
-				YoutubeChannelID:        s.syncProperties.YoutubeChannelID,
-				LbryChannelName:         lbryChannelName,
-				lbryChannelID:           channels[0].ChannelClaimID,
-				StopOnError:             s.stopOnError,
-				MaxTries:                s.maxTries,
-				ConcurrentVideos:        s.concurrentVideos,
-				TakeOverExistingChannel: s.takeOverExistingChannel,
-				Refill:                  s.refill,
-				Manager:                 s,
-				LbrycrdString:           s.lbrycrdString,
-				AwsS3ID:                 s.awsS3ID,
-				AwsS3Secret:             s.awsS3Secret,
-				AwsS3Region:             s.awsS3Region,
-				AwsS3Bucket:             s.awsS3Bucket,
-				namer:                   namer.NewNamer(),
-				Fee:                     channels[0].Fee,
-				publishAddress:          channels[0].PublishAddress,
-				transferState:           channels[0].TransferState,
+				APIConfig:        s.apiConfig,
+				YoutubeChannelID: s.syncProperties.YoutubeChannelID,
+				LbryChannelName:  lbryChannelName,
+				lbryChannelID:    channels[0].ChannelClaimID,
+				MaxTries:         s.maxTries,
+				ConcurrentVideos: s.concurrentVideos,
+				Refill:           s.refill,
+				Manager:          s,
+				LbrycrdString:    s.lbrycrdString,
+				AwsS3ID:          s.awsS3ID,
+				AwsS3Secret:      s.awsS3Secret,
+				AwsS3Region:      s.awsS3Region,
+				AwsS3Bucket:      s.awsS3Bucket,
+				namer:            namer.NewNamer(),
+				Fee:              channels[0].Fee,
+				publishAddress:   channels[0].PublishAddress,
+				transferState:    channels[0].TransferState,
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -165,7 +150,7 @@ func (s *SyncManager) Start() error {
 			//TODO: implement scrambling to avoid starvation of queues
 			if s.syncStatus != "" {
 				queuesToSync = append(queuesToSync, s.syncStatus)
-			} else if s.syncUpdate {
+			} else if s.SyncFlags.SyncUpdate {
 				queuesToSync = append(queuesToSync, StatusSyncing, StatusSynced)
 			} else {
 				queuesToSync = append(queuesToSync, StatusSyncing, StatusQueued)
@@ -183,25 +168,23 @@ func (s *SyncManager) Start() error {
 				for i, c := range channels {
 					log.Infof("There are %d channels in the \"%s\" queue", len(channels)-i, q)
 					syncs = append(syncs, Sync{
-						APIConfig:               s.apiConfig,
-						YoutubeChannelID:        c.ChannelId,
-						LbryChannelName:         c.DesiredChannelName,
-						lbryChannelID:           c.ChannelClaimID,
-						StopOnError:             s.stopOnError,
-						MaxTries:                s.maxTries,
-						ConcurrentVideos:        s.concurrentVideos,
-						TakeOverExistingChannel: s.takeOverExistingChannel,
-						Refill:                  s.refill,
-						Manager:                 s,
-						LbrycrdString:           s.lbrycrdString,
-						AwsS3ID:                 s.awsS3ID,
-						AwsS3Secret:             s.awsS3Secret,
-						AwsS3Region:             s.awsS3Region,
-						AwsS3Bucket:             s.awsS3Bucket,
-						namer:                   namer.NewNamer(),
-						Fee:                     c.Fee,
-						publishAddress:          c.PublishAddress,
-						transferState:           c.TransferState,
+						APIConfig:        s.apiConfig,
+						YoutubeChannelID: c.ChannelId,
+						LbryChannelName:  c.DesiredChannelName,
+						lbryChannelID:    c.ChannelClaimID,
+						MaxTries:         s.maxTries,
+						ConcurrentVideos: s.concurrentVideos,
+						Refill:           s.refill,
+						Manager:          s,
+						LbrycrdString:    s.lbrycrdString,
+						AwsS3ID:          s.awsS3ID,
+						AwsS3Secret:      s.awsS3Secret,
+						AwsS3Region:      s.awsS3Region,
+						AwsS3Bucket:      s.awsS3Bucket,
+						namer:            namer.NewNamer(),
+						Fee:              c.Fee,
+						publishAddress:   c.PublishAddress,
+						transferState:    c.TransferState,
 					})
 					if q != StatusFailed {
 						continue queues
@@ -248,7 +231,7 @@ func (s *SyncManager) Start() error {
 				break
 			}
 		}
-		if shouldInterruptLoop || s.singleRun {
+		if shouldInterruptLoop || s.SyncFlags.SingleRun {
 			break
 		}
 	}
@@ -265,7 +248,7 @@ func (s *SyncManager) checkUsedSpace() error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	if usedPctile >= 0.90 && !s.skipSpaceCheck {
+	if usedPctile >= 0.90 && !s.SyncFlags.SkipSpaceCheck {
 		return errors.Err(fmt.Sprintf("more than 90%% of the space has been used. use --skip-space-check to ignore. Used: %.1f%%", usedPctile*100))
 	}
 	log.Infof("disk usage: %.1f%%", usedPctile*100)

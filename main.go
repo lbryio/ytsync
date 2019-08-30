@@ -21,24 +21,18 @@ var Version string
 const defaultMaxTries = 3
 
 var (
-	stopOnError             bool
-	maxTries                int
-	takeOverExistingChannel bool
-	refill                  int
-	limit                   int
-	skipSpaceCheck          bool
-	syncUpdate              bool
-	singleRun               bool
-	syncStatus              string
-	channelID               string
-	syncFrom                int64
-	syncUntil               int64
-	concurrentJobs          int
-	videosLimit             int
-	maxVideoSize            int
-	maxVideoLength          float64
-	removeDBUnpublished     bool
-	upgradeMetadata         bool
+	flags          sdk.SyncFlags
+	maxTries       int
+	refill         int
+	limit          int
+	syncStatus     string
+	channelID      string
+	syncFrom       int64
+	syncUntil      int64
+	concurrentJobs int
+	videosLimit    int
+	maxVideoSize   int
+	maxVideoLength float64
 )
 
 func main() {
@@ -52,15 +46,16 @@ func main() {
 		Args:  cobra.RangeArgs(0, 0),
 	}
 
-	cmd.Flags().BoolVar(&stopOnError, "stop-on-error", false, "If a publish fails, stop all publishing and exit")
+	cmd.Flags().BoolVar(&flags.StopOnError, "stop-on-error", false, "If a publish fails, stop all publishing and exit")
 	cmd.Flags().IntVar(&maxTries, "max-tries", defaultMaxTries, "Number of times to try a publish that fails")
-	cmd.Flags().BoolVar(&takeOverExistingChannel, "takeover-existing-channel", false, "If channel exists and we don't own it, take over the channel")
+	cmd.Flags().BoolVar(&flags.TakeOverExistingChannel, "takeover-existing-channel", false, "If channel exists and we don't own it, take over the channel")
 	cmd.Flags().IntVar(&limit, "limit", 0, "limit the amount of channels to sync")
-	cmd.Flags().BoolVar(&skipSpaceCheck, "skip-space-check", false, "Do not perform free space check on startup")
-	cmd.Flags().BoolVar(&syncUpdate, "update", false, "Update previously synced channels instead of syncing new ones")
-	cmd.Flags().BoolVar(&singleRun, "run-once", false, "Whether the process should be stopped after one cycle or not")
-	cmd.Flags().BoolVar(&removeDBUnpublished, "remove-db-unpublished", false, "Remove videos from the database that are marked as published but aren't really published")
-	cmd.Flags().BoolVar(&upgradeMetadata, "upgrade-metadata", false, "Upgrade videos if they're on the old metadata version")
+	cmd.Flags().BoolVar(&flags.SkipSpaceCheck, "skip-space-check", false, "Do not perform free space check on startup")
+	cmd.Flags().BoolVar(&flags.SyncUpdate, "update", false, "Update previously synced channels instead of syncing new ones")
+	cmd.Flags().BoolVar(&flags.SingleRun, "run-once", false, "Whether the process should be stopped after one cycle or not")
+	cmd.Flags().BoolVar(&flags.RemoveDBUnpublished, "remove-db-unpublished", false, "Remove videos from the database that are marked as published but aren't really published")
+	cmd.Flags().BoolVar(&flags.UpgradeMetadata, "upgrade-metadata", false, "Upgrade videos if they're on the old metadata version")
+	cmd.Flags().BoolVar(&flags.DisableTransfers, "no-transfers", false, "Skips the transferring process of videos, channels and supports")
 	cmd.Flags().StringVar(&syncStatus, "status", "", "Specify which queue to pull from. Overrides --update")
 	cmd.Flags().StringVar(&channelID, "channelID", "", "If specified, only this channel will be synced.")
 	cmd.Flags().Int64Var(&syncFrom, "after", time.Unix(0, 0).Unix(), "Specify from when to pull jobs [Unix time](Default: 0)")
@@ -100,7 +95,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if stopOnError && maxTries != defaultMaxTries {
+	if flags.StopOnError && maxTries != defaultMaxTries {
 		log.Errorln("--stop-on-error and --max-tries are mutually exclusive")
 		return
 	}
@@ -168,13 +163,10 @@ func ytSync(cmd *cobra.Command, args []string) {
 		HostName:      hostname,
 	}
 	sm := manager.NewSyncManager(
-		stopOnError,
+		flags,
 		maxTries,
-		takeOverExistingChannel,
 		refill,
 		limit,
-		skipSpaceCheck,
-		syncUpdate,
 		concurrentJobs,
 		concurrentJobs,
 		blobsDir,
@@ -186,12 +178,9 @@ func ytSync(cmd *cobra.Command, args []string) {
 		awsS3Region,
 		awsS3Bucket,
 		syncStatus,
-		singleRun,
 		syncProperties,
 		apiConfig,
 		maxVideoLength,
-		removeDBUnpublished,
-		upgradeMetadata,
 	)
 	err := sm.Start()
 	if err != nil {
