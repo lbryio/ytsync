@@ -519,8 +519,15 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			videoSize = uint64(existingVideoData.Size)
 		} else {
 			log.Infof("%s: the video must be republished as we can't get the right size", v.ID())
-			//return v.downloadAndPublish(daemon, params) //TODO: actually republish the video. NB: the current claim should be abandoned first
-			return nil, errors.Err("the video must be republished as we can't get the right size")
+			if !v.mocked {
+				_, err = daemon.StreamAbandon(currentClaim.Txid, currentClaim.Nout, nil, true)
+				if err != nil {
+					return nil, errors.Err(err)
+				}
+				return v.downloadAndPublish(daemon, params)
+
+			}
+			return nil, errors.Err("the video must be republished as we can't get the right size but it doesn't exist on youtube anymore")
 		}
 	}
 	v.size = util.PtrToInt64(int64(videoSize))

@@ -576,11 +576,12 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 		}
 		_, ok := videoIDMap[vID]
 		if !ok && sv.Published {
-			log.Debugf("%s: claims to be published but wasn't found in the list of claims and will be removed if --remove-db-unpublished was specified", vID)
+			log.Debugf("%s: claims to be published but wasn't found in the list of claims and will be removed if --remove-db-unpublished was specified (%t)", vID, s.Manager.removeDBUnpublished)
 			idsToRemove = append(idsToRemove, vID)
 		}
 	}
 	if s.Manager.removeDBUnpublished && len(idsToRemove) > 0 {
+		log.Infof("removing: %s", strings.Join(idsToRemove, ","))
 		err := s.Manager.apiConfig.DeleteVideos(idsToRemove)
 		if err != nil {
 			return count, fixed, len(idsToRemove), err
@@ -774,6 +775,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"the video must be republished as we can't get the right size",
 						"HTTP Error 403",
 						"giving up after 0 fragment retries",
+						"download error: ERROR: Sorry about that",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
