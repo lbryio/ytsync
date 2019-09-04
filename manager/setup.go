@@ -94,14 +94,19 @@ func (s *Sync) walletSetup() error {
 		videosOnYoutube = s.Manager.videosLimit
 	}
 	unallocatedVideos := videosOnYoutube - (publishedCount + failedCount)
-	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelClaimAmount
+	channelFee := channelClaimAmount
+	channelAlreadyClaimed := s.lbryChannelID != ""
+	if channelAlreadyClaimed {
+		channelFee = 0.0
+	}
+	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelFee
 	if s.Manager.SyncFlags.UpgradeMetadata {
 		requiredBalance += float64(notUpgradedCount) * 0.001
 	}
 
 	refillAmount := 0.0
 	if balance < requiredBalance || balance < minimumAccountBalance {
-		refillAmount = math.Max(requiredBalance-balance, minimumRefillAmount)
+		refillAmount = math.Max(math.Max(requiredBalance-balance, minimumAccountBalance-balance), minimumRefillAmount)
 	}
 
 	if s.Refill > 0 {
