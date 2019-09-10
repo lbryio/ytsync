@@ -43,9 +43,16 @@ func (n *Namer) GetNextName(prefix string) string {
 	}
 
 	//if for some reasons the title can't be converted in a valid claim name (too short or not latin) then we use a hash
+	attempt = 1
 	if len(name) < 2 {
 		sum := md5.Sum([]byte(prefix))
-		name = fmt.Sprintf("%s-%d", hex.EncodeToString(sum[:])[:15], attempt)
+		for {
+			name = fmt.Sprintf("%s-%d", hex.EncodeToString(sum[:])[:15], attempt)
+			if _, exists := n.names[name]; !exists {
+				break
+			}
+			attempt++
+		}
 	}
 
 	n.names[name] = true

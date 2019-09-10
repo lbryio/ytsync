@@ -754,6 +754,7 @@ func (s *Sync) startWorker(workerNum int) {
 					"cannot concatenate 'str' and 'NoneType' objects",
 					"more than 90% of the space has been used.",
 					"Couldn't find private key for id",
+					"You already have a stream claim published under the name",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) || s.Manager.SyncFlags.StopOnError {
 					s.grp.Stop()

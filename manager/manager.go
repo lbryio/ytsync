@@ -209,6 +209,7 @@ func (s *SyncManager) Start() error {
 					"failure uploading wallet",
 					"the channel in the wallet is different than the channel in the database",
 					"this channel does not belong to this wallet!",
+					"You already have a stream claim published under the name",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
