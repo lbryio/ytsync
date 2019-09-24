@@ -58,6 +58,7 @@ type YoutubeChannel struct {
 	ChannelClaimID     string `json:"channel_claim_id"`
 	TransferState      int    `json:"transfer_state"`
 	PublishAddress     string `json:"publish_address"`
+	PublicKey          string `json:"public_key"`
 }
 
 func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeChannel, error) {

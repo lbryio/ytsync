@@ -142,6 +142,7 @@ func (s *SyncManager) Start() error {
 				namer:            namer.NewNamer(),
 				Fee:              channels[0].Fee,
 				publishAddress:   channels[0].PublishAddress,
+				publicKey:        channels[0].PublicKey,
 				transferState:    channels[0].TransferState,
 			}
 			shouldInterruptLoop = true
@@ -184,6 +185,7 @@ func (s *SyncManager) Start() error {
 						namer:            namer.NewNamer(),
 						Fee:              c.Fee,
 						publishAddress:   c.PublishAddress,
+						publicKey:        c.PublicKey,
 						transferState:    c.TransferState,
 					})
 					if q != StatusFailed {

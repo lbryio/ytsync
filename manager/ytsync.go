@@ -88,6 +88,7 @@ type Sync struct {
 	queue            chan video
 	transferState    int
 	publishAddress   string
+	publicKey        string
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -666,6 +667,10 @@ func (s *Sync) doSync() error {
 	if err != nil {
 		return errors.Prefix("could not set address reuse policy", err)
 	}
+	err = s.importPublicKey()
+	if err != nil {
+		return errors.Prefix("could not import the transferee public key", err)
+	}
 	err = s.walletSetup()
 	if err != nil {
 		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
@@ -1047,6 +1052,28 @@ func (s *Sync) processVideo(v video) (err error) {
 		logUtils.SendErrorToSlack("Failed to mark video on the database: %s", errors.FullTrace(err))
 	}
 
+	return nil
+}
+
+func (s *Sync) importPublicKey() error {
+	if s.publicKey != "" {
+		accountsResponse, err := s.daemon.AccountList()
+		if err != nil {
+			return errors.Err(err)
+		}
+		accounts := accountsResponse.LBCMainnet
+		if logUtils.IsRegTest() {
+			accounts = accountsResponse.LBCRegtest
+		}
+		for _, a := range accounts {
+			if a.PublicKey == s.publicKey {
+				return nil
+			}
+		}
+		log.Infof("Could not find public key %s in the wallet. Importing it...")
+		_, err = s.daemon.AccountAdd(s.LbryChannelName, nil, nil, &s.publicKey, util.PtrToBool(true), nil)
+		return errors.Err(err)
+	}
 	return nil
 }
 
