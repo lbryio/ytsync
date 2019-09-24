@@ -120,17 +120,17 @@ func (s *Sync) walletSetup() error {
 		}
 	}
 
-	claimAddress, err := s.daemon.AddressList(nil)
+	claimAddress, err := s.daemon.AddressList(nil, nil)
 	if err != nil {
 		return err
 	} else if claimAddress == nil {
 		return errors.Err("could not get unused address")
 	}
-	s.claimAddress = string((*claimAddress)[0]) //TODO: remove claimAddress completely
+	s.claimAddress = string((*claimAddress)[0].Address)
 	if s.claimAddress == "" {
 		return errors.Err("found blank claim address")
 	}
-	if s.transferState > 0 && s.publishAddress != "" {
+	if s.shouldTransfer() {
 		s.claimAddress = s.publishAddress
 	}
 

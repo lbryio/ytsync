@@ -12,7 +12,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/go-ini/ini v1.41.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/lbryio/lbry.go v0.0.0-20190828131228-f3a1fbdd5303
+	github.com/lbryio/lbry.go v0.0.0-20190924163117-c36c67961f10
 	github.com/lbryio/reflector.go v1.0.6-0.20190828131602-ce3d4403dbc6
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
