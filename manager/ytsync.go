@@ -30,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/youtube/v3"
@@ -1081,37 +1080,17 @@ func (s *Sync) importPublicKey() error {
 
 // waitForDaemonProcess observes the running processes and returns when the process is no longer running or when the timeout is up
 func waitForDaemonProcess(timeout time.Duration) error {
-	processes, err := ps.Processes()
-	if err != nil {
-		return err
-	}
-	var daemonProcessId = -1
-	for _, p := range processes {
-		if p.Executable() == "lbrynet" {
-			daemonProcessId = p.Pid()
-			break
-		}
-	}
-	if daemonProcessId == -1 {
-		return nil
-	}
 	then := time.Now()
 	stopTime := then.Add(time.Duration(timeout * time.Second))
 	for !time.Now().After(stopTime) {
 		wait := 10 * time.Second
 		log.Println("the daemon is still running, waiting for it to exit")
 		time.Sleep(wait)
-		proc, err := os.FindProcess(daemonProcessId)
+		running, err := logUtils.IsLbrynetRunning()
 		if err != nil {
-			// couldn't find the process, that means the daemon is stopped and can continue
-			return nil
+			return errors.Err(err)
 		}
-		//double check if process is running and alive
-		//by sending a signal 0
-		//NOTE : syscall.Signal is not available in Windows
-		err = proc.Signal(syscall.Signal(0))
-		//the process doesn't exist anymore! we're free to go
-		if err != nil && (err == syscall.ESRCH || err.Error() == "os: process already finished") {
+		if !running {
 			return nil
 		}
 	}
