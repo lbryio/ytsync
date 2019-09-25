@@ -564,6 +564,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 				ClaimName:       c.Name,
 				Size:            util.PtrToInt64(int64(claimSize)),
 				MetaDataVersion: claimMetadataVersion,
+				IsTransferred:   util.PtrToBool(s.publishAddress == c.Address),
 			})
 			if err != nil {
 				return count, fixed, 0, err
@@ -1070,7 +1071,7 @@ func (s *Sync) importPublicKey() error {
 				return nil
 			}
 		}
-		log.Infof("Could not find public key %s in the wallet. Importing it...")
+		log.Infof("Could not find public key %s in the wallet. Importing it...", s.publicKey)
 		_, err = s.daemon.AccountAdd(s.LbryChannelName, nil, nil, &s.publicKey, util.PtrToBool(true), nil)
 		return errors.Err(err)
 	}

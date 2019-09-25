@@ -67,7 +67,7 @@ curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"generate","params
 # Reset status for tranfer test
 mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e "UPDATE youtube_data SET status = 'queued' WHERE id = 1"
 # Trigger transfer api
-curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http://localhost:15400/yt/transfer?auth_token=youtubertoken&address=n1Ygra2pyD6cpESv9GtPM9kDkr4bPeu1Dc&public_key=xpub69mdgvyDG2wc9YgFkpBUuArjeqLkmMTzhHuMTzTDuYAtQevUh4h8EVQv7frusFheUrFkW5xCbpWMShBj67Q2o4Zx45PWtPE1572eQ5z5ift'
+curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http://localhost:15400/yt/transfer?auth_token=youtubertoken&address=n4eYeXAYmHo4YRUDEfsEhucy8y5LKRMcHg&public_key=tpubDA9GDAntyJu4hD3wU7175p7CuV6DWbYXfyb2HedBA3yuBp9HZ4n3QE4Ex6RHCSiEuVp2nKAL1Lzf2ZLo9ApaFgNaJjG6Xo1wB3iEeVbrDZp'
 # Execute the transfer test!
 ./../bin/ytsync --channelID UCCyr5j8akeu9j4Q7urV0Lqw #Force channel intended...just in case. This channel lines up with the api container
 # Check that the channel and the video are marked as transferred and that all supports are spent
