@@ -362,9 +362,11 @@ func deleteSyncFolder(videoDirectory string) {
 		_ = util.SendToSlack(err.Error())
 	}
 }
+
 func (s *Sync) shouldTransfer() bool {
-	return s.transferState == 1 && s.publishAddress != "" && !s.Manager.SyncFlags.DisableTransfers
+	return s.transferState >= 1 && s.publishAddress != "" && !s.Manager.SyncFlags.DisableTransfers
 }
+
 func (s *Sync) setChannelTerminationStatus(e *error) {
 	var transferState *int
 

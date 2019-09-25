@@ -52,6 +52,10 @@ func abandonSupports(s *Sync) (float64, error) {
 		if ok {
 			continue
 		}
+		supportOnTransferredClaim := support.Address == s.publishAddress
+		if supportOnTransferredClaim {
+			continue
+		}
 		alreadyAbandoned[support.ClaimID] = true
 		summary, err := s.daemon.SupportAbandon(&support.ClaimID, nil, nil, nil, nil)
 		if err != nil {
@@ -135,6 +139,9 @@ func transferChannel(s *Sync) error {
 	}
 	if channelClaim == nil || len(channelClaim.Claims) == 0 {
 		return errors.Err("There is no channel claim for channel %s", s.LbryChannelName)
+	}
+	if channelClaim.Claims[0].Address == s.publishAddress {
+		return nil
 	}
 	updateOptions := jsonrpc.ChannelUpdateOptions{
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
