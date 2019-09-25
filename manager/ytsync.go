@@ -546,7 +546,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 		if !claimInDatabase {
 			log.Debugf("%s: Published but is not in database (%s - %s)", videoID, c.Name, c.ClaimID)
 		}
-		if s.syncedVideos[videoID].Transferred {
+		if s.syncedVideos[videoID].Transferred && s.publishAddress != c.Address {
 			log.Debugf("%s: Marked as transferred while in fact it's not (%s - %s). Publish address: %s, expected: %s", videoID, c.Name, c.ClaimID, c.Address, s.publishAddress)
 		}
 		if !claimInDatabase || metadataDiffers || claimIDDiffers || claimNameDiffers || claimMarkedUnpublished {
@@ -575,7 +575,6 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim) (total, fixed, removed int
 	for vID, sv := range s.syncedVideos {
 		if sv.Transferred {
 			log.Infof("%s: claim was transferred, ignoring", vID)
-			count++ //still count them as publishes
 			continue
 		}
 		_, ok := videoIDMap[vID]
