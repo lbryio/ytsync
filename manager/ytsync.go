@@ -785,6 +785,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"HTTP Error 403",
 						"giving up after 0 fragment retries",
 						"download error: ERROR: Sorry about that",
+						"download error: ERROR: This video is not available",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
