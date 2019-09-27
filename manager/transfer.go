@@ -148,7 +148,7 @@ func transferChannel(s *Sync) error {
 		return nil
 	}
 	updateOptions := jsonrpc.ChannelUpdateOptions{
-		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.001)),
+		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.002)),
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 				ClaimAddress: &s.publishAddress,
