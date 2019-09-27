@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"fmt"
 	"github.com/lbryio/lbry.go/extras/errors"
 	"github.com/lbryio/lbry.go/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/extras/util"
@@ -115,14 +116,16 @@ func transferVideos(s *Sync) error {
 			videoStatus.FailureReason = updateError.Error()
 			videoStatus.Status = VideoStatusTranferFailed
 			videoStatus.IsTransferred = util.PtrToBool(false)
+		} else {
+			videoStatus.IsTransferred = util.PtrToBool(len(result.Outputs) != 0)
 		}
-		log.Infof("TRANSFERRED %t", len(result.Outputs) != 0)
+		log.Infof("TRANSFERRED %t", videoStatus.IsTransferred)
 		statusErr := s.APIConfig.MarkVideoStatus(videoStatus)
 		if statusErr != nil {
-			return errors.Err(statusErr)
+			return errors.Prefix(statusErr.Error(), updateError)
 		}
 		if updateError != nil {
-			return errors.Err(err)
+			return errors.Err(updateError)
 		}
 	}
 	// Todo - Transfer Channel as last step and post back to remote db that channel is transferred.
@@ -144,6 +147,7 @@ func transferChannel(s *Sync) error {
 		return nil
 	}
 	updateOptions := jsonrpc.ChannelUpdateOptions{
+		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.001)),
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 				ClaimAddress: &s.publishAddress,
@@ -151,6 +155,9 @@ func transferChannel(s *Sync) error {
 		},
 	}
 	result, err := s.daemon.ChannelUpdate(s.lbryChannelID, updateOptions)
+	if err != nil {
+		return errors.Err(err)
+	}
 	log.Infof("TRANSFERRED %t", len(result.Outputs) != 0)
 
 	return errors.Err(err)
