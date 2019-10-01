@@ -141,11 +141,10 @@ func (s *Sync) walletSetup() error {
 
 	return nil
 }
-
-func (s *Sync) ensureEnoughUTXOs() error {
+func (s *Sync) getDefaultAccount() (string, error) {
 	accounts, err := s.daemon.AccountList()
 	if err != nil {
-		return errors.Err(err)
+		return "", errors.Err(err)
 	}
 	accountsNet := (*accounts).LBCMainnet
 	if logUtils.IsRegTest() {
@@ -159,7 +158,15 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		}
 	}
 	if defaultAccount == "" {
-		return errors.Err("No default account found")
+		return "", errors.Err("No default account found")
+	}
+	return defaultAccount, nil
+}
+
+func (s *Sync) ensureEnoughUTXOs() error {
+	defaultAccount, err := s.getDefaultAccount()
+	if err != nil {
+		return err
 	}
 
 	utxolist, err := s.daemon.UTXOList(&defaultAccount)

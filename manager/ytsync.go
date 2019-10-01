@@ -495,10 +495,14 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			claimToAbandon = cl
 			videoIDs[videoID] = c
 		}
-		log.Debugf("abandoning %+v", claimToAbandon)
-		_, err := s.daemon.StreamAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, false)
-		if err != nil {
-			return true, err
+		if claimToAbandon.Address != s.publishAddress && !s.syncedVideos[videoID].Transferred {
+			log.Debugf("abandoning %+v", claimToAbandon)
+			_, err := s.daemon.StreamAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, false)
+			if err != nil {
+				return true, err
+			}
+		} else {
+			log.Debugf("lbrynet stream abandon --txid=%s --nout=%d", claimToAbandon.Txid, claimToAbandon.Nout)
 		}
 		abandonedClaims = true
 		//return true, nil

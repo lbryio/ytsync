@@ -38,8 +38,12 @@ waiting:
 func abandonSupports(s *Sync) (float64, error) {
 	totalPages := uint64(1)
 	var allSupports []jsonrpc.Claim
+	defaultAccount, err := s.getDefaultAccount()
+	if err != nil {
+		return 0, err
+	}
 	for page := uint64(1); page <= totalPages; page++ {
-		supports, err := s.daemon.SupportList(nil, page, 50)
+		supports, err := s.daemon.SupportList(&defaultAccount, page, 50)
 		if err != nil {
 			return 0, errors.Prefix("cannot list claims", err)
 		}
@@ -53,7 +57,7 @@ func abandonSupports(s *Sync) (float64, error) {
 		if ok {
 			continue
 		}
-		supportOnTransferredClaim := support.Address == s.publishAddress
+		supportOnTransferredClaim := support.Address == s.publishAddress //todo: probably not needed anymore
 		if supportOnTransferredClaim {
 			continue
 		}
@@ -98,7 +102,7 @@ func transferVideos(s *Sync) error {
 			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.publishAddress},
 			},
-			Bid: util.PtrToString("0.009"), // Todo - Dont hardcode
+			Bid: util.PtrToString("0.008"), // Todo - Dont hardcode
 		}
 
 		videoStatus := sdk.VideoStatus{
