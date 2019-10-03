@@ -102,7 +102,7 @@ func transferVideos(s *Sync) error {
 			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.publishAddress},
 			},
-			Bid: util.PtrToString("0.008"), // Todo - Dont hardcode
+			Bid: util.PtrToString("0.005"), // Todo - Dont hardcode
 		}
 
 		videoStatus := sdk.VideoStatus{
@@ -152,7 +152,7 @@ func transferChannel(s *Sync) error {
 		return nil
 	}
 	updateOptions := jsonrpc.ChannelUpdateOptions{
-		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.002)),
+		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.005)),
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 				ClaimAddress: &s.publishAddress,
