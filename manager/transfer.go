@@ -61,7 +61,7 @@ func abandonSupports(s *Sync) (float64, error) {
 		if ok {
 			continue
 		}
-		supportOnTransferredClaim := support.Address == s.publishAddress //todo: probably not needed anymore
+		supportOnTransferredClaim := support.Address == s.clientPublishAddress //todo: probably not needed anymore
 		if supportOnTransferredClaim {
 			continue
 		}
@@ -87,7 +87,7 @@ func transferVideos(s *Sync) error {
 	cleanTransfer := true
 	for _, video := range s.syncedVideos {
 		if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
-			log.Debugf("skipping video: %s", video.VideoID)
+			//log.Debugf("skipping video: %s", video.VideoID)
 			continue
 		}
 
@@ -102,9 +102,12 @@ func transferVideos(s *Sync) error {
 			return errors.Err("cannot transfer: too many claims. claimID: %s", video.ClaimID)
 		}
 
+		if c.Claims[0].Address == s.clientPublishAddress {
+			continue
+		}
 		streamUpdateOptions := jsonrpc.StreamUpdateOptions{
 			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
-				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.publishAddress},
+				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.clientPublishAddress},
 			},
 			Bid: util.PtrToString("0.005"), // Todo - Dont hardcode
 		}
@@ -152,14 +155,14 @@ func transferChannel(s *Sync) error {
 	if channelClaim == nil || len(channelClaim.Claims) == 0 {
 		return errors.Err("There is no channel claim for channel %s", s.LbryChannelName)
 	}
-	if channelClaim.Claims[0].Address == s.publishAddress {
+	if channelClaim.Claims[0].Address == s.clientPublishAddress {
 		return nil
 	}
 	updateOptions := jsonrpc.ChannelUpdateOptions{
 		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.005)),
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-				ClaimAddress: &s.publishAddress,
+				ClaimAddress: &s.clientPublishAddress,
 			},
 		},
 	}

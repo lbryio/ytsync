@@ -63,32 +63,32 @@ func (a byPublishedAt) Less(i, j int) bool { return a[i].PublishedAt().Before(a[
 
 // Sync stores the options that control how syncing happens
 type Sync struct {
-	APIConfig        *sdk.APIConfig
-	YoutubeChannelID string
-	LbryChannelName  string
-	MaxTries         int
-	ConcurrentVideos int
-	Refill           int
-	Manager          *SyncManager
-	LbrycrdString    string
-	AwsS3ID          string
-	AwsS3Secret      string
-	AwsS3Region      string
-	AwsS3Bucket      string
-	Fee              *sdk.Fee
-	daemon           *jsonrpc.Client
-	claimAddress     string
-	videoDirectory   string
-	syncedVideosMux  *sync.RWMutex
-	syncedVideos     map[string]sdk.SyncedVideo
-	grp              *stop.Group
-	lbryChannelID    string
-	namer            *namer.Namer
-	walletMux        *sync.RWMutex
-	queue            chan video
-	transferState    int
-	publishAddress   string
-	publicKey        string
+	APIConfig            *sdk.APIConfig
+	YoutubeChannelID     string
+	LbryChannelName      string
+	MaxTries             int
+	ConcurrentVideos     int
+	Refill               int
+	Manager              *SyncManager
+	LbrycrdString        string
+	AwsS3ID              string
+	AwsS3Secret          string
+	AwsS3Region          string
+	AwsS3Bucket          string
+	Fee                  *sdk.Fee
+	daemon               *jsonrpc.Client
+	claimAddress         string
+	videoDirectory       string
+	syncedVideosMux      *sync.RWMutex
+	syncedVideos         map[string]sdk.SyncedVideo
+	grp                  *stop.Group
+	lbryChannelID        string
+	namer                *namer.Namer
+	walletMux            *sync.RWMutex
+	queue                chan video
+	transferState        int
+	clientPublishAddress string
+	publicKey            string
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -373,7 +373,7 @@ func deleteSyncFolder(videoDirectory string) {
 }
 
 func (s *Sync) shouldTransfer() bool {
-	return s.transferState >= 1 && s.publishAddress != "" && !s.Manager.SyncFlags.DisableTransfers
+	return s.transferState >= 1 && s.clientPublishAddress != "" && !s.Manager.SyncFlags.DisableTransfers
 }
 
 func (s *Sync) setChannelTerminationStatus(e *error) {
@@ -505,7 +505,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			claimToAbandon = cl
 			videoIDs[videoID] = c
 		}
-		if claimToAbandon.Address != s.publishAddress && !s.syncedVideos[videoID].Transferred {
+		if claimToAbandon.Address != s.clientPublishAddress && !s.syncedVideos[videoID].Transferred {
 			log.Debugf("abandoning %+v", claimToAbandon)
 			_, err := s.daemon.StreamAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, false)
 			if err != nil {
