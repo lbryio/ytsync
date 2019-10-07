@@ -11,10 +11,14 @@ import (
 )
 
 func waitConfirmations(s *Sync) error {
+	defaultAccount, err := s.getDefaultAccount()
+	if err != nil {
+		return err
+	}
 	allConfirmed := false
 waiting:
 	for !allConfirmed {
-		utxolist, err := s.daemon.UTXOList(nil)
+		utxolist, err := s.daemon.UTXOList(&defaultAccount)
 		if err != nil {
 			return err
 		} else if utxolist == nil {
@@ -165,5 +169,5 @@ func transferChannel(s *Sync) error {
 	}
 	log.Infof("TRANSFERRED %t", len(result.Outputs) != 0)
 
-	return errors.Err(err)
+	return nil
 }
