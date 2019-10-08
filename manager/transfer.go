@@ -148,16 +148,26 @@ func transferVideos(s *Sync) error {
 }
 
 func transferChannel(s *Sync) error {
-	channelClaim, err := s.daemon.ClaimSearch(nil, &s.lbryChannelID, nil, nil)
+	account, err := s.getDefaultAccount()
+	if err != nil {
+		return err
+	}
+	channelClaims, err := s.daemon.ChannelList(&account, 1, 50)
 	if err != nil {
 		return errors.Err(err)
 	}
-	if channelClaim == nil || len(channelClaim.Claims) == 0 {
-		return errors.Err("There is no channel claim for channel %s", s.LbryChannelName)
+	var channelClaim *jsonrpc.Transaction = nil
+	for _, c := range channelClaims.Items {
+		if c.ClaimID != s.lbryChannelID {
+			continue
+		}
+		channelClaim = &c
+		break
 	}
-	if channelClaim.Claims[0].Address == s.clientPublishAddress {
+	if channelClaim == nil {
 		return nil
 	}
+
 	updateOptions := jsonrpc.ChannelUpdateOptions{
 		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.005)),
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
