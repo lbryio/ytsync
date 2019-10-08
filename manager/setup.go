@@ -277,10 +277,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	if s.LbryChannelName == "" {
 		return errors.Err("no channel name set")
 	}
-	//@TODO: get rid of this when imported channels are supported
-	if s.YoutubeChannelID == "UCW-thz5HxE-goYq8yPds1Gw" {
-		return nil
-	}
+
 	if s.transferState == TransferStateComplete {
 		return nil
 	}
