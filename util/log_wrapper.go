@@ -3,7 +3,7 @@ package util
 import (
 	"fmt"
 
-	"github.com/lbryio/lbry.go/extras/util"
+	"github.com/lbryio/lbry.go/v2/extras/util"
 	log "github.com/sirupsen/logrus"
 )
 

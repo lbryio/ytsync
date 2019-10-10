@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lbryio/lbry.go/extras/errors"
-	"github.com/lbryio/lbry.go/extras/jsonrpc"
-	"github.com/lbryio/lbry.go/extras/util"
+	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/v2/extras/util"
 	"github.com/lbryio/ytsync/tagsManager"
 	"github.com/lbryio/ytsync/thumbs"
 	logUtils "github.com/lbryio/ytsync/util"
@@ -281,7 +281,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	if s.transferState == TransferStateComplete {
 		return nil
 	}
-	channels, err := s.daemon.ChannelList(nil, 1, 50)
+	channels, err := s.daemon.ChannelList(nil, 1, 50, nil)
 	if err != nil {
 		return err
 	} else if channels == nil {
@@ -331,7 +331,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 
 	if balance.LessThan(decimal.NewFromFloat(channelBidAmount)) {
-		err = s.addCredits(channelBidAmount + 0.1)
+		err = s.addCredits(channelBidAmount + 0.3)
 		if err != nil {
 			return err
 		}

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lbryio/lbry.go/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/ytsync/namer"
 )
 

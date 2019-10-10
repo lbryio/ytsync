@@ -5,8 +5,8 @@ import (
 	"github.com/lbryio/ytsync/util"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/lbryio/lbry.go/extras/errors"
-	"github.com/lbryio/lbry.go/extras/stop"
+	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/stop"
 
 	"net"
 	"sync"

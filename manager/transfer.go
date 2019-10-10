@@ -2,9 +2,9 @@ package manager
 
 import (
 	"fmt"
-	"github.com/lbryio/lbry.go/extras/errors"
-	"github.com/lbryio/lbry.go/extras/jsonrpc"
-	"github.com/lbryio/lbry.go/extras/util"
+	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/v2/extras/util"
 	"github.com/lbryio/ytsync/sdk"
 	log "github.com/sirupsen/logrus"
 	"strconv"
@@ -92,19 +92,26 @@ func transferVideos(s *Sync) error {
 		}
 
 		//Todo - Wait for prior sync to see that the publish is confirmed in lbrycrd?
-		c, err := s.daemon.ClaimSearch(nil, &video.ClaimID, nil, nil)
+		account, err := s.getDefaultAccount()
+		if err != nil {
+			return err
+		}
+		streams, err := s.daemon.StreamList(&account)
 		if err != nil {
 			return errors.Err(err)
 		}
-		if len(c.Claims) == 0 {
-			return errors.Err("cannot transfer: no claim found for this video")
-		} else if len(c.Claims) > 1 {
-			return errors.Err("cannot transfer: too many claims. claimID: %s", video.ClaimID)
+		var stream *jsonrpc.Claim = nil
+		for _, c := range *streams {
+			if c.ClaimID != video.ClaimID {
+				continue
+			}
+			stream = &c
+			break
+		}
+		if stream == nil {
+			return nil
 		}
 
-		if c.Claims[0].Address == s.clientPublishAddress {
-			continue
-		}
 		streamUpdateOptions := jsonrpc.StreamUpdateOptions{
 			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.clientPublishAddress},
@@ -152,7 +159,7 @@ func transferChannel(s *Sync) error {
 	if err != nil {
 		return err
 	}
-	channelClaims, err := s.daemon.ChannelList(&account, 1, 50)
+	channelClaims, err := s.daemon.ChannelList(&account, 1, 50, nil)
 	if err != nil {
 		return errors.Err(err)
 	}

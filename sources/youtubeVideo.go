@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lbryio/lbry.go/extras/errors"
-	"github.com/lbryio/lbry.go/extras/jsonrpc"
-	"github.com/lbryio/lbry.go/extras/stop"
-	"github.com/lbryio/lbry.go/extras/util"
+	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/v2/extras/stop"
+	"github.com/lbryio/lbry.go/v2/extras/util"
 
 	"github.com/lbryio/ytsync/ipManager"
 	"github.com/lbryio/ytsync/namer"
