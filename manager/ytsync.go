@@ -492,7 +492,6 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 		tn := c.Value.GetThumbnail().GetUrl()
 		videoID := tn[strings.LastIndex(tn, "/")+1:]
 
-		log.Infof("claimid: %s, claimName: %s, videoID: %s", c.ClaimID, c.Name, videoID)
 		cl, ok := videoIDs[videoID]
 		if !ok || cl.ClaimID == c.ClaimID {
 			videoIDs[videoID] = c
