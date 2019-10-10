@@ -1094,7 +1094,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		return nil
 	}
 
-	if !videoRequiresUpgrade && v.PlaylistPosition() > s.Manager.videosLimit {
+	if !videoRequiresUpgrade && v.PlaylistPosition() >= s.Manager.videosLimit {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}

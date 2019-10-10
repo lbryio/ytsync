@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
 	"github.com/lbryio/ytsync/sdk"
 	log "github.com/sirupsen/logrus"
@@ -83,75 +84,110 @@ func abandonSupports(s *Sync) (float64, error) {
 	return totalAbandoned, nil
 }
 
+type updateInfo struct {
+	ClaimID             string
+	streamUpdateOptions *jsonrpc.StreamUpdateOptions
+	videoStatus         *sdk.VideoStatus
+}
+
 func transferVideos(s *Sync) error {
 	cleanTransfer := true
-	for _, video := range s.syncedVideos {
-		if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
-			//log.Debugf("skipping video: %s", video.VideoID)
-			continue
-		}
 
-		//Todo - Wait for prior sync to see that the publish is confirmed in lbrycrd?
-		account, err := s.getDefaultAccount()
-		if err != nil {
-			return err
-		}
-		streams, err := s.daemon.StreamList(&account)
-		if err != nil {
-			return errors.Err(err)
-		}
-		var stream *jsonrpc.Claim = nil
-		for _, c := range *streams {
-			if c.ClaimID != video.ClaimID {
+	streamChan := make(chan updateInfo, s.ConcurrentVideos)
+	account, err := s.getDefaultAccount()
+	if err != nil {
+		return err
+	}
+	streams, err := s.daemon.StreamList(&account)
+	if err != nil {
+		return errors.Err(err)
+	}
+	producerWG := &stop.Group{}
+	producerWG.Add(1)
+	go func() {
+		for _, video := range s.syncedVideos {
+			if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
 				continue
 			}
-			stream = &c
-			break
-		}
-		if stream == nil {
-			return nil
-		}
 
-		streamUpdateOptions := jsonrpc.StreamUpdateOptions{
-			StreamCreateOptions: &jsonrpc.StreamCreateOptions{
-				ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.clientPublishAddress},
-			},
-			Bid: util.PtrToString("0.005"), // Todo - Dont hardcode
-		}
+			var stream *jsonrpc.Claim = nil
+			for _, c := range *streams {
+				if c.ClaimID != video.ClaimID {
+					continue
+				}
+				stream = &c
+				break
+			}
+			if stream == nil {
+				return
+			}
 
-		videoStatus := sdk.VideoStatus{
-			ChannelID:     s.YoutubeChannelID,
-			VideoID:       video.VideoID,
-			ClaimID:       video.ClaimID,
-			ClaimName:     video.ClaimName,
-			Status:        VideoStatusPublished,
-			IsTransferred: util.PtrToBool(true),
+			streamUpdateOptions := jsonrpc.StreamUpdateOptions{
+				StreamCreateOptions: &jsonrpc.StreamCreateOptions{
+					ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.clientPublishAddress},
+				},
+				Bid: util.PtrToString("0.005"), // Todo - Dont hardcode
+			}
+			videoStatus := sdk.VideoStatus{
+				ChannelID:     s.YoutubeChannelID,
+				VideoID:       video.VideoID,
+				ClaimID:       video.ClaimID,
+				ClaimName:     video.ClaimName,
+				Status:        VideoStatusPublished,
+				IsTransferred: util.PtrToBool(true),
+			}
+			streamChan <- updateInfo{
+				ClaimID:             video.ClaimID,
+				streamUpdateOptions: &streamUpdateOptions,
+				videoStatus:         &videoStatus,
+			}
 		}
+		producerWG.Done()
+	}()
 
-		result, updateError := s.daemon.StreamUpdate(video.ClaimID, streamUpdateOptions)
-		if updateError != nil {
-			cleanTransfer = false
-			videoStatus.FailureReason = updateError.Error()
-			videoStatus.Status = VideoStatusTranferFailed
-			videoStatus.IsTransferred = util.PtrToBool(false)
-		} else {
-			videoStatus.IsTransferred = util.PtrToBool(len(result.Outputs) != 0)
-		}
-		log.Infof("TRANSFERRED %t", *videoStatus.IsTransferred)
-		statusErr := s.APIConfig.MarkVideoStatus(videoStatus)
-		if statusErr != nil {
-			return errors.Prefix(statusErr.Error(), updateError)
-		}
-		if updateError != nil {
-			return errors.Err(updateError)
-		}
+	consumerWG := &stop.Group{}
+	for i := 0; i < s.ConcurrentVideos; i++ {
+		consumerWG.Add(1)
+		go func(worker int) {
+			defer consumerWG.Done()
+			for {
+				ui, more := <-streamChan
+				if !more {
+					return
+				} else {
+					err := s.streamUpdate(&ui)
+					if err != nil {
+						cleanTransfer = false
+					}
+				}
+			}
+		}(i)
 	}
-	// Todo - Transfer Channel as last step and post back to remote db that channel is transferred.
-	//Transfer channel
+	producerWG.Wait()
+	close(streamChan)
+	consumerWG.Wait()
+
 	if !cleanTransfer {
 		return errors.Err("A video has failed to transfer for the channel...skipping channel transfer")
 	}
 	return nil
+}
+
+func (s *Sync) streamUpdate(ui *updateInfo) error {
+	result, updateError := s.daemon.StreamUpdate(ui.ClaimID, *ui.streamUpdateOptions)
+	if updateError != nil {
+		ui.videoStatus.FailureReason = updateError.Error()
+		ui.videoStatus.Status = VideoStatusTranferFailed
+		ui.videoStatus.IsTransferred = util.PtrToBool(false)
+	} else {
+		ui.videoStatus.IsTransferred = util.PtrToBool(len(result.Outputs) != 0)
+	}
+	log.Infof("TRANSFERRED %t", *ui.videoStatus.IsTransferred)
+	statusErr := s.APIConfig.MarkVideoStatus(*ui.videoStatus)
+	if statusErr != nil {
+		return errors.Prefix(statusErr.Error(), updateError)
+	}
+	return errors.Err(updateError)
 }
 
 func transferChannel(s *Sync) error {

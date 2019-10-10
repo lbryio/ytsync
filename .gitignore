@@ -3,3 +3,4 @@ e2e/persist
 e2e/supporty/supporty
 .env
 blobsfiles
+ytsync_docker

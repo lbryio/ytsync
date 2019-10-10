@@ -20,5 +20,5 @@ ADDYTSYNCAUTHTOKEN='INSERT INTO auth_token (user_id, value) VALUE(2,"youtubertok
 mysql -u lbry -plbry -D lbry -h "127.0.0.1" -P 15500 -e "$ADDYTSYNCAUTHTOKEN"
 #Add their youtube channel to be synced
 ADDYTCHANNEL="INSERT INTO youtube_data (user_id, status_token,desired_lbry_channel,channel_id,channel_name,status,created_at,source,total_videos,total_subscribers)
-VALUE(2,'3qzGyuVjQaf7t4pKKu2Er1NRW2LJkeWw','@beamertest','UCCyr5j8akeu9j4Q7urV0Lqw','BeamerAtLBRY','queued','2019-08-01 00:00:00','sync',1,0)"
+VALUE(2,'3qzGyuVjQaf7t4pKKu2Er1NRW2LJkeWw','@beamertest','UCNQfQvFMPnInwsU_iGYArJQ','BeamerAtLBRY','queued','2019-08-01 00:00:00','sync',1,0)"
 mysql -u lbry -plbry -D lbry -h "127.0.0.1" -P 15500 -e "$ADDYTCHANNEL"
