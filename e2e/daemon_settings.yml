@@ -6,6 +6,7 @@ lbryum_servers:
   - walletserver:50001
 save_blobs: true
 save_files: false
+reflect_streams: false #for the love of god, don't upload regtest streams to reflector!
 share_usage_data: false
 tcp_port: 3333
 udp_port: 4444

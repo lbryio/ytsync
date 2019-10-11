@@ -2,13 +2,18 @@ package manager
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
+
 	"github.com/lbryio/ytsync/sdk"
+
 	log "github.com/sirupsen/logrus"
-	"strconv"
 )
 
 func waitConfirmations(s *Sync) error {
@@ -40,6 +45,12 @@ waiting:
 	return nil
 }
 
+type abandonResponse struct {
+	ClaimID string
+	Error   error
+	Amount  float64
+}
+
 func abandonSupports(s *Sync) (float64, error) {
 	totalPages := uint64(1)
 	var allSupports []jsonrpc.Claim
@@ -55,31 +66,99 @@ func abandonSupports(s *Sync) (float64, error) {
 		allSupports = append(allSupports, (*supports).Items...)
 		totalPages = (*supports).TotalPages
 	}
+	producerWG := &stop.Group{}
+
+	claimIDChan := make(chan string, len(allSupports))
+	abandonRspChan := make(chan abandonResponse, len(allSupports))
 	alreadyAbandoned := make(map[string]bool, len(allSupports))
+	producerWG.Add(1)
+	go func() {
+		defer producerWG.Done()
+		for _, support := range allSupports {
+			_, ok := alreadyAbandoned[support.ClaimID]
+			if ok {
+				continue
+			}
+			alreadyAbandoned[support.ClaimID] = true
+			claimIDChan <- support.ClaimID
+		}
+	}()
+	consumerWG := &stop.Group{}
+	//TODO: remove this once the SDK team fixes their RPC bugs....
+	s.daemon.SetRPCTimeout(30 * time.Second)
+	defer s.daemon.SetRPCTimeout(40 * time.Minute)
+	for i := 0; i < s.ConcurrentVideos; i++ {
+		consumerWG.Add(1)
+		go func() {
+			defer consumerWG.Done()
+			for {
+				claimID, more := <-claimIDChan
+				if !more {
+					return
+				} else {
+					summary, err := s.daemon.SupportAbandon(&claimID, nil, nil, nil, nil)
+					if err != nil {
+						if strings.Contains(err.Error(), "Client.Timeout exceeded while awaiting headers") {
+							log.Errorf("Support abandon for %s timed out, retrying...", claimID)
+							summary, err = s.daemon.SupportAbandon(&claimID, nil, nil, nil, nil)
+							if err != nil {
+								//TODO GUESS HOW MUCH LBC WAS RELEASED THAT WE DON'T KNOW ABOUT, because screw you SDK
+								abandonRspChan <- abandonResponse{
+									ClaimID: claimID,
+									Error:   err,
+									Amount:  0, // this is likely wrong, but oh well... there is literally nothing I can do about it
+								}
+								return
+							}
+						} else {
+							abandonRspChan <- abandonResponse{
+								ClaimID: claimID,
+								Error:   err,
+								Amount:  0,
+							}
+							return
+						}
+					}
+					if len(summary.Outputs) < 1 {
+						abandonRspChan <- abandonResponse{
+							ClaimID: claimID,
+							Error:   errors.Err("error abandoning supports: no outputs while abandoning %s", claimID),
+							Amount:  0,
+						}
+						return
+					}
+					outputAmount, err := strconv.ParseFloat(summary.Outputs[0].Amount, 64)
+					if err != nil {
+						abandonRspChan <- abandonResponse{
+							ClaimID: claimID,
+							Error:   errors.Err(err),
+							Amount:  0,
+						}
+						return
+					}
+					log.Infof("Abandoned supports of %.4f LBC for claim %s", outputAmount, claimID)
+					abandonRspChan <- abandonResponse{
+						ClaimID: claimID,
+						Error:   nil,
+						Amount:  outputAmount,
+					}
+					return
+				}
+			}
+		}()
+	}
+	producerWG.Wait()
+	close(claimIDChan)
+	consumerWG.Wait()
+	close(abandonRspChan)
+
 	totalAbandoned := 0.0
-	for _, support := range allSupports {
-		_, ok := alreadyAbandoned[support.ClaimID]
-		if ok {
+	for r := range abandonRspChan {
+		if r.Error != nil {
+			log.Errorf("Failed abandoning supports for %s: %s", r.ClaimID, r.Error.Error())
 			continue
 		}
-		supportOnTransferredClaim := support.Address == s.clientPublishAddress //todo: probably not needed anymore
-		if supportOnTransferredClaim {
-			continue
-		}
-		alreadyAbandoned[support.ClaimID] = true
-		summary, err := s.daemon.SupportAbandon(&support.ClaimID, nil, nil, nil, nil)
-		if err != nil {
-			return totalAbandoned, errors.Err(err)
-		}
-		if len(summary.Outputs) < 1 {
-			return totalAbandoned, errors.Err("error abandoning supports: no outputs while abandoning %s", support.ClaimID)
-		}
-		outputAmount, err := strconv.ParseFloat(summary.Outputs[0].Amount, 64)
-		if err != nil {
-			return totalAbandoned, errors.Err(err)
-		}
-		totalAbandoned += outputAmount
-		log.Infof("Abandoned supports of %.4f LBC for claim %s", outputAmount, support.ClaimID)
+		totalAbandoned += r.Amount
 	}
 	return totalAbandoned, nil
 }
@@ -105,6 +184,7 @@ func transferVideos(s *Sync) error {
 	producerWG := &stop.Group{}
 	producerWG.Add(1)
 	go func() {
+		defer producerWG.Done()
 		for _, video := range s.syncedVideos {
 			if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
 				continue
@@ -142,7 +222,6 @@ func transferVideos(s *Sync) error {
 				videoStatus:         &videoStatus,
 			}
 		}
-		producerWG.Done()
 	}()
 
 	consumerWG := &stop.Group{}
