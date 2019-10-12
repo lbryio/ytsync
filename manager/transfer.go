@@ -108,7 +108,7 @@ func abandonSupports(s *Sync) (float64, error) {
 									Error:   err,
 									Amount:  0, // this is likely wrong, but oh well... there is literally nothing I can do about it
 								}
-								return
+								continue
 							}
 						} else {
 							abandonRspChan <- abandonResponse{
@@ -116,7 +116,7 @@ func abandonSupports(s *Sync) (float64, error) {
 								Error:   err,
 								Amount:  0,
 							}
-							return
+							continue
 						}
 					}
 					if len(summary.Outputs) < 1 {
@@ -125,7 +125,7 @@ func abandonSupports(s *Sync) (float64, error) {
 							Error:   errors.Err("error abandoning supports: no outputs while abandoning %s", claimID),
 							Amount:  0,
 						}
-						return
+						continue
 					}
 					outputAmount, err := strconv.ParseFloat(summary.Outputs[0].Amount, 64)
 					if err != nil {
@@ -134,7 +134,7 @@ func abandonSupports(s *Sync) (float64, error) {
 							Error:   errors.Err(err),
 							Amount:  0,
 						}
-						return
+						continue
 					}
 					log.Infof("Abandoned supports of %.4f LBC for claim %s", outputAmount, claimID)
 					abandonRspChan <- abandonResponse{
@@ -142,7 +142,7 @@ func abandonSupports(s *Sync) (float64, error) {
 						Error:   nil,
 						Amount:  outputAmount,
 					}
-					return
+					continue
 				}
 			}
 		}()

@@ -124,12 +124,14 @@ func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
 
 	endpoint := a.ApiURL + "/yt/channel_cert"
 
-	res, _ := http.PostForm(endpoint, url.Values{
+	res, err := http.PostForm(endpoint, url.Values{
 		"channel_claim_id": {channelID},
 		"channel_cert":     {certHex},
 		"auth_token":       {a.ApiToken},
 	})
-
+	if err != nil {
+		return errors.Err(err)
+	}
 	defer res.Body.Close()
 
 	body, _ := ioutil.ReadAll(res.Body)
