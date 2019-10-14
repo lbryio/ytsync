@@ -660,8 +660,6 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 }
 
 func (s *Sync) getClaims(defaultOnly bool) ([]jsonrpc.Claim, error) {
-	totalPages := uint64(1)
-	var allClaims []jsonrpc.Claim
 	var account *string = nil
 	if defaultOnly {
 		a, err := s.getDefaultAccount()
@@ -670,15 +668,12 @@ func (s *Sync) getClaims(defaultOnly bool) ([]jsonrpc.Claim, error) {
 		}
 		account = &a
 	}
-	for page := uint64(1); page <= totalPages; page++ {
-		claims, err := s.daemon.ClaimList(account, page, 50)
-		if err != nil {
-			return nil, errors.Prefix("cannot list claims", err)
-		}
-		allClaims = append(allClaims, (*claims).Claims...)
-		totalPages = (*claims).TotalPages
+	claims, err := s.daemon.StreamList(account)
+	if err != nil {
+		return nil, errors.Prefix("cannot list claims", err)
 	}
-	return allClaims, nil
+
+	return *claims, nil
 }
 
 func (s *Sync) checkIntegrity() error {
