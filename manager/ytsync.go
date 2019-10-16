@@ -824,9 +824,9 @@ func (s *Sync) startWorker(workerNum int) {
 			err := s.processVideo(v)
 
 			if err != nil {
-				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())
+				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), errors.FullTrace(err))
 				log.Errorln(logMsg)
-				if strings.Contains(strings.ToLower(err.Error()), "interrupted by user") {
+				if errors.Is(err, sources.ErrInterruptedByUser) {
 					return
 				}
 				fatalErrors := []string{

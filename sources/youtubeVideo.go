@@ -31,6 +31,8 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
+var ErrInterruptedByUser = errors.Base("interrupted by user")
+
 type YoutubeVideo struct {
 	id               string
 	title            string
@@ -226,7 +228,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 			for {
 				select {
 				case <-v.stopGroup.Ch():
-					return errors.Err("interrupted by user")
+					return errors.Err(ErrInterruptedByUser)
 				default:
 				}
 

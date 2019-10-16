@@ -13,7 +13,6 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
-	github.com/google/btree v1.0.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
@@ -34,3 +33,5 @@ require (
 	google.golang.org/api v0.11.0
 	google.golang.org/appengine v1.6.5 // indirect
 )
+
+go 1.13
