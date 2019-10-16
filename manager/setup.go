@@ -141,26 +141,28 @@ func (s *Sync) walletSetup() error {
 
 	return nil
 }
+
 func (s *Sync) getDefaultAccount() (string, error) {
-	accounts, err := s.daemon.AccountList()
-	if err != nil {
-		return "", errors.Err(err)
-	}
-	accountsNet := (*accounts).LBCMainnet
-	if logUtils.IsRegTest() {
-		accountsNet = (*accounts).LBCRegtest
-	}
-	defaultAccount := ""
-	for _, account := range accountsNet {
-		if account.IsDefault {
-			defaultAccount = account.ID
-			break
+	if s.defaultAccountID == "" {
+		accounts, err := s.daemon.AccountList()
+		if err != nil {
+			return "", errors.Err(err)
+		}
+		accountsNet := (*accounts).LBCMainnet
+		if logUtils.IsRegTest() {
+			accountsNet = (*accounts).LBCRegtest
+		}
+		for _, account := range accountsNet {
+			if account.IsDefault {
+				s.defaultAccountID = account.ID
+				break
+			}
+		}
+		if s.defaultAccountID == "" {
+			return "", errors.Err("No default account found")
 		}
 	}
-	if defaultAccount == "" {
-		return "", errors.Err("No default account found")
-	}
-	return defaultAccount, nil
+	return s.defaultAccountID, nil
 }
 
 func (s *Sync) ensureEnoughUTXOs() error {

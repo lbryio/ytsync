@@ -89,6 +89,7 @@ type Sync struct {
 	transferState        int
 	clientPublishAddress string
 	publicKey            string
+	defaultAccountID     string
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -342,7 +343,10 @@ func (s *Sync) processTransfers() (e error) {
 	if err != nil {
 		return err
 	}
-
+	defaultAccount, err := s.getDefaultAccount()
+	if err != nil {
+		return err
+	}
 	reallocateSupports := supportAmount > 0.01
 	if reallocateSupports {
 		err = waitConfirmations(s)
@@ -350,7 +354,7 @@ func (s *Sync) processTransfers() (e error) {
 			return err
 		}
 		isTip := true
-		summary, err := s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, nil)
+		summary, err := s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, []string{defaultAccount})
 		if err != nil {
 			return errors.Err(err)
 		}

@@ -82,13 +82,14 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 	if err != nil {
 		return nil, errors.Err(err)
 	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(body)
 		time.Sleep(30 * time.Second)
 		return a.FetchChannels(status, cp)
 	}
-	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
 	var response apiJobsResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -139,14 +140,14 @@ func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
 	if err != nil {
 		return errors.Err(err)
 	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(body)
 		time.Sleep(30 * time.Second)
 		return a.SetChannelCert(certHex, channelID)
 	}
-	defer res.Body.Close()
-
-	body, _ := ioutil.ReadAll(res.Body)
 	var response apiSetChannelCertResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -182,13 +183,14 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 	if err != nil {
 		return nil, nil, errors.Err(err)
 	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(body)
 		time.Sleep(30 * time.Second)
 		return a.SetChannelStatus(channelID, status, failureReason, transferState)
 	}
-	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
 	var response apiChannelStatusResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -226,13 +228,14 @@ func (a *APIConfig) SetChannelClaimID(channelID string, channelClaimID string) e
 	if err != nil {
 		return errors.Err(err)
 	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(body)
 		time.Sleep(30 * time.Second)
 		return a.SetChannelClaimID(channelID, channelClaimID)
 	}
-	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
 	var response apiChannelStatusResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -264,13 +267,14 @@ func (a *APIConfig) DeleteVideos(videos []string) error {
 	if err != nil {
 		return errors.Err(err)
 	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(body)
 		time.Sleep(30 * time.Second)
 		return a.DeleteVideos(videos)
 	}
-	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
 	var response struct {
 		Success bool        `json:"success"`
 		Error   null.String `json:"error"`
@@ -336,13 +340,14 @@ func (a *APIConfig) MarkVideoStatus(status VideoStatus) error {
 	if err != nil {
 		return errors.Err(err)
 	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(body)
 		time.Sleep(30 * time.Second)
 		return a.MarkVideoStatus(status)
 	}
-	defer res.Body.Close()
-	body, _ := ioutil.ReadAll(res.Body)
 	var response struct {
 		Success bool        `json:"success"`
 		Error   null.String `json:"error"`
