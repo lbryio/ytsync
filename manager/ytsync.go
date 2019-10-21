@@ -384,9 +384,7 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 	var transferState *int
 
 	if s.shouldTransfer() {
-		if *e != nil {
-			transferState = util.PtrToInt(TransferStateFailed)
-		} else {
+		if *e == nil {
 			transferState = util.PtrToInt(TransferStateComplete)
 		}
 	}

@@ -92,7 +92,6 @@ const (
 	TransferStateNotTouched = iota
 	TransferStatePending
 	TransferStateComplete
-	TransferStateFailed = -1
 )
 
 func (s *SyncManager) Start() error {

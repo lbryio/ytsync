@@ -18,10 +18,10 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
 
-	"github.com/lbryio/ytsync/ipManager"
+	"github.com/lbryio/ytsync/ip_manager"
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
-	"github.com/lbryio/ytsync/tagsManager"
+	"github.com/lbryio/ytsync/tags_manager"
 	"github.com/lbryio/ytsync/thumbs"
 
 	duration "github.com/ChannelMeter/iso8601duration"
@@ -220,7 +220,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 			fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
 		)
 	}
-	sourceAddress, err := ipManager.GetNextIP(useIPv6)
+	sourceAddress, err := ip_manager.GetNextIP(useIPv6)
 	if err != nil {
 		if sourceAddress == "throttled" {
 			for {
@@ -230,8 +230,8 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 				default:
 				}
 
-				time.Sleep(ipManager.IPCooldownPeriod)
-				sourceAddress, err = ipManager.GetNextIP(useIPv6)
+				time.Sleep(ip_manager.IPCooldownPeriod)
+				sourceAddress, err = ip_manager.GetNextIP(useIPv6)
 				if err == nil {
 					break
 				}
@@ -240,7 +240,7 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 			return errors.Err(err)
 		}
 	}
-	defer ipManager.ReleaseIP(sourceAddress)
+	defer ip_manager.ReleaseIP(sourceAddress)
 	if useIPv6 {
 		log.Infof("using IPv6: %s", sourceAddress)
 		ytdlArgs = append(ytdlArgs,
@@ -282,7 +282,7 @@ runcmd:
 	if err = cmd.Wait(); err != nil {
 		if strings.Contains(err.Error(), "exit status 1") {
 			if strings.Contains(string(errorLog), "HTTP Error 429") {
-				ipManager.SetIpThrottled(sourceAddress, v.stopGroup)
+				ip_manager.SetIpThrottled(sourceAddress, v.stopGroup)
 			} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
 				qualityIndex++
 				goto runcmd
@@ -477,7 +477,7 @@ func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Lo
 		}
 		tags = v.youtubeInfo.Snippet.Tags
 	}
-	tags, err := tagsManager.SanitizeTags(tags, v.youtubeChannelID)
+	tags, err := tags_manager.SanitizeTags(tags, v.youtubeChannelID)
 	if err != nil {
 		log.Errorln(err.Error())
 	}

@@ -1,4 +1,4 @@
-package ipManager
+package ip_manager
 
 import (
 	"github.com/asaskevich/govalidator"

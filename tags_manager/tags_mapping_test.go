@@ -1,4 +1,4 @@
-package tagsManager
+package tags_manager
 
 import (
 	"fmt"

@@ -10,9 +10,10 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/util"
-	"github.com/lbryio/ytsync/tagsManager"
-	"github.com/lbryio/ytsync/thumbs"
 	logUtils "github.com/lbryio/ytsync/util"
+
+	"github.com/lbryio/ytsync/tags_manager"
+	"github.com/lbryio/ytsync/thumbs"
 
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
@@ -386,7 +387,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	claimCreateOptions := jsonrpc.ClaimCreateOptions{
 		Title:        &channelInfo.Title,
 		Description:  &channelInfo.Description,
-		Tags:         tagsManager.GetTagsForChannel(s.YoutubeChannelID),
+		Tags:         tags_manager.GetTagsForChannel(s.YoutubeChannelID),
 		Languages:    languages,
 		Locations:    locations,
 		ThumbnailURL: &thumbnailURL,
