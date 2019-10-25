@@ -86,7 +86,7 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
-		log.Debugln(body)
+		log.Debugln(string(body))
 		time.Sleep(30 * time.Second)
 		return a.FetchChannels(status, cp)
 	}
@@ -185,9 +185,9 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 	}
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode >= http.StatusInternalServerError {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
-		log.Debugln(body)
+		log.Debugln(string(body))
 		time.Sleep(30 * time.Second)
 		return a.SetChannelStatus(channelID, status, failureReason, transferState)
 	}
@@ -232,7 +232,7 @@ func (a *APIConfig) SetChannelClaimID(channelID string, channelClaimID string) e
 	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
-		log.Debugln(body)
+		log.Debugln(string(body))
 		time.Sleep(30 * time.Second)
 		return a.SetChannelClaimID(channelID, channelClaimID)
 	}
@@ -271,7 +271,7 @@ func (a *APIConfig) DeleteVideos(videos []string) error {
 	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
-		log.Debugln(body)
+		log.Debugln(string(body))
 		time.Sleep(30 * time.Second)
 		return a.DeleteVideos(videos)
 	}
@@ -344,7 +344,7 @@ func (a *APIConfig) MarkVideoStatus(status VideoStatus) error {
 	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
-		log.Debugln(body)
+		log.Debugln(string(body))
 		time.Sleep(30 * time.Second)
 		return a.MarkVideoStatus(status)
 	}
