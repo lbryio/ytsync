@@ -61,11 +61,12 @@ func (u *thumbnailUploader) uploadThumbnail() error {
 	uploader := s3manager.NewUploader(s3Session)
 
 	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket:      aws.String("thumbnails.lbry.com"),
-		Key:         key,
-		Body:        thumb,
-		ACL:         aws.String("public-read"),
-		ContentType: aws.String("image/jpeg"),
+		Bucket:       aws.String("thumbnails.lbry.com"),
+		Key:          key,
+		Body:         thumb,
+		ACL:          aws.String("public-read"),
+		ContentType:  aws.String("image/jpeg"),
+		CacheControl: aws.String("public, max-age=2592000"),
 	})
 	u.mirroredUrl = ThumbnailEndpoint + u.name
 	return errors.Err(err)
