@@ -240,12 +240,16 @@ func (s *Sync) ensureEnoughUTXOs() error {
 }
 
 func (s *Sync) waitForNewBlock() error {
+	log.Printf("regtest: %t, docker: %t", logUtils.IsRegTest(), logUtils.IsUsingDocker())
 	if logUtils.IsRegTest() && logUtils.IsUsingDocker() {
 		lbrycrd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
 		if err != nil {
 			return errors.Prefix("error getting lbrycrd client: ", err)
 		}
 		txs, err := lbrycrd.Generate(1)
+		if err != nil {
+			return errors.Prefix("error generating new block: ", err)
+		}
 		for _, tx := range txs {
 			log.Info("Generated tx: ", tx.String())
 		}

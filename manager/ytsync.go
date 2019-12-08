@@ -333,7 +333,7 @@ func (s *Sync) processTransfers() (e error) {
 		return errors.Prefix(fmt.Sprintf("%.6f LBCs were abandoned before failing", supportAmount), err)
 	}
 	if supportAmount > 0 {
-		logUtils.SendInfoToSlack("%.6f LBCs were abandoned and should be used as support", supportAmount)
+		logUtils.SendInfoToSlack("(%s) %.6f LBCs were abandoned and should be used as support", s.YoutubeChannelID, supportAmount)
 	}
 	err = transferVideos(s)
 	if err != nil {
@@ -1192,7 +1192,7 @@ func (s *Sync) getUnsentSupports() (float64, error) {
 			}
 		}
 		if balanceAmount > 10 && sentSupports < 1 {
-			logUtils.SendErrorToSlack("this channel has quite some LBCs in it (%.2f) and %.2f LBC in sent tips, it's likely that the tips weren't actually sent or the wallet has unnecessary extra credits in it", balanceAmount, sentSupports)
+			logUtils.SendErrorToSlack("(%s) this channel has quite some LBCs in it (%.2f) and %.2f LBC in sent tips, it's likely that the tips weren't actually sent or the wallet has unnecessary extra credits in it", s.YoutubeChannelID, balanceAmount, sentSupports)
 			return balanceAmount - 10, nil
 		}
 	}

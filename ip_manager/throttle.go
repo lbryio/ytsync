@@ -37,7 +37,7 @@ func GetNextIP(ipv6 bool) (string, error) {
 		}
 
 		for _, address := range addrs {
-			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet, ok := address.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() {
 				if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) {
 					ipv6Pool = append(ipv6Pool, ipnet.IP.String())
 					ipLastUsed[ipnet.IP.String()] = time.Now().Add(-IPCooldownPeriod)
