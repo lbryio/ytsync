@@ -24,14 +24,14 @@ func waitConfirmations(s *Sync) error {
 	allConfirmed := false
 waiting:
 	for !allConfirmed {
-		utxolist, err := s.daemon.UTXOList(&defaultAccount)
+		utxolist, err := s.daemon.UTXOList(&defaultAccount, 1, 10000)
 		if err != nil {
 			return err
 		} else if utxolist == nil {
 			return errors.Err("no response")
 		}
 
-		for _, utxo := range *utxolist {
+		for _, utxo := range utxolist.Items {
 			if utxo.Confirmations <= 0 {
 				err = s.waitForNewBlock()
 				if err != nil {
@@ -177,7 +177,7 @@ func transferVideos(s *Sync) error {
 	if err != nil {
 		return err
 	}
-	streams, err := s.daemon.StreamList(&account)
+	streams, err := s.daemon.StreamList(&account, 1, 30000)
 	if err != nil {
 		return errors.Err(err)
 	}
@@ -191,7 +191,7 @@ func transferVideos(s *Sync) error {
 			}
 
 			var stream *jsonrpc.Claim = nil
-			for _, c := range *streams {
+			for _, c := range streams.Items {
 				if c.ClaimID != video.ClaimID {
 					continue
 				}

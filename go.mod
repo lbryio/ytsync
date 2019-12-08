@@ -13,13 +13,12 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
-	github.com/google/btree v1.0.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
-	github.com/lbryio/lbry.go/v2 v2.3.3-0.20191010144133-fa9bab156a4e
+	github.com/lbryio/lbry.go/v2 v2.4.1-0.20191206194319-06764c3d007e
 	github.com/lbryio/reflector.go v1.0.6-0.20190828131602-ce3d4403dbc6
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
@@ -34,3 +33,5 @@ require (
 	google.golang.org/api v0.11.0
 	google.golang.org/appengine v1.6.5 // indirect
 )
+
+go 1.13

@@ -1,12 +1,9 @@
-#blockchain_name: lbrycrd_main
-#blockchain_name: lbrycrd_testnet
 blockchain_name: lbrycrd_regtest
 lbryum_servers:
-#  - spv1.lbry.com:50001 #Production Wallet Server
-  - walletserver:50001
+- walletserver:50001
+reflect_streams: false
 save_blobs: true
 save_files: false
-reflect_streams: false #for the love of god, don't upload regtest streams to reflector!
 share_usage_data: false
 tcp_port: 3333
 udp_port: 4444

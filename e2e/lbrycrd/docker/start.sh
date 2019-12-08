@@ -11,9 +11,9 @@ function override_config_option() {
     local var=$1 option=$2 config=$3
     if [[ -v $var ]]; then
         # Remove the existing config option:
-        sed -i "/^$option\W*=/d" $config
+        sed -i "/^$option\W*=/d" "$config"
         # Add the value from the environment:
-        echo "$option=${!var}" >> $config
+        echo "$option=${!var}" >> "$config"
     fi
 }
 
@@ -38,15 +38,17 @@ function set_config() {
   else
       echo "Creating a fresh config file from environment variables."
       ## Set config params
-      echo "port=${PORT=9246}" >                        $CONFIG_PATH
-      echo "rpcuser=${RPC_USER=lbry}" >>                $CONFIG_PATH
-      echo "rpcpassword=${RPC_PASSWORD=lbry}" >>        $CONFIG_PATH
-      echo "rpcallowip=${RPC_ALLOW_IP=127.0.0.1/24}" >> $CONFIG_PATH
-      echo "rpcport=${RPC_PORT=9245}" >>                $CONFIG_PATH
-      echo "rpcbind=${RPC_BIND=0.0.0.0}" >>             $CONFIG_PATH
-      echo "deprecatedrpc=accounts" >>                  $CONFIG_PATH
-      echo "deprecatedrpc=validateaddress" >>           $CONFIG_PATH
-      echo "deprecatedrpc=signrawtransaction" >>        $CONFIG_PATH
+      {
+        echo "port=${PORT=9246}"
+        echo "rpcuser=${RPC_USER=lbry}"
+        echo "rpcpassword=${RPC_PASSWORD=lbry}"
+        echo "rpcallowip=${RPC_ALLOW_IP=127.0.0.1/24}"
+        echo "rpcport=${RPC_PORT=9245}"
+        echo "rpcbind=${RPC_BIND=0.0.0.0}"
+        echo "deprecatedrpc=accounts"
+        echo "deprecatedrpc=validateaddress"
+        echo "deprecatedrpc=signrawtransaction"
+      } >>  $CONFIG_PATH
   fi
   echo "Config: "
   cat $CONFIG_PATH
@@ -79,7 +81,7 @@ case $RUN_MODE in
   regtest )
     ## Set config params
     ## TODO: Make this more automagic in the future.
-    mkdir -p `dirname $CONFIG_PATH`
+    mkdir -p "$(dirname $CONFIG_PATH)"
     echo "rpcuser=lbry" >                       $CONFIG_PATH
     echo "rpcpassword=lbry" >>                  $CONFIG_PATH
     echo "rpcport=29245" >>                     $CONFIG_PATH
@@ -101,7 +103,7 @@ case $RUN_MODE in
   testnet )
     ## Set config params
     ## TODO: Make this more automagic in the future.
-    mkdir -p `dirname $CONFIG_PATH`
+    mkdir -p "$(dirname $CONFIG_PATH)"
     echo "rpcuser=lbry" >                       $CONFIG_PATH
     echo "rpcpassword=lbry" >>                  $CONFIG_PATH
     echo "rpcport=29245" >>                     $CONFIG_PATH

@@ -22,14 +22,21 @@ import (
 )
 
 func (s *Sync) enableAddressReuse() error {
-	accountsResponse, err := s.daemon.AccountList()
+	accountsResponse, err := s.daemon.AccountList(1, 50)
 	if err != nil {
 		return errors.Err(err)
 	}
-	accounts := accountsResponse.LBCMainnet
+	accounts := make([]jsonrpc.Account, 0, len(accountsResponse.Items))
+	ledger := "lbc_mainnet"
 	if logUtils.IsRegTest() {
-		accounts = accountsResponse.LBCRegtest
+		ledger = "lbc_regtest"
 	}
+	for _, a := range accountsResponse.Items {
+		if *a.Ledger == ledger {
+			accounts = append(accounts, a)
+		}
+	}
+
 	for _, a := range accounts {
 		_, err = s.daemon.AccountSet(a.ID, jsonrpc.AccountSettings{
 			ChangeMaxUses:    util.PtrToInt(1000),
@@ -121,13 +128,13 @@ func (s *Sync) walletSetup() error {
 		}
 	}
 
-	claimAddress, err := s.daemon.AddressList(nil, nil)
+	claimAddress, err := s.daemon.AddressList(nil, nil, 1, 20)
 	if err != nil {
 		return err
 	} else if claimAddress == nil {
-		return errors.Err("could not get unused address")
+		return errors.Err("could not get an address")
 	}
-	s.claimAddress = string((*claimAddress)[0].Address)
+	s.claimAddress = string(claimAddress.Items[0].Address)
 	if s.claimAddress == "" {
 		return errors.Err("found blank claim address")
 	}
@@ -145,20 +152,23 @@ func (s *Sync) walletSetup() error {
 
 func (s *Sync) getDefaultAccount() (string, error) {
 	if s.defaultAccountID == "" {
-		accounts, err := s.daemon.AccountList()
+		accountsResponse, err := s.daemon.AccountList(1, 50)
 		if err != nil {
 			return "", errors.Err(err)
 		}
-		accountsNet := (*accounts).LBCMainnet
+		ledger := "lbc_mainnet"
 		if logUtils.IsRegTest() {
-			accountsNet = (*accounts).LBCRegtest
+			ledger = "lbc_regtest"
 		}
-		for _, account := range accountsNet {
-			if account.IsDefault {
-				s.defaultAccountID = account.ID
-				break
+		for _, a := range accountsResponse.Items {
+			if *a.Ledger == ledger {
+				if a.IsDefault {
+					s.defaultAccountID = a.ID
+					break
+				}
 			}
 		}
+
 		if s.defaultAccountID == "" {
 			return "", errors.Err("No default account found")
 		}
@@ -172,7 +182,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		return err
 	}
 
-	utxolist, err := s.daemon.UTXOList(&defaultAccount)
+	utxolist, err := s.daemon.UTXOList(&defaultAccount, 1, 10000)
 	if err != nil {
 		return err
 	} else if utxolist == nil {
@@ -184,7 +194,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 	count := 0
 	confirmedCount := 0
 
-	for _, utxo := range *utxolist {
+	for _, utxo := range utxolist.Items {
 		amount, _ := strconv.ParseFloat(utxo.Amount, 64)
 		if utxo.IsMine && utxo.Type == "payment" && amount > 0.001 {
 			if utxo.Confirmations > 0 {
@@ -241,24 +251,10 @@ func (s *Sync) ensureEnoughUTXOs() error {
 
 func (s *Sync) waitForNewBlock() error {
 	log.Printf("regtest: %t, docker: %t", logUtils.IsRegTest(), logUtils.IsUsingDocker())
-	if logUtils.IsRegTest() && logUtils.IsUsingDocker() {
-		lbrycrd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
-		if err != nil {
-			return errors.Prefix("error getting lbrycrd client: ", err)
-		}
-		txs, err := lbrycrd.Generate(1)
-		if err != nil {
-			return errors.Prefix("error generating new block: ", err)
-		}
-		for _, tx := range txs {
-			log.Info("Generated tx: ", tx.String())
-		}
-	}
 	status, err := s.daemon.Status()
 	if err != nil {
 		return err
 	}
-
 	for status.Wallet.Blocks == 0 || status.Wallet.BlocksBehind != 0 {
 		time.Sleep(5 * time.Second)
 		status, err = s.daemon.Status()
@@ -266,16 +262,38 @@ func (s *Sync) waitForNewBlock() error {
 			return err
 		}
 	}
+
 	currentBlock := status.Wallet.Blocks
 	for i := 0; status.Wallet.Blocks <= currentBlock; i++ {
 		if i%3 == 0 {
 			log.Printf("Waiting for new block (%d)...", currentBlock+1)
+		}
+		if logUtils.IsRegTest() && logUtils.IsUsingDocker() {
+			err = s.GenerateRegtestBlock()
+			if err != nil {
+				return err
+			}
 		}
 		time.Sleep(10 * time.Second)
 		status, err = s.daemon.Status()
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (s *Sync) GenerateRegtestBlock() error {
+	lbrycrd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
+	if err != nil {
+		return errors.Prefix("error getting lbrycrd client: ", err)
+	}
+	txs, err := lbrycrd.Generate(1)
+	if err != nil {
+		return errors.Prefix("error generating new block: ", err)
+	}
+	for _, tx := range txs {
+		log.Info("Generated tx: ", tx.String())
 	}
 	return nil
 }

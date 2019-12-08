@@ -489,7 +489,7 @@ func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Lo
 }
 
 func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo) (*SyncSummary, error) {
-	c, err := daemon.ClaimSearch(nil, &existingVideoData.ClaimID, nil, nil)
+	c, err := daemon.ClaimSearch(nil, &existingVideoData.ClaimID, nil, nil, 1, 20)
 	if err != nil {
 		return nil, errors.Err(err)
 	}

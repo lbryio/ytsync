@@ -354,7 +354,7 @@ func (s *Sync) processTransfers() (e error) {
 			return err
 		}
 		isTip := true
-		summary, err := s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, []string{defaultAccount})
+		summary, err := s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, []string{defaultAccount}, nil)
 		if err != nil {
 			return errors.Err(err)
 		}
@@ -670,12 +670,12 @@ func (s *Sync) getClaims(defaultOnly bool) ([]jsonrpc.Claim, error) {
 		}
 		account = &a
 	}
-	claims, err := s.daemon.StreamList(account)
+	claims, err := s.daemon.StreamList(account, 1, 30000)
 	if err != nil {
 		return nil, errors.Prefix("cannot list claims", err)
 	}
 
-	return *claims, nil
+	return claims.Items, nil
 }
 
 func (s *Sync) checkIntegrity() error {
@@ -1134,17 +1134,19 @@ func (s *Sync) processVideo(v video) (err error) {
 
 func (s *Sync) importPublicKey() error {
 	if s.publicKey != "" {
-		accountsResponse, err := s.daemon.AccountList()
+		accountsResponse, err := s.daemon.AccountList(1, 50)
 		if err != nil {
 			return errors.Err(err)
 		}
-		accounts := accountsResponse.LBCMainnet
+		ledger := "lbc_mainnet"
 		if logUtils.IsRegTest() {
-			accounts = accountsResponse.LBCRegtest
+			ledger = "lbc_regtest"
 		}
-		for _, a := range accounts {
-			if a.PublicKey == s.publicKey {
-				return nil
+		for _, a := range accountsResponse.Items {
+			if *a.Ledger == ledger {
+				if a.PublicKey == s.publicKey {
+					return nil
+				}
 			}
 		}
 		log.Infof("Could not find public key %s in the wallet. Importing it...", s.publicKey)
@@ -1172,12 +1174,12 @@ func (s *Sync) getUnsentSupports() (float64, error) {
 		if err != nil {
 			return 0, errors.Err(err)
 		}
-		transactionList, err := s.daemon.TransactionList(&defaultAccount)
+		transactionList, err := s.daemon.TransactionList(&defaultAccount, 1, 90000)
 		if err != nil {
 			return 0, errors.Err(err)
 		}
 		sentSupports := 0.0
-		for _, t := range *transactionList {
+		for _, t := range transactionList.Items {
 			if len(t.SupportInfo) == 0 {
 				continue
 			}
