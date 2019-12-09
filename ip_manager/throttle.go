@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const IPCooldownPeriod = 25 * time.Second
+const IPCooldownPeriod = 35 * time.Second
 const unbanTimeout = 3 * time.Hour
 
 var ipv6Pool []string
