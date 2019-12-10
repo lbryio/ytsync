@@ -57,9 +57,9 @@ echo "successfully started..."
 status=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM youtube_data WHERE id=1')
 videoStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM synced_video WHERE id=1')
 videoClaimID1=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=1')
-videoClaimID2=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=1')
+videoClaimID2=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=2')
 videoClaimAddress1=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT claim_address FROM claim WHERE id=2')
-videoClaimAddress2=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT claim_address FROM claim WHERE id=2')
+videoClaimAddress2=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT claim_address FROM claim WHERE id=3')
 # Create Supports for published claim
 ./supporty/supporty @BeamerTest "${videoClaimID1}" "${videoClaimAddress1}" lbrycrd_regtest 1.0
 ./supporty/supporty @BeamerTest "${videoClaimID2}" "${videoClaimAddress2}" lbrycrd_regtest 2.0
