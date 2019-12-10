@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lbryio/ytsync/ip_manager"
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
 	"github.com/lbryio/ytsync/sources"
@@ -963,6 +964,10 @@ func (s *Sync) enqueueYoutubeVideos() error {
 	}
 
 	var videos []video
+	ipPool, err := ip_manager.GetIPPool()
+	if err != nil {
+		return err
+	}
 	playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
 	nextPageToken := ""
 	for {
@@ -1000,7 +1005,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			return errors.Prefix("error getting videos info", err)
 		}
 		for _, item := range videosListResponse.Items {
-			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position, s.Manager.GetS3AWSConfig(), s.grp))
+			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position, s.Manager.GetS3AWSConfig(), s.grp, ipPool))
 		}
 
 		log.Infof("Got info for %d videos from youtube API", len(videos))
@@ -1016,7 +1021,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		}
 		_, ok := playlistMap[k]
 		if !ok {
-			videos = append(videos, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig(), s.grp))
+			videos = append(videos, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig(), s.grp, ipPool))
 		}
 
 	}

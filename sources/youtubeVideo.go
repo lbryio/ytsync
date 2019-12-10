@@ -50,6 +50,7 @@ type YoutubeVideo struct {
 	mocked           bool
 	walletLock       *sync.RWMutex
 	stopGroup        *stop.Group
+	pool             *ip_manager.IPPool
 }
 
 var youtubeCategories = map[string]string{
@@ -87,7 +88,7 @@ var youtubeCategories = map[string]string{
 	"44": "trailers",
 }
 
-func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group) *YoutubeVideo {
+func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
 	publishedAt, _ := time.Parse(time.RFC3339Nano, videoData.Snippet.PublishedAt) // ignore parse errors
 	return &YoutubeVideo{
 		id:               videoData.Id,
@@ -101,9 +102,10 @@ func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPositio
 		mocked:           false,
 		youtubeChannelID: videoData.Snippet.ChannelId,
 		stopGroup:        stopGroup,
+		pool:             pool,
 	}
 }
-func NewMockedVideo(directory string, videoID string, youtubeChannelID string, awsConfig aws.Config, stopGroup *stop.Group) *YoutubeVideo {
+func NewMockedVideo(directory string, videoID string, youtubeChannelID string, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
 	return &YoutubeVideo{
 		id:               videoID,
 		playlistPosition: 0,
@@ -112,6 +114,7 @@ func NewMockedVideo(directory string, videoID string, youtubeChannelID string, a
 		mocked:           true,
 		youtubeChannelID: youtubeChannelID,
 		stopGroup:        stopGroup,
+		pool:             pool,
 	}
 }
 
@@ -220,7 +223,8 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 			fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
 		)
 	}
-	sourceAddress, err := ip_manager.GetNextIP(useIPv6)
+
+	sourceAddress, err := v.pool.GetIP()
 	if err != nil {
 		if sourceAddress == "throttled" {
 			for {
@@ -231,8 +235,8 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 				}
 
 				time.Sleep(ip_manager.IPCooldownPeriod)
-				sourceAddress, err = ip_manager.GetNextIP(useIPv6)
-				if err == nil {
+				sourceAddress, err = v.pool.GetIP()
+				if err == nil { //TODO: This is possibly not 100% right, but it works so I'm not touching it...
 					break
 				}
 			}
@@ -240,23 +244,13 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 			return errors.Err(err)
 		}
 	}
-	defer ip_manager.ReleaseIP(sourceAddress)
-	if useIPv6 {
-		log.Infof("using IPv6: %s", sourceAddress)
-		ytdlArgs = append(ytdlArgs,
-			"-6",
-			"--source-address",
-			sourceAddress,
-		)
-	} else {
-		log.Infof("using IPv4: %s", sourceAddress)
-		ytdlArgs = append(ytdlArgs,
-			"-4",
-			"--source-address",
-			sourceAddress,
-		)
-	}
-	ytdlArgs = append(ytdlArgs, "https://www.youtube.com/watch?v="+v.ID())
+	defer v.pool.ReleaseIP(sourceAddress)
+	ytdlArgs = append(ytdlArgs,
+		"--source-address",
+		sourceAddress,
+		"https://www.youtube.com/watch?v="+v.ID(),
+	)
+
 runcmd:
 	argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][height<="+qualities[qualityIndex]+"]+bestaudio[ext!=webm]")
 	cmd := exec.Command("youtube-dl", argsWithFilters...)
@@ -282,7 +276,7 @@ runcmd:
 	if err = cmd.Wait(); err != nil {
 		if strings.Contains(err.Error(), "exit status 1") {
 			if strings.Contains(string(errorLog), "HTTP Error 429") {
-				ip_manager.SetIpThrottled(sourceAddress, v.stopGroup)
+				v.pool.SetThrottled(sourceAddress, v.stopGroup)
 			} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
 				qualityIndex++
 				goto runcmd
