@@ -57,9 +57,9 @@ echo "successfully started..."
 status=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM youtube_data WHERE id=1')
 videoStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM synced_video WHERE id=1')
 videoClaimID1=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=1')
-videoClaimID2=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=1')
-videoClaimAddress1=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15600 -e 'SELECT claim_address FROM claim WHERE id=2')
-videoClaimAddress2=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15600 -e 'SELECT claim_address FROM claim WHERE id=2')
+videoClaimID2=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT claim_id FROM synced_video WHERE id=2')
+videoClaimAddress1=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT claim_address FROM claim WHERE id=2')
+videoClaimAddress2=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT claim_address FROM claim WHERE id=3')
 # Create Supports for published claim
 ./supporty/supporty @BeamerTest "${videoClaimID1}" "${videoClaimAddress1}" lbrycrd_regtest 1.0
 ./supporty/supporty @BeamerTest "${videoClaimID2}" "${videoClaimAddress2}" lbrycrd_regtest 2.0
@@ -75,7 +75,7 @@ curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http:
 # Check that the channel and the video are marked as transferred and that all supports are spent
 channelTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT distinct transfer_state FROM youtube_data')
 videoTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT distinct transferred FROM synced_video')
-nrUnspentSupports=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15600 -e 'SELECT COUNT(*) FROM chainquery.support INNER JOIN output ON output.transaction_hash = support.transaction_hash_id AND output.vout = support.vout WHERE output.is_spent = 0')
+nrUnspentSupports=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT COUNT(*) FROM chainquery.support INNER JOIN output ON output.transaction_hash = support.transaction_hash_id AND output.vout = support.vout WHERE output.is_spent = 0')
 if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStatus != "2" || $videoTransferStatus != "1" || $nrUnspentSupports != "1" ]]; then
     echo "~~!!!~~~FAILED~~~!!!~~"
     echo "Channel Status: $status"

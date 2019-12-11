@@ -80,11 +80,14 @@ services:
       - MYSQL_USER=lbry
       - MYSQL_PASSWORD=lbry
       - MYSQL_LOG_CONSOLE=true
+    volumes:
+      - "./init.sql:/docker-entrypoint-initdb.d/init.sql"
+      - "./chainquery/docker/my.cnf:/etc/mysql/conf.d/chainquery-optimizations.cnf"
   ###################
   ## Internal APIs ##
   ###################
   internalapis:
-    image: lbry/internal-apis:master
+    image: lbry/internal-apis:master #expand_publish
     restart: "no"
     ports:
       - "15400:8080"
@@ -96,28 +99,7 @@ services:
     environment:
       - MYSQL_DSN=lbry:lbry@tcp(mysql:3306)/lbry
       - LBRYCRD_CONNECT=rpc://lbry:lbry@lbrycrd:29245
-      - MYSQL_USER=lbry
-      - MYSQL_PASS=lbry
-      - MYSQL_DATABASE=lbry
-    entrypoint: wait-for-it -t 0 mysql:3306 -- wait-for-it -t 0 lbrycrd:29245 -- ./latest serve
-  ######################
-  ## MySQL Chainquery ##
-  ######################
-  mysqlCQ:
-    image: mysql/mysql-server:5.7.27
-    restart: "no"
-    ports:
-      - "15600:3306"
-    expose:
-      - "3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=true
-      - MYSQL_DATABASE=chainquery
-      - MYSQL_USER=lbry
-      - MYSQL_PASSWORD=lbry
-      - MYSQL_LOG_CONSOLE=true
-    volumes:
-      - "./chainquery/docker/my.cnf:/etc/mysql/conf.d/chainquery-optimizations.cnf"
+    entrypoint: wait-for-it -t 0 chainquery:6300 -- wait-for-it -t 0 lbrycrd:29245 -- ./latest serve
   ################
   ## Chainquery ##
   ################
@@ -128,8 +110,8 @@ services:
       - 6300:6300
     depends_on:
       - lbrycrd
-      - mysqlCQ
+      - mysql
     ## TODO: Uncomment this in a docker-compose.override.yml to allow for external configurations.
     volumes:
       - ./chainqueryconfig.toml:/etc/lbry/chainqueryconfig.toml
-    entrypoint: wait-for-it -t 0 lbrycrd:29245 -- wait-for-it -t 0 mysqlCQ:3306 -- start
+    entrypoint: wait-for-it -t 0 lbrycrd:29245 -- wait-for-it -t 0 mysql:3306 -- start
