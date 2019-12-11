@@ -12,6 +12,7 @@ import (
 	"github.com/lbryio/reflector.go/db"
 	"github.com/lbryio/reflector.go/reflector"
 	"github.com/lbryio/reflector.go/store"
+	"github.com/sirupsen/logrus"
 
 	"github.com/lbryio/ytsync/util"
 )
@@ -53,7 +54,8 @@ func reflectBlobs() error {
 	if running {
 		return errors.Prefix("cannot reflect blobs as the daemon is running", err)
 	}
-
+	logrus.SetLevel(logrus.InfoLevel)
+	defer logrus.SetLevel(logrus.DebugLevel)
 	ex, err := os.Executable()
 	if err != nil {
 		return errors.Err(err)
