@@ -104,7 +104,7 @@ services:
   ## Chainquery ##
   ################
   chainquery:
-    image: lbry/chainquery:master
+    image: lbry/chainquery:v2.0.8
     restart: "no"
     ports:
       - 6300:6300

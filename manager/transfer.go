@@ -192,7 +192,7 @@ func transferVideos(s *Sync) error {
 
 			var stream *jsonrpc.Claim = nil
 			for _, c := range streams.Items {
-				if c.ClaimID != video.ClaimID {
+				if c.ClaimID != video.ClaimID || (c.SigningChannel != nil && c.SigningChannel.ClaimID != s.lbryChannelID) {
 					continue
 				}
 				stream = &c

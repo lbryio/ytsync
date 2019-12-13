@@ -47,13 +47,13 @@ func GetIPPool() (*IPPool, error) {
 			if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) && !ipv6Added {
 				pool = append(pool, throttledIP{
 					IP:      ipnet.IP.String(),
-					LastUse: time.Time{},
+					LastUse: time.Now().Add(-5 * time.Minute),
 				})
 				ipv6Added = true
 			} else if ipnet.IP.To4() != nil && govalidator.IsIPv4(ipnet.IP.String()) {
 				pool = append(pool, throttledIP{
 					IP:      ipnet.IP.String(),
-					LastUse: time.Time{},
+					LastUse: time.Now().Add(-5 * time.Minute),
 				})
 			}
 		}
@@ -144,7 +144,7 @@ func (i *IPPool) nextIP() (*throttledIP, error) {
 	defer i.lock.Unlock()
 
 	sort.Slice(i.ips, func(j, k int) bool {
-		return i.ips[j].LastUse.Before(i.ips[j].LastUse)
+		return i.ips[j].LastUse.Before(i.ips[k].LastUse)
 	})
 
 	if !AllThrottled(i.ips) {

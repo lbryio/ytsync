@@ -675,8 +675,13 @@ func (s *Sync) getClaims(defaultOnly bool) ([]jsonrpc.Claim, error) {
 	if err != nil {
 		return nil, errors.Prefix("cannot list claims", err)
 	}
-
-	return claims.Items, nil
+	items := make([]jsonrpc.Claim, 0, len(claims.Items))
+	for _, c := range claims.Items {
+		if c.SigningChannel != nil && c.SigningChannel.ClaimID == s.lbryChannelID {
+			items = append(items, c)
+		}
+	}
+	return items, nil
 }
 
 func (s *Sync) checkIntegrity() error {
