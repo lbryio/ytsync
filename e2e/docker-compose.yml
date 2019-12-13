@@ -87,7 +87,7 @@ services:
   ## Internal APIs ##
   ###################
   internalapis:
-    image: lbry/internal-apis:master #expand_publish
+    image: lbry/internal-apis:master
     restart: "no"
     ports:
       - "15400:8080"
