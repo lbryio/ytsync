@@ -178,7 +178,7 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 	return description + "\n..." + additionalDescription
 }
 
-func (v *YoutubeVideo) download(useIPv6 bool) error {
+func (v *YoutubeVideo) download() error {
 	videoPath := v.getFullPath()
 
 	err := os.Mkdir(v.videoDir(), 0777)
@@ -281,7 +281,7 @@ runcmd:
 				v.pool.SetThrottled(sourceAddress, v.stopGroup)
 			} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
 				qualityIndex++
-				goto runcmd
+				goto runcmd //this bypasses the yt throttling IP redistribution... TODO: don't
 			}
 			return errors.Err(string(errorLog))
 		}
@@ -426,21 +426,18 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 	return v.downloadAndPublish(daemon, params)
 }
 
-var isThrottled bool
-
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
-	err := v.download(isThrottled)
-	if err != nil {
-		if strings.Contains(err.Error(), "HTTP Error 429") && !isThrottled {
-			isThrottled = true
-			err = v.download(isThrottled)
-			if err != nil {
-				return nil, errors.Prefix("download error", err)
-			}
-		} else {
+	var err error
+	for {
+		err = v.download()
+		if err != nil && strings.Contains(err.Error(), "HTTP Error 429") {
+			continue
+		} else if err != nil {
 			return nil, errors.Prefix("download error", err)
 		}
+		break
 	}
+
 	log.Debugln("Downloaded " + v.id)
 
 	err = v.triggerThumbnailSave()

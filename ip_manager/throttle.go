@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const IPCooldownPeriod = 35 * time.Second
+const IPCooldownPeriod = 20 * time.Second
 const unbanTimeout = 3 * time.Hour
 
 var stopper = stop.New()

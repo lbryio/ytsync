@@ -872,6 +872,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"giving up after 0 fragment retries",
 						"Sorry about that",
 						"This video is not available",
+						"requested format not available",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
