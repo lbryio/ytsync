@@ -467,7 +467,7 @@ var thumbnailHosts = []string{
 	thumbs.ThumbnailEndpoint,
 }
 
-func isYtsyncClaim(c jsonrpc.Claim) bool {
+func isYtsyncClaim(c jsonrpc.Claim, expectedChannelID string) bool {
 	if !util.InSlice(c.Type, []string{"claim", "update"}) || c.Value.GetStream() == nil {
 		return false
 	}
@@ -475,7 +475,12 @@ func isYtsyncClaim(c jsonrpc.Claim) bool {
 		//most likely a claim created outside of ytsync, ignore!
 		return false
 	}
-
+	if c.SigningChannel == nil {
+		return false
+	}
+	if c.SigningChannel.ClaimID != expectedChannelID {
+		return false
+	}
 	for _, th := range thumbnailHosts {
 		if strings.Contains(c.Value.GetThumbnail().GetUrl(), th) {
 			return true
@@ -489,7 +494,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 	abandonedClaims := false
 	videoIDs := make(map[string]jsonrpc.Claim)
 	for _, c := range claims {
-		if !isYtsyncClaim(c) {
+		if !isYtsyncClaim(c, s.lbryChannelID) {
 			continue
 		}
 		tn := c.Value.GetThumbnail().GetUrl()
@@ -536,7 +541,7 @@ type ytsyncClaim struct {
 func (s *Sync) mapFromClaims(claims []jsonrpc.Claim) map[string]ytsyncClaim {
 	videoIDMap := make(map[string]ytsyncClaim, len(claims))
 	for _, c := range claims {
-		if !isYtsyncClaim(c) {
+		if !isYtsyncClaim(c, s.lbryChannelID) {
 			continue
 		}
 		tn := c.Value.GetThumbnail().GetUrl()
