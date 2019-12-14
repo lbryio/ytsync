@@ -236,8 +236,10 @@ func (v *YoutubeVideo) download(useIPv6 bool) error {
 
 				time.Sleep(ip_manager.IPCooldownPeriod)
 				sourceAddress, err = v.pool.GetIP()
-				if err == nil { //TODO: This is possibly not 100% right, but it works so I'm not touching it...
+				if err == nil {
 					break
+				} else if !errors.Is(err, ip_manager.ErrAllThrottled) {
+					return err
 				}
 			}
 		} else {
