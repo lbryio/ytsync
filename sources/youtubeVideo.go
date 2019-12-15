@@ -277,7 +277,7 @@ runcmd:
 
 	if err = cmd.Wait(); err != nil {
 		if strings.Contains(err.Error(), "exit status 1") {
-			if strings.Contains(string(errorLog), "HTTP Error 429") {
+			if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
 				v.pool.SetThrottled(sourceAddress, v.stopGroup)
 			} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
 				qualityIndex++
