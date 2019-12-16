@@ -96,11 +96,11 @@ func abandonSupports(s *Sync) (float64, error) {
 				if !more {
 					return
 				} else {
-					summary, err := s.daemon.SupportAbandon(&claimID, nil, nil, nil, nil)
+					summary, err := s.daemon.SupportAbandon(&claimID, nil, nil, nil, &defaultAccount)
 					if err != nil {
 						if strings.Contains(err.Error(), "Client.Timeout exceeded while awaiting headers") {
 							log.Errorf("Support abandon for %s timed out, retrying...", claimID)
-							summary, err = s.daemon.SupportAbandon(&claimID, nil, nil, nil, nil)
+							summary, err = s.daemon.SupportAbandon(&claimID, nil, nil, nil, &defaultAccount)
 							if err != nil {
 								//TODO GUESS HOW MUCH LBC WAS RELEASED THAT WE DON'T KNOW ABOUT, because screw you SDK
 								abandonRspChan <- abandonResponse{
