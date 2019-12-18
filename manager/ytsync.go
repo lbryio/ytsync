@@ -873,6 +873,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"Sorry about that",
 						"This video is not available",
 						"requested format not available",
+						"interrupted by user",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
@@ -975,7 +976,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 	}
 
 	var videos []video
-	ipPool, err := ip_manager.GetIPPool()
+	ipPool, err := ip_manager.GetIPPool(s.grp)
 	if err != nil {
 		return err
 	}

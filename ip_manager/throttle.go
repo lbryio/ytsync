@@ -19,20 +19,22 @@ const unbanTimeout = 3 * time.Hour
 var stopper = stop.New()
 
 type IPPool struct {
-	ips  []throttledIP
-	lock *sync.Mutex
+	ips     []throttledIP
+	lock    *sync.RWMutex
+	stopGrp *stop.Group
 }
 
 type throttledIP struct {
-	IP        string
-	LastUse   time.Time
-	Throttled bool
-	InUse     bool
+	IP           string
+	UsedForVideo string
+	LastUse      time.Time
+	Throttled    bool
+	InUse        bool
 }
 
 var ipPoolInstance *IPPool
 
-func GetIPPool() (*IPPool, error) {
+func GetIPPool(stopGrp *stop.Group) (*IPPool, error) {
 	if ipPoolInstance != nil {
 		return ipPoolInstance, nil
 	}
@@ -59,9 +61,25 @@ func GetIPPool() (*IPPool, error) {
 		}
 	}
 	ipPoolInstance = &IPPool{
-		ips:  pool,
-		lock: &sync.Mutex{},
+		ips:     pool,
+		lock:    &sync.RWMutex{},
+		stopGrp: stopGrp,
 	}
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-stopGrp.Ch():
+				return
+			case <-ticker.C:
+				ipPoolInstance.lock.RLock()
+				for _, ip := range ipPoolInstance.ips {
+					log.Debugf("IP: %s\tInUse: %t\tVideoID: %s\tThrottled: %t\tLastUse: %.1f", ip.IP, ip.InUse, ip.UsedForVideo, ip.Throttled, time.Since(ip.LastUse).Seconds())
+				}
+				ipPoolInstance.lock.RUnlock()
+			}
+		}
+	}()
 	return ipPoolInstance, nil
 }
 
@@ -102,7 +120,7 @@ func (i *IPPool) ReleaseIP(ip string) {
 	}
 }
 
-func (i *IPPool) SetThrottled(ip string, stopGrp *stop.Group) {
+func (i *IPPool) SetThrottled(ip string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 	var tIP *throttledIP
@@ -129,7 +147,7 @@ func (i *IPPool) SetThrottled(ip string, stopGrp *stop.Group) {
 			tIP.Throttled = false
 			i.lock.Unlock()
 			util.SendInfoToSlack("%s set back to not throttled", ip)
-		case <-stopGrp.Ch():
+		case <-i.stopGrp.Ch():
 			unbanTimer.Stop()
 		}
 	}(tIP)
@@ -138,8 +156,9 @@ func (i *IPPool) SetThrottled(ip string, stopGrp *stop.Group) {
 var ErrAllInUse = errors.Base("all IPs are in use, try again")
 var ErrAllThrottled = errors.Base("all IPs are throttled")
 var ErrResourceLock = errors.Base("error getting next ip, did you forget to lock on the resource?")
+var ErrInterruptedByUser = errors.Base("interrupted by user")
 
-func (i *IPPool) nextIP() (*throttledIP, error) {
+func (i *IPPool) nextIP(forVideo string) (*throttledIP, error) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
@@ -165,18 +184,24 @@ func (i *IPPool) nextIP() (*throttledIP, error) {
 			return nil, errors.Err(ErrResourceLock)
 		}
 		nextIP.InUse = true
+		nextIP.UsedForVideo = forVideo
 		return nextIP, nil
 	}
 	return nil, errors.Err(ErrAllThrottled)
 }
 
-func (i *IPPool) GetIP() (string, error) {
+func (i *IPPool) GetIP(forVideo string) (string, error) {
 	for {
-		ip, err := i.nextIP()
+		ip, err := i.nextIP(forVideo)
 		if err != nil {
 			if errors.Is(err, ErrAllInUse) {
-				time.Sleep(5 * time.Second)
-				continue
+				select {
+				case <-i.stopGrp.Ch():
+					return "", errors.Err(ErrInterruptedByUser)
+				default:
+					time.Sleep(5 * time.Second)
+					continue
+				}
 			} else if errors.Is(err, ErrAllThrottled) {
 				return "throttled", err
 			}

@@ -399,6 +399,9 @@ func (s *Sync) ensureChannelOwnership() error {
 
 	var languages []string = nil
 	if channelInfo.DefaultLanguage != "" {
+		if channelInfo.DefaultLanguage == "iw" {
+			channelInfo.DefaultLanguage = "he"
+		}
 		languages = []string{channelInfo.DefaultLanguage}
 	}
 	var locations []jsonrpc.Location = nil

@@ -224,7 +224,7 @@ func (v *YoutubeVideo) download() error {
 		)
 	}
 
-	sourceAddress, err := v.pool.GetIP()
+	sourceAddress, err := v.pool.GetIP(v.id)
 	if err != nil {
 		if sourceAddress == "throttled" {
 			for {
@@ -235,7 +235,7 @@ func (v *YoutubeVideo) download() error {
 				}
 
 				time.Sleep(ip_manager.IPCooldownPeriod)
-				sourceAddress, err = v.pool.GetIP()
+				sourceAddress, err = v.pool.GetIP(v.id)
 				if err == nil {
 					break
 				} else if !errors.Is(err, ip_manager.ErrAllThrottled) {
@@ -278,7 +278,7 @@ runcmd:
 	if err = cmd.Wait(); err != nil {
 		if strings.Contains(err.Error(), "exit status 1") {
 			if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
-				v.pool.SetThrottled(sourceAddress, v.stopGroup)
+				v.pool.SetThrottled(sourceAddress)
 			} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
 				qualityIndex++
 				goto runcmd //this bypasses the yt throttling IP redistribution... TODO: don't
@@ -459,6 +459,9 @@ func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Lo
 	tags = nil
 	if !v.mocked {
 		if v.youtubeInfo.Snippet.DefaultLanguage != "" {
+			if v.youtubeInfo.Snippet.DefaultLanguage == "iw" {
+				v.youtubeInfo.Snippet.DefaultLanguage = "he"
+			}
 			languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
 		}
 
