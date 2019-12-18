@@ -878,8 +878,10 @@ func (s *Sync) startWorker(workerNum int) {
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
 					} else if tryCount < s.MaxTries {
-						if strings.Contains(err.Error(), "txn-mempool-conflict") ||
-							strings.Contains(err.Error(), "too-long-mempool-chain") {
+						if util.SubstringInSlice(err.Error(), []string{
+							"txn-mempool-conflict",
+							"too-long-mempool-chain",
+						}) {
 							log.Println("waiting for a block before retrying")
 							err := s.waitForNewBlock()
 							if err != nil {
@@ -891,6 +893,7 @@ func (s *Sync) startWorker(workerNum int) {
 							"Not enough funds to cover this transaction",
 							"failed: Not enough funds",
 							"Error in daemon: Insufficient funds, please deposit additional LBC",
+							"Missing inputs",
 						}) {
 							log.Println("checking funds and UTXOs before retrying...")
 							err := s.walletSetup()
