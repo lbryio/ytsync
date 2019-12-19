@@ -638,8 +638,17 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 		if sv.Transferred {
 			_, ok := allClaimsInfo[vID]
 			if !ok && sv.Published {
-				log.Warnf("%s: claims to be published and transferred but wasn't found in the list of claims", vID)
-				idsToRemove = append(idsToRemove, vID)
+				searchResponse, err := s.daemon.ClaimSearch(nil, &sv.ClaimID, nil, nil, 1, 20)
+				if err != nil {
+					log.Error(err.Error())
+					continue
+				}
+				if len(searchResponse.Claims) == 0 {
+					log.Debugf("%s: was transferred but appears abandoned! we should ignore this - claimID: %s", vID, sv.ClaimID)
+					continue //TODO: we should flag these on the db
+				} else {
+					return count, fixed, 0, errors.Err("%s: isn't our control but is on the database and on the blockchain. wtf is up? ClaimID: %s", vID, sv.ClaimID)
+				}
 			}
 			continue
 		}
