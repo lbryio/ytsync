@@ -199,7 +199,6 @@ func (v *YoutubeVideo) download() error {
 		"480",
 		"320",
 	}
-	qualityIndex := 0
 	ytdlArgs := []string{
 		"--no-progress",
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
@@ -224,94 +223,94 @@ func (v *YoutubeVideo) download() error {
 		)
 	}
 
-	sourceAddress, err := v.pool.GetIP(v.id)
-	if err != nil {
-		if sourceAddress == "throttled" {
-			for {
+	var sourceAddress string
+	for {
+		sourceAddress, err = v.pool.GetIP(v.id)
+		if err != nil {
+			if errors.Is(err, ip_manager.ErrAllThrottled) {
 				select {
 				case <-v.stopGroup.Ch():
 					return errors.Err("interrupted by user")
 				default:
+					time.Sleep(ip_manager.IPCooldownPeriod)
+					continue
 				}
-
-				time.Sleep(ip_manager.IPCooldownPeriod)
-				sourceAddress, err = v.pool.GetIP(v.id)
-				if err == nil {
-					break
-				} else if !errors.Is(err, ip_manager.ErrAllThrottled) {
-					return err
-				}
+			} else {
+				return err
 			}
-		} else {
-			return errors.Err(err)
 		}
+		break
 	}
 	defer v.pool.ReleaseIP(sourceAddress)
+
 	ytdlArgs = append(ytdlArgs,
 		"--source-address",
 		sourceAddress,
 		"https://www.youtube.com/watch?v="+v.ID(),
 	)
 
-runcmd:
-	argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][height<="+qualities[qualityIndex]+"]+bestaudio[ext!=webm]")
-	cmd := exec.Command("youtube-dl", argsWithFilters...)
+	for i, quality := range qualities {
+		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][height<="+quality+"]+bestaudio[ext!=webm]")
+		cmd := exec.Command("youtube-dl", argsWithFilters...)
+		log.Printf("Running command youtube-dl %s", strings.Join(argsWithFilters, " "))
 
-	log.Printf("Running command youtube-dl %s", strings.Join(argsWithFilters, " "))
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return errors.Err(err)
+		}
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return errors.Err(err)
+		}
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return errors.Err(err)
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return errors.Err(err)
-	}
+		if err := cmd.Start(); err != nil {
+			return errors.Err(err)
+		}
 
-	if err := cmd.Start(); err != nil {
-		return errors.Err(err)
-	}
-
-	errorLog, _ := ioutil.ReadAll(stderr)
-	outLog, _ := ioutil.ReadAll(stdout)
-
-	if err = cmd.Wait(); err != nil {
-		if strings.Contains(err.Error(), "exit status 1") {
-			if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
-				v.pool.SetThrottled(sourceAddress)
-			} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") && qualityIndex < len(qualities)-1 {
-				qualityIndex++
-				goto runcmd //this bypasses the yt throttling IP redistribution... TODO: don't
+		errorLog, _ := ioutil.ReadAll(stderr)
+		outLog, _ := ioutil.ReadAll(stdout)
+		err = cmd.Wait()
+		if err != nil {
+			if strings.Contains(err.Error(), "exit status 1") {
+				if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
+					v.pool.SetThrottled(sourceAddress)
+				} else if strings.Contains(string(errorLog), "giving up after 0 fragment retries") {
+					if i == (len(qualities) - 1) {
+						return errors.Err(string(errorLog))
+					}
+					continue //this bypasses the yt throttling IP redistribution... TODO: don't
+				}
+				return errors.Err(string(errorLog))
 			}
+			return errors.Err(err)
+		}
+		log.Debugln(string(outLog))
+
+		if strings.Contains(string(outLog), "does not pass filter duration") {
+			_ = v.delete("does not pass filter duration")
+			return errors.Err("video is too long to process")
+		}
+		if strings.Contains(string(outLog), "File is larger than max-filesize") {
+			_ = v.delete("File is larger than max-filesize")
+			return errors.Err("the video is too big to sync, skipping for now")
+		}
+		if string(errorLog) != "" {
+			log.Printf("Command finished with error: %v", errors.Err(string(errorLog)))
+			_ = v.delete("due to error")
 			return errors.Err(string(errorLog))
 		}
-		return errors.Err(err)
+		fi, err := os.Stat(v.getFullPath())
+		if err != nil {
+			return errors.Err(err)
+		}
+		err = os.Chmod(v.getFullPath(), 0777)
+		if err != nil {
+			return errors.Err(err)
+		}
+		videoSize := fi.Size()
+		v.size = &videoSize
+		break
 	}
-	log.Debugln(string(outLog))
-
-	if strings.Contains(string(outLog), "does not pass filter duration") {
-		_ = v.delete("does not pass filter duration")
-		return errors.Err("video is too long to process")
-	}
-	if strings.Contains(string(outLog), "File is larger than max-filesize") {
-		_ = v.delete("File is larger than max-filesize")
-		return errors.Err("the video is too big to sync, skipping for now")
-	}
-	if string(errorLog) != "" {
-		log.Printf("Command finished with error: %v", errors.Err(string(errorLog)))
-		_ = v.delete("due to error")
-		return errors.Err(string(errorLog))
-	}
-	fi, err := os.Stat(v.getFullPath())
-	if err != nil {
-		return errors.Err(err)
-	}
-	err = os.Chmod(v.getFullPath(), 0777)
-	if err != nil {
-		return errors.Err(err)
-	}
-	videoSize := fi.Size()
-	v.size = &videoSize
 	return nil
 }
 
