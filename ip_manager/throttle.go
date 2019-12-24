@@ -115,9 +115,10 @@ func (i *IPPool) ReleaseIP(ip string) {
 		if localIP.IP == ip {
 			localIP.InUse = false
 			localIP.LastUse = time.Now()
-			break
+			return
 		}
 	}
+	util.SendErrorToSlack("something went wrong while releasing the IP %s as we reached the end of the function", ip)
 }
 
 func (i *IPPool) SetThrottled(ip string) {
