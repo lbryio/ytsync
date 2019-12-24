@@ -448,7 +448,11 @@ func (s *Sync) addCredits(amountToAdd float64) error {
 		return err
 	}
 
-	addressResp, err := s.daemon.AddressUnused(nil)
+	defaultAccount, err := s.getDefaultAccount()
+	if err != nil {
+		return err
+	}
+	addressResp, err := s.daemon.AddressUnused(&defaultAccount)
 	if err != nil {
 		return err
 	} else if addressResp == nil {

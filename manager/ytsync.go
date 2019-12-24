@@ -357,7 +357,18 @@ func (s *Sync) processTransfers() (e error) {
 		isTip := true
 		summary, err := s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, []string{defaultAccount}, nil)
 		if err != nil {
-			return errors.Err(err)
+			if strings.Contains(err.Error(), "tx-size") { //TODO: this is a silly workaround and should be written in an recursive function
+				summary, err = s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount/2.0), &isTip, nil, []string{defaultAccount}, nil)
+				if err != nil {
+					return errors.Prefix(fmt.Sprintf("something went wrong while tipping the channel for %.6f LBCs", supportAmount), err)
+				}
+				summary, err = s.daemon.SupportCreate(s.lbryChannelID, fmt.Sprintf("%.6f", supportAmount/2.0), &isTip, nil, []string{defaultAccount}, nil)
+				if err != nil {
+					return errors.Err(err)
+				}
+			} else {
+				return errors.Err(err)
+			}
 		}
 		if len(summary.Outputs) < 1 {
 			return errors.Err("something went wrong while tipping the channel for %.6f LBCs", supportAmount)
@@ -777,7 +788,7 @@ func (s *Sync) doSync() error {
 		return err
 	}
 
-	if s.transferState != TransferStateComplete {
+	if s.transferState < TransferStateComplete {
 		cert, err := s.daemon.ChannelExport(s.lbryChannelID, nil, nil)
 		if err != nil {
 			return errors.Prefix("error getting channel cert", err)
@@ -883,6 +894,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"This video is not available",
 						"requested format not available",
 						"interrupted by user",
+						"Sign in to confirm your age",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
@@ -1105,6 +1117,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		"Watch this video on YouTube.",
 		"have blocked it on copyright grounds",
 		"giving up after 0 fragment retries",
+		"Sign in to confirm your age",
 	}
 	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
 		log.Println(v.ID() + " can't ever be published")
