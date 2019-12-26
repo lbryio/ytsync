@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lbryio/ytsync/blobs_reflector"
+	"github.com/lbryio/ytsync/ip_manager"
 	"github.com/lbryio/ytsync/namer"
 	"github.com/lbryio/ytsync/sdk"
 	logUtils "github.com/lbryio/ytsync/util"
@@ -202,6 +203,12 @@ func (s *SyncManager) Start() error {
 			shouldNotCount := false
 			logUtils.SendInfoToSlack("Syncing %s (%s) to LBRY! total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			err := sync.FullCycle()
+			//TODO: THIS IS A TEMPORARY WORK AROUND FOR THE STUPID IP LOCKUP BUG
+			ipPool, _ := ip_manager.GetIPPool(sync.grp)
+			if ipPool != nil {
+				ipPool.ReleaseAll()
+			}
+
 			if err != nil {
 				fatalErrors := []string{
 					"default_wallet already exists",

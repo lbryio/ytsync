@@ -121,6 +121,16 @@ func (i *IPPool) ReleaseIP(ip string) {
 	util.SendErrorToSlack("something went wrong while releasing the IP %s as we reached the end of the function", ip)
 }
 
+func (i *IPPool) ReleaseAll() {
+	i.lock.Lock()
+	defer i.lock.Unlock()
+	for j, _ := range i.ips {
+		localIP := &i.ips[j]
+		localIP.InUse = false
+		localIP.LastUse = time.Now()
+	}
+}
+
 func (i *IPPool) SetThrottled(ip string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()

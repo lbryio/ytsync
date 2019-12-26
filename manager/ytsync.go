@@ -895,6 +895,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"requested format not available",
 						"interrupted by user",
 						"Sign in to confirm your age",
+						"This video is unavailable",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")
