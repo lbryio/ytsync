@@ -1088,7 +1088,7 @@ Enqueue:
 func (s *Sync) processVideo(v video) (err error) {
 	defer func() {
 		if p := recover(); p != nil {
-			log.Printf("stack: %s", debug.Stack())
+			logUtils.SendErrorToSlack("Video processing panic! %s", debug.Stack())
 			var ok bool
 			err, ok = p.(error)
 			if !ok {
