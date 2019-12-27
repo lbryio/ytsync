@@ -45,6 +45,7 @@ type SyncFlags struct {
 	RemoveDBUnpublished     bool
 	UpgradeMetadata         bool
 	DisableTransfers        bool
+	QuickSync               bool
 }
 
 type Fee struct {

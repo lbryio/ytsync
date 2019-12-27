@@ -53,7 +53,7 @@ echo "successfully started..."
 ./data_setup.sh
 
 # Execute the sync test!
-./../bin/ytsync --channelID UCNQfQvFMPnInwsU_iGYArJQ --videos-limit 2 --concurrent-jobs 4 #Force channel intended...just in case. This channel lines up with the api container
+./../bin/ytsync --channelID UCNQfQvFMPnInwsU_iGYArJQ --videos-limit 2 --concurrent-jobs 4 --quick #Force channel intended...just in case. This channel lines up with the api container
 status=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM youtube_data WHERE id=1')
 videoStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM synced_video WHERE id=1')
 videoClaimID1=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT publish.claim_id FROM synced_video INNER JOIN publish ON publish.id = synced_video.publish_id WHERE synced_video.id=1')
@@ -71,7 +71,7 @@ mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e "UPDATE youtube_data
 # Trigger transfer api
 curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http://localhost:15400/yt/transfer?auth_token=youtubertoken&address=n4eYeXAYmHo4YRUDEfsEhucy8y5LKRMcHg&public_key=tpubDA9GDAntyJu4hD3wU7175p7CuV6DWbYXfyb2HedBA3yuBp9HZ4n3QE4Ex6RHCSiEuVp2nKAL1Lzf2ZLo9ApaFgNaJjG6Xo1wB3iEeVbrDZp'
 # Execute the transfer test!
-./../bin/ytsync --channelID UCNQfQvFMPnInwsU_iGYArJQ --videos-limit 2 --concurrent-jobs 4 #Force channel intended...just in case. This channel lines up with the api container
+./../bin/ytsync --channelID UCNQfQvFMPnInwsU_iGYArJQ --videos-limit 2 --concurrent-jobs 4 --quick #Force channel intended...just in case. This channel lines up with the api container
 # Check that the channel and the video are marked as transferred and that all supports are spent
 channelTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT distinct transfer_state FROM youtube_data')
 videoTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT distinct transferred FROM synced_video')

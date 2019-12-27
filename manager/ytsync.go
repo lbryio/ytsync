@@ -1007,6 +1007,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 	if err != nil {
 		return err
 	}
+
 	playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
 	nextPageToken := ""
 	for {
@@ -1029,7 +1030,6 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			}
 			return errors.Err("playlist items not found")
 		}
-		//playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
 		videoIDs := make([]string, 50)
 		for i, item := range playlistResponse.Items {
 			// normally we'd send the video into the channel here, but youtube api doesn't have sorting
@@ -1050,7 +1050,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		log.Infof("Got info for %d videos from youtube API", len(videos))
 
 		nextPageToken = playlistResponse.NextPageToken
-		if nextPageToken == "" {
+		if nextPageToken == "" || s.Manager.SyncFlags.QuickSync || len(videos) >= s.Manager.videosLimit {
 			break
 		}
 	}
@@ -1065,7 +1065,6 @@ func (s *Sync) enqueueYoutubeVideos() error {
 
 	}
 	sort.Sort(byPublishedAt(videos))
-	//or sort.Sort(sort.Reverse(byPlaylistPosition(videos)))
 
 Enqueue:
 	for _, v := range videos {
