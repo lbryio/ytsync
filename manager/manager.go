@@ -161,7 +161,7 @@ func (s *SyncManager) Start() error {
 			for _, q := range queuesToSync {
 				//temporary override for sync-until to give tom the time to review the channels
 				if q == StatusQueued {
-					s.syncProperties.SyncUntil = time.Now().AddDate(0, 0, -1).Unix()
+					s.syncProperties.SyncUntil = time.Now().Add(-8 * time.Hour).Unix()
 				}
 				channels, err := s.apiConfig.FetchChannels(q, s.syncProperties)
 				if err != nil {

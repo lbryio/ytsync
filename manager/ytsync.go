@@ -246,6 +246,8 @@ func (s *Sync) setExceptions() {
 	}
 }
 
+var stopGroup = stop.New()
+
 func (s *Sync) FullCycle() (e error) {
 	if os.Getenv("HOME") == "" {
 		return errors.Err("no $HOME env var found")
@@ -258,7 +260,7 @@ func (s *Sync) FullCycle() (e error) {
 
 	s.syncedVideosMux = &sync.RWMutex{}
 	s.walletMux = &sync.RWMutex{}
-	s.grp = stop.New()
+	s.grp = stopGroup
 	s.queue = make(chan video)
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
