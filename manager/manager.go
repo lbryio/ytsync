@@ -149,7 +149,6 @@ func (s *SyncManager) Start() error {
 			shouldInterruptLoop = true
 		} else {
 			var queuesToSync []string
-			//TODO: implement scrambling to avoid starvation of queues
 			if s.syncStatus != "" {
 				queuesToSync = append(queuesToSync, s.syncStatus)
 			} else if s.SyncFlags.SyncUpdate {

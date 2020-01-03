@@ -209,6 +209,10 @@ func (v *YoutubeVideo) download() error {
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
 		"0",
+		"--user-agent",
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
+		"--cookies",
+		"cookies.txt",
 	}
 	if v.maxVideoSize > 0 {
 		ytdlArgs = append(ytdlArgs,

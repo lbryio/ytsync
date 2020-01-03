@@ -125,6 +125,9 @@ func (i *IPPool) ReleaseAll() {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 	for j, _ := range i.ips {
+		if i.ips[j].Throttled {
+			continue
+		}
 		localIP := &i.ips[j]
 		localIP.InUse = false
 		localIP.LastUse = time.Now()
