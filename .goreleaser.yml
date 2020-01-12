@@ -9,12 +9,13 @@ builds:
     - amd64
   ldflags:
     - -X "{{ .Env.IMPORTPATH }}/meta.semVersion={{ .Tag }}" -X "{{ .Env.IMPORTPATH }}/meta.version={{ .Env.VERSIONSHORT }}" -X "{{ .Env.IMPORTPATH }}/meta.versionLong={{ .Env.VERSIONLONG }}" -X "{{ .Env.IMPORTPATH }}/meta.commitMsg={{ .Env.COMMITMSG }}"
-archive:
-  name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
-  replacements:
-    linux: Linux
-    amd64: x86_64
-  format: zip
+archives:
+  - id: zip
+    name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+    replacements:
+      linux: Linux
+      amd64: x86_64
+    format: zip
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -25,4 +26,3 @@ changelog:
     exclude:
     - '^docs:'
     - '^test:'
-
