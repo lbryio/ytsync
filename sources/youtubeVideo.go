@@ -367,7 +367,6 @@ func (v *YoutubeVideo) triggerThumbnailSave() (err error) {
 
 func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	languages, locations, tags := v.getMetadata()
-
 	var fee *jsonrpc.Fee
 	if params.Fee != nil {
 		feeAmount, err := decimal.NewFromString(params.Fee.Amount)
@@ -390,6 +389,9 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*Sync
 			ThumbnailURL: &v.thumbnailURL,
 			Tags:         tags,
 			Locations:    locations,
+			FundingAccountIDs: []string{
+				params.DefaultAccount,
+			},
 		},
 		Fee:         fee,
 		License:     util.PtrToString("Copyrighted (contact publisher)"),
@@ -415,6 +417,7 @@ type SyncParams struct {
 	Namer          *namer.Namer
 	MaxVideoLength float64
 	Fee            *sdk.Fee
+	DefaultAccount string
 }
 
 func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool, walletLock *sync.RWMutex) (*SyncSummary, error) {
@@ -548,6 +551,9 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			ThumbnailURL: &thumbnailURL,
 			Languages:    languages,
 			Locations:    locations,
+			FundingAccountIDs: []string{
+				params.DefaultAccount,
+			},
 		},
 		Author:    util.PtrToString(""),
 		License:   util.PtrToString("Copyrighted (contact publisher)"),

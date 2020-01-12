@@ -660,7 +660,8 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 					log.Debugf("%s: was transferred but appears abandoned! we should ignore this - claimID: %s", vID, sv.ClaimID)
 					continue //TODO: we should flag these on the db
 				} else {
-					return count, fixed, 0, errors.Err("%s: isn't our control but is on the database and on the blockchain. wtf is up? ClaimID: %s", vID, sv.ClaimID)
+					log.Debugf("%s: was transferred adn was then edited! we should ignore this - claimID: %s", vID, sv.ClaimID)
+					//return count, fixed, 0, errors.Err("%s: isn't our control but is on the database and on the blockchain. wtf is up? ClaimID: %s", vID, sv.ClaimID)
 				}
 			}
 			continue
@@ -1143,6 +1144,10 @@ func (s *Sync) processVideo(v video) (err error) {
 	if err != nil {
 		return err
 	}
+	da, err := s.getDefaultAccount()
+	if err != nil {
+		return err
+	}
 	sp := sources.SyncParams{
 		ClaimAddress:   s.claimAddress,
 		Amount:         publishAmount,
@@ -1151,6 +1156,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		Namer:          s.namer,
 		MaxVideoLength: s.Manager.maxVideoLength,
 		Fee:            s.Fee,
+		DefaultAccount: da,
 	}
 
 	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade, s.walletMux)

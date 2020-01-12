@@ -204,7 +204,12 @@ func transferVideos(s *Sync) error {
 
 			streamUpdateOptions := jsonrpc.StreamUpdateOptions{
 				StreamCreateOptions: &jsonrpc.StreamCreateOptions{
-					ClaimCreateOptions: jsonrpc.ClaimCreateOptions{ClaimAddress: &s.clientPublishAddress},
+					ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
+						ClaimAddress: &s.clientPublishAddress,
+						FundingAccountIDs: []string{
+							account,
+						},
+					},
 				},
 				Bid: util.PtrToString("0.005"), // Todo - Dont hardcode
 			}
