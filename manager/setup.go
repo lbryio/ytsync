@@ -331,6 +331,8 @@ func (s *Sync) ensureChannelOwnership() error {
 		}
 	} else if s.transferState == TransferStateComplete {
 		return errors.Err("the channel was transferred but appears to have been abandoned!")
+	} else if s.lbryChannelID != "" {
+		return errors.Err("the database has a channel recorded (%s) but nothing was found in our control", s.lbryChannelID)
 	}
 
 	channelUsesOldMetadata := false
