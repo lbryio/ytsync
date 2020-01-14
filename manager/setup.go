@@ -303,9 +303,6 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Err("no channel name set")
 	}
 
-	if s.transferState == TransferStateComplete {
-		return nil
-	}
 	channels, err := s.daemon.ChannelList(nil, 1, 50, nil)
 	if err != nil {
 		return err
@@ -332,6 +329,8 @@ func (s *Sync) ensureChannelOwnership() error {
 		if channelToUse == nil {
 			return errors.Err("this wallet has channels but not a single one is ours! Expected claim_id: %s (%s)", s.lbryChannelID, s.LbryChannelName)
 		}
+	} else if s.transferState == TransferStateComplete {
+		return errors.Err("the channel was transferred but appears to have been abandoned!")
 	}
 
 	channelUsesOldMetadata := false
