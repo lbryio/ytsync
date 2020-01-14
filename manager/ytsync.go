@@ -660,7 +660,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 					log.Debugf("%s: was transferred but appears abandoned! we should ignore this - claimID: %s", vID, sv.ClaimID)
 					continue //TODO: we should flag these on the db
 				} else {
-					log.Debugf("%s: was transferred adn was then edited! we should ignore this - claimID: %s", vID, sv.ClaimID)
+					log.Debugf("%s: was transferred and was then edited! we should ignore this - claimID: %s", vID, sv.ClaimID)
 					//return count, fixed, 0, errors.Err("%s: isn't our control but is on the database and on the blockchain. wtf is up? ClaimID: %s", vID, sv.ClaimID)
 				}
 			}
