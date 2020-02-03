@@ -94,15 +94,20 @@ func IsRegTest() bool {
 }
 
 func GetLbrycrdClient(lbrycrdString string) (*lbrycrd.Client, error) {
+	chainName := os.Getenv("CHAINNAME")
+	chainParams, ok := lbrycrd.ChainParamsMap[chainName]
+	if !ok {
+		chainParams = lbrycrd.MainNetParams
+	}
 	var lbrycrdd *lbrycrd.Client
 	var err error
 	if lbrycrdString == "" {
-		lbrycrdd, err = lbrycrd.NewWithDefaultURL()
+		lbrycrdd, err = lbrycrd.NewWithDefaultURL(&chainParams)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		lbrycrdd, err = lbrycrd.New(lbrycrdString)
+		lbrycrdd, err = lbrycrd.New(lbrycrdString, &chainParams)
 		if err != nil {
 			return nil, err
 		}

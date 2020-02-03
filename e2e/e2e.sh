@@ -28,6 +28,7 @@ export BLOBS_DIRECTORY="$(pwd)/e2e/blobsfiles"
 export LBRYNET_DIR="$(pwd)/e2e/persist/.lbrynet/.local/share/lbry/lbrynet/"
 export LBRYNET_WALLETS_DIR="$(pwd)/e2e/persist/.lbrynet/.local/share/lbry/lbryum"
 export TMP_DIR="/var/tmp"
+export CHAINNAME="lbrycrd_regtest"
 export UID
 
 cd ./e2e
