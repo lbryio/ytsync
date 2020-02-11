@@ -1,5 +1,7 @@
 module github.com/lbryio/ytsync
 
+replace github.com/btcsuite/btcd => github.com/lbryio/lbrycrd.go v0.0.0-20200203050410-e1076f12bf19
+
 require (
 	cloud.google.com/go v0.46.3 // indirect
 	github.com/ChannelMeter/iso8601duration v0.0.0-20150204201828-8da3af7a2a61
@@ -18,7 +20,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
-	github.com/lbryio/lbry.go/v2 v2.4.1-0.20191206194319-06764c3d007e
+	github.com/lbryio/lbry.go/v2 v2.4.7-0.20200203053542-c4772e61c565
 	github.com/lbryio/reflector.go v1.0.6-0.20190828131602-ce3d4403dbc6
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
