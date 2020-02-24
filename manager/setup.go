@@ -222,6 +222,9 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if desiredUTXOCount > maxUTXOs {
 			desiredUTXOCount = maxUTXOs
 		}
+		if desiredUTXOCount < uint64(confirmedCount) {
+			return nil
+		}
 		availableBalance, _ := balance.Available.Float64()
 		log.Infof("Splitting balance of %.3f evenly between %d UTXOs", availableBalance, desiredUTXOCount)
 
