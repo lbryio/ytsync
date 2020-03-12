@@ -56,6 +56,7 @@ type Fee struct {
 type YoutubeChannel struct {
 	ChannelId          string `json:"channel_id"`
 	TotalVideos        uint   `json:"total_videos"`
+	TotalSubscribers   uint   `json:"total_subscribers"`
 	DesiredChannelName string `json:"desired_channel_name"`
 	Fee                *Fee   `json:"fee"`
 	ChannelClaimID     string `json:"channel_claim_id"`

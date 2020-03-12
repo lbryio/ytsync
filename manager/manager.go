@@ -168,6 +168,9 @@ func (s *SyncManager) Start() error {
 				}
 				for i, c := range channels {
 					log.Infof("There are %d channels in the \"%s\" queue", len(channels)-i, q)
+					if c.TotalSubscribers < 1000 {
+						s.maxVideoLength = 1.0
+					}
 					syncs = append(syncs, Sync{
 						APIConfig:            s.apiConfig,
 						YoutubeChannelID:     c.ChannelId,
