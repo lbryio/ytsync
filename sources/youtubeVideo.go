@@ -434,6 +434,13 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	var err error
+	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	if videoDuration.ToDuration() > time.Duration(v.maxVideoLength*60)*time.Minute {
+		return nil, errors.Err("video is too long to process")
+	}
 	for {
 		err = v.download()
 		if err != nil && strings.Contains(err.Error(), "HTTP Error 429") {
