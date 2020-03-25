@@ -49,6 +49,19 @@ func GetLBRYNetDir() string {
 	return lbrynetDir
 }
 
+func GetLbryumDir() string {
+	lbryumDir := os.Getenv("LBRYNET_WALLETS_DIR")
+	if lbryumDir == "" {
+		usr, err := user.Current()
+		if err != nil {
+			log.Errorln(err.Error())
+			return ""
+		}
+		return usr.HomeDir + "/.lbryum/"
+	}
+	return lbryumDir + "/"
+}
+
 const ALL = true
 const ONLINE = false
 
@@ -224,6 +237,30 @@ func CleanupLbrynet() error {
 	err = os.Mkdir(blobsDir, 0777)
 	if err != nil {
 		return errors.Err(err)
+	}
+
+	lbryumDir := GetLbryumDir()
+	ledger := "lbc_mainnet"
+	if IsRegTest() {
+		ledger = "lbc_regtest"
+	}
+
+	db, err := os.Stat(lbryumDir + ledger + "/blockchain.db")
+	if err != nil {
+		return errors.Err(err)
+	}
+	dbSizeLimit := int64(2 * 1024 * 1024 * 1024)
+	if db.Size() > dbSizeLimit {
+		files, err := filepath.Glob(lbryumDir + "blockchain.db*")
+		if err != nil {
+			return errors.Err(err)
+		}
+		for _, f := range files {
+			err = os.Remove(f)
+			if err != nil {
+				return errors.Err(err)
+			}
+		}
 	}
 	return nil
 }
