@@ -248,6 +248,9 @@ func CleanupLbrynet() error {
 
 	db, err := os.Stat(lbryumDir + "/blockchain.db")
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return errors.Err(err)
 	}
 	dbSizeLimit := int64(2 * 1024 * 1024 * 1024)
