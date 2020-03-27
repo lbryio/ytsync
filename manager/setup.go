@@ -422,15 +422,20 @@ func (s *Sync) ensureChannelOwnership() error {
 		ThumbnailURL: &thumbnailURL,
 	}
 	if channelUsesOldMetadata {
-		c, err = s.daemon.ChannelUpdate(s.lbryChannelID, jsonrpc.ChannelUpdateOptions{
-			ClearTags:      util.PtrToBool(true),
-			ClearLocations: util.PtrToBool(true),
-			ClearLanguages: util.PtrToBool(true),
-			ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
-				ClaimCreateOptions: claimCreateOptions,
-				CoverURL:           bannerURL,
-			},
-		})
+		if s.transferState <= 1 {
+			c, err = s.daemon.ChannelUpdate(s.lbryChannelID, jsonrpc.ChannelUpdateOptions{
+				ClearTags:      util.PtrToBool(true),
+				ClearLocations: util.PtrToBool(true),
+				ClearLanguages: util.PtrToBool(true),
+				ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
+					ClaimCreateOptions: claimCreateOptions,
+					CoverURL:           bannerURL,
+				},
+			})
+		} else {
+			logUtils.SendInfoToSlack("%s (%s) has a channel with old metadata but isn't in our control anymore. Ignoring", s.LbryChannelName, s.lbryChannelID)
+			return nil
+		}
 	} else {
 		c, err = s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: claimCreateOptions,
