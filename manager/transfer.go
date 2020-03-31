@@ -91,16 +91,17 @@ func abandonSupports(s *Sync) (float64, error) {
 		consumerWG.Add(1)
 		go func() {
 			defer consumerWG.Done()
+		outer:
 			for {
 				claimID, more := <-claimIDChan
 				if !more {
 					return
 				} else {
-					summary, err := s.daemon.SupportAbandon(&claimID, nil, nil, nil, &defaultAccount)
+					summary, err := s.daemon.TxoSpend(util.PtrToString("support"), &claimID, nil, nil, nil, &defaultAccount)
 					if err != nil {
 						if strings.Contains(err.Error(), "Client.Timeout exceeded while awaiting headers") {
 							log.Errorf("Support abandon for %s timed out, retrying...", claimID)
-							summary, err = s.daemon.SupportAbandon(&claimID, nil, nil, nil, &defaultAccount)
+							summary, err = s.daemon.TxoSpend(util.PtrToString("support"), &claimID, nil, nil, nil, &defaultAccount)
 							if err != nil {
 								//TODO GUESS HOW MUCH LBC WAS RELEASED THAT WE DON'T KNOW ABOUT, because screw you SDK
 								abandonRspChan <- abandonResponse{
@@ -119,7 +120,7 @@ func abandonSupports(s *Sync) (float64, error) {
 							continue
 						}
 					}
-					if len(summary.Outputs) < 1 {
+					if summary == nil || len(*summary) < 1 {
 						abandonRspChan <- abandonResponse{
 							ClaimID: claimID,
 							Error:   errors.Err("error abandoning supports: no outputs while abandoning %s", claimID),
@@ -127,7 +128,19 @@ func abandonSupports(s *Sync) (float64, error) {
 						}
 						continue
 					}
-					outputAmount, err := strconv.ParseFloat(summary.Outputs[0].Amount, 64)
+					var outputAmount float64
+					for _, tx := range *summary {
+						amount, err := strconv.ParseFloat(tx.Outputs[0].Amount, 64)
+						if err != nil {
+							abandonRspChan <- abandonResponse{
+								ClaimID: claimID,
+								Error:   errors.Err(err),
+								Amount:  0,
+							}
+							continue outer
+						}
+						outputAmount += amount
+					}
 					if err != nil {
 						abandonRspChan <- abandonResponse{
 							ClaimID: claimID,
