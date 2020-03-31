@@ -1029,7 +1029,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			if youtubeIsLying {
 				break
 			}
-			return errors.Err("playlist items not found")
+			break //return errors.Err("playlist items not found") //TODO: will this work?
 		}
 		videoIDs := make([]string, 50)
 		for i, item := range playlistResponse.Items {
