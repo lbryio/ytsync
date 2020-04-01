@@ -781,6 +781,10 @@ func (s *Sync) doSync() error {
 	if err != nil {
 		return errors.Prefix("could not import the transferee public key", err)
 	}
+	_, err = s.daemon.UTXORelease(nil)
+	if err != nil {
+		return errors.Prefix("could not run uxo_release", err)
+	}
 	err = s.walletSetup()
 	if err != nil {
 		return errors.Prefix("Initial wallet setup failed! Manual Intervention is required.", err)
