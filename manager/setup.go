@@ -196,7 +196,7 @@ func (s *Sync) ensureEnoughUTXOs() error {
 
 	for _, utxo := range utxolist.Items {
 		amount, _ := strconv.ParseFloat(utxo.Amount, 64)
-		if utxo.IsMine && utxo.Type == "payment" && amount > 0.001 {
+		if utxo.IsMyOutput && utxo.Type == "payment" && amount > 0.001 {
 			if utxo.Confirmations > 0 {
 				confirmedCount++
 			}
