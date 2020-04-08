@@ -91,6 +91,7 @@ type Sync struct {
 	clientPublishAddress string
 	publicKey            string
 	defaultAccountID     string
+	MaxVideoLength       float64
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -979,6 +980,8 @@ func (s *Sync) startWorker(workerNum int) {
 	}
 }
 
+var mostRecentlyFailedChannel string
+
 func (s *Sync) enqueueYoutubeVideos() error {
 	client := &http.Client{
 		Transport: &transport.APIKey{Key: s.APIConfig.YoutubeAPIKey},
@@ -1033,6 +1036,10 @@ func (s *Sync) enqueueYoutubeVideos() error {
 			if youtubeIsLying {
 				break
 			}
+			if s.YoutubeChannelID == mostRecentlyFailedChannel {
+				return errors.Err("playlist items not found")
+			}
+			mostRecentlyFailedChannel = s.YoutubeChannelID
 			break //return errors.Err("playlist items not found") //TODO: will this work?
 		}
 		videoIDs := make([]string, 50)
@@ -1158,7 +1165,7 @@ func (s *Sync) processVideo(v video) (err error) {
 		ChannelID:      s.lbryChannelID,
 		MaxVideoSize:   s.Manager.maxVideoSize,
 		Namer:          s.namer,
-		MaxVideoLength: s.Manager.maxVideoLength,
+		MaxVideoLength: s.MaxVideoLength,
 		Fee:            s.Fee,
 		DefaultAccount: da,
 	}

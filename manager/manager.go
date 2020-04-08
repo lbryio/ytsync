@@ -168,8 +168,9 @@ func (s *SyncManager) Start() error {
 				}
 				for i, c := range channels {
 					log.Infof("There are %d channels in the \"%s\" queue", len(channels)-i, q)
+					maxVideoLength := s.maxVideoLength
 					if c.TotalSubscribers < 1000 {
-						s.maxVideoLength = 1.0
+						maxVideoLength = 1.0
 					}
 					syncs = append(syncs, Sync{
 						APIConfig:            s.apiConfig,
@@ -178,6 +179,7 @@ func (s *SyncManager) Start() error {
 						lbryChannelID:        c.ChannelClaimID,
 						MaxTries:             s.maxTries,
 						ConcurrentVideos:     s.concurrentVideos,
+						MaxVideoLength:       maxVideoLength,
 						Refill:               s.refill,
 						Manager:              s,
 						LbrycrdString:        s.lbrycrdString,
