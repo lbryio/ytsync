@@ -135,6 +135,7 @@ func (s *SyncManager) Start() error {
 				ConcurrentVideos:     s.concurrentVideos,
 				Refill:               s.refill,
 				Manager:              s,
+				MaxVideoLength:       s.maxVideoLength,
 				LbrycrdString:        s.lbrycrdString,
 				AwsS3ID:              s.awsS3ID,
 				AwsS3Secret:          s.awsS3Secret,
