@@ -439,6 +439,7 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 		return nil, errors.Err(err)
 	}
 	if videoDuration.ToDuration() > time.Duration(v.maxVideoLength*60)*time.Minute {
+		log.Infof("%s is %s long and the limit is %s", v.id, videoDuration.ToDuration().String(), (time.Duration(v.maxVideoLength*60) * time.Minute).String())
 		return nil, errors.Err("video is too long to process")
 	}
 	for {
