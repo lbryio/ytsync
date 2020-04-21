@@ -17,6 +17,7 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
+	logUtils "github.com/lbryio/ytsync/util"
 
 	"github.com/lbryio/ytsync/ip_manager"
 	"github.com/lbryio/ytsync/namer"
@@ -440,6 +441,7 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 	}
 	if videoDuration.ToDuration() > time.Duration(v.maxVideoLength*60)*time.Minute {
 		log.Infof("%s is %s long and the limit is %s", v.id, videoDuration.ToDuration().String(), (time.Duration(v.maxVideoLength*60) * time.Minute).String())
+		logUtils.SendErrorToSlack("%s is %s long and the limit is %s", v.id, videoDuration.ToDuration().String(), (time.Duration(v.maxVideoLength*60) * time.Minute).String())
 		return nil, errors.Err("video is too long to process")
 	}
 	for {
