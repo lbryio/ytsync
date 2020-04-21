@@ -205,6 +205,7 @@ func (v *YoutubeVideo) download() error {
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
+		"--rm-cache-dir",
 		"--postprocessor-args",
 		"-movflags faststart",
 		"--abort-on-unavailable-fragment",
