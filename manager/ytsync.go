@@ -242,7 +242,7 @@ func (s *Sync) setStatusSyncing() error {
 
 func (s *Sync) setExceptions() {
 	if s.YoutubeChannelID == "UCwjQfNRW6sGYb__pd7d4nUg" { //@FreeTalkLive
-		s.Manager.maxVideoLength = 0.0 // skips max length checks
+		s.MaxVideoLength = 9999.0 // skips max length checks
 		s.Manager.maxVideoSize = 0
 	}
 }
