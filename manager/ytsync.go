@@ -307,7 +307,7 @@ func (s *Sync) FullCycle() (e error) {
 
 	log.Infoln("Waiting for daemon to finish starting...")
 	s.daemon = jsonrpc.NewClient(os.Getenv("LBRYNET_ADDRESS"))
-	s.daemon.SetRPCTimeout(40 * time.Minute)
+	s.daemon.SetRPCTimeout(20 * time.Minute)
 
 	err = s.waitForDaemonStart()
 	if err != nil {
@@ -904,6 +904,7 @@ func (s *Sync) startWorker(workerNum int) {
 						"interrupted by user",
 						"Sign in to confirm your age",
 						"This video is unavailable",
+						"video is a live stream and hasn't completed yet",
 					}
 					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
 						log.Println("This error should not be retried at all")

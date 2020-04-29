@@ -86,7 +86,7 @@ func abandonSupports(s *Sync) (float64, error) {
 	consumerWG := &stop.Group{}
 	//TODO: remove this once the SDK team fixes their RPC bugs....
 	s.daemon.SetRPCTimeout(30 * time.Second)
-	defer s.daemon.SetRPCTimeout(40 * time.Minute)
+	defer s.daemon.SetRPCTimeout(20 * time.Minute)
 	for i := 0; i < s.ConcurrentVideos; i++ {
 		consumerWG.Add(1)
 		go func() {

@@ -180,6 +180,9 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 }
 
 func (v *YoutubeVideo) download() error {
+	if v.youtubeInfo.Snippet.LiveBroadcastContent != "none" {
+		return errors.Err("video is a live stream and hasn't completed yet")
+	}
 	videoPath := v.getFullPath()
 
 	err := os.Mkdir(v.videoDir(), 0777)
