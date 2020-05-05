@@ -130,7 +130,6 @@ func (i *IPPool) ReleaseAll() {
 		}
 		localIP := &i.ips[j]
 		localIP.InUse = false
-		localIP.LastUse = time.Now()
 	}
 }
 
