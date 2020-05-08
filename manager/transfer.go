@@ -22,8 +22,9 @@ func waitConfirmations(s *Sync) error {
 		return err
 	}
 	allConfirmed := false
+	waitCount := 0
 waiting:
-	for !allConfirmed {
+	for !allConfirmed || waitCount >= 2 {
 		utxolist, err := s.daemon.UTXOList(&defaultAccount, 1, 10000)
 		if err != nil {
 			return err
@@ -37,6 +38,7 @@ waiting:
 				if err != nil {
 					return err
 				}
+				waitCount++
 				continue waiting
 			}
 		}

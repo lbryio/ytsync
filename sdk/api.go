@@ -146,7 +146,7 @@ func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
 	body, _ := ioutil.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
-		log.Debugln(body)
+		log.Debugln(string(body))
 		time.Sleep(30 * time.Second)
 		return a.SetChannelCert(certHex, channelID)
 	}
