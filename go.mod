@@ -20,7 +20,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
-	github.com/lbryio/lbry.go/v2 v2.5.3
+	github.com/lbryio/lbry.go/v2 v2.6.0
 	github.com/lbryio/reflector.go v1.0.6-0.20190828131602-ce3d4403dbc6
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
