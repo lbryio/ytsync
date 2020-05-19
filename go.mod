@@ -26,6 +26,7 @@ require (
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2 // indirect
+	github.com/prometheus/client_golang v0.9.2
 	github.com/shopspring/decimal v0.0.0-20191009025716-f1972eb1d1f5
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/lbryio/ytsync/manager"
 	"github.com/lbryio/ytsync/sdk"
 	ytUtils "github.com/lbryio/ytsync/util"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -38,7 +40,10 @@ var (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	log.SetLevel(log.DebugLevel)
-
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		log.Error(http.ListenAndServe(":2112", nil))
+	}()
 	cmd := &cobra.Command{
 		Use:   "ytsync",
 		Short: "Publish youtube channels into LBRY network automatically.",

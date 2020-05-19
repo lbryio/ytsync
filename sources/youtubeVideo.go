@@ -17,6 +17,7 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
+	"github.com/lbryio/ytsync/timing"
 	logUtils "github.com/lbryio/ytsync/util"
 
 	"github.com/lbryio/ytsync/ip_manager"
@@ -180,6 +181,10 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 }
 
 func (v *YoutubeVideo) download() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("download").Add(time.Since(start))
+	}(start)
 	if v.youtubeInfo.Snippet.LiveBroadcastContent != "none" {
 		return errors.Err("video is a live stream and hasn't completed yet")
 	}
@@ -371,6 +376,10 @@ func (v *YoutubeVideo) triggerThumbnailSave() (err error) {
 }
 
 func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("publish").Add(time.Since(start))
+	}(start)
 	languages, locations, tags := v.getMetadata()
 	var fee *jsonrpc.Fee
 	if params.Fee != nil {
@@ -580,10 +589,12 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 	v.walletLock.RLock()
 	defer v.walletLock.RUnlock()
 	if v.mocked {
+		start := time.Now()
 		pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 			StreamCreateOptions: streamCreateOptions,
 			FileSize:            &videoSize,
 		})
+		timing.TimedComponent("StreamUpdate").Add(time.Since(start))
 		if err != nil {
 			return nil, err
 		}
@@ -603,6 +614,7 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 	streamCreateOptions.ClaimCreateOptions.Description = util.PtrToString(v.getAbbrevDescription())
 	streamCreateOptions.Duration = util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds())))
 	streamCreateOptions.ReleaseTime = util.PtrToInt64(v.publishedAt.Unix())
+	start := time.Now()
 	pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{
 		ClearLanguages:      util.PtrToBool(true),
 		ClearLocations:      util.PtrToBool(true),
@@ -610,6 +622,7 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		StreamCreateOptions: streamCreateOptions,
 		FileSize:            &videoSize,
 	})
+	timing.TimedComponent("StreamUpdate").Add(time.Since(start))
 	if err != nil {
 		return nil, err
 	}

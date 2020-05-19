@@ -19,6 +19,7 @@ import (
 	"github.com/lbryio/ytsync/sdk"
 	"github.com/lbryio/ytsync/sources"
 	"github.com/lbryio/ytsync/thumbs"
+	"github.com/lbryio/ytsync/timing"
 	logUtils "github.com/lbryio/ytsync/util"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
@@ -258,7 +259,7 @@ func (s *Sync) FullCycle() (e error) {
 	}
 
 	s.setExceptions()
-
+	defer timing.ClearTimings()
 	s.syncedVideosMux = &sync.RWMutex{}
 	s.walletMux = &sync.RWMutex{}
 	s.grp = stopGroup
@@ -277,7 +278,6 @@ func (s *Sync) FullCycle() (e error) {
 	}
 
 	defer s.setChannelTerminationStatus(&e)
-
 	err = s.downloadWallet()
 	if err != nil && err.Error() != "wallet not on S3" {
 		return errors.Prefix("failure in downloading wallet", err)
@@ -320,10 +320,10 @@ func (s *Sync) FullCycle() (e error) {
 	}
 
 	if s.shouldTransfer() {
-		return s.processTransfers()
+		err = s.processTransfers()
 	}
-
-	return nil
+	timing.Report()
+	return err
 }
 
 func (s *Sync) processTransfers() (e error) {
@@ -428,6 +428,9 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 
 func (s *Sync) waitForDaemonStart() error {
 	beginTime := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("waitForDaemonStart").Add(time.Since(start))
+	}(beginTime)
 	for {
 		select {
 		case <-s.grp.Ch():
@@ -505,6 +508,10 @@ func isYtsyncClaim(c jsonrpc.Claim, expectedChannelID string) bool {
 
 // fixDupes abandons duplicate claims
 func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("fixDupes").Add(time.Since(start))
+	}(start)
 	abandonedClaims := false
 	videoIDs := make(map[string]jsonrpc.Claim)
 	for _, c := range claims {
@@ -714,6 +721,10 @@ func (s *Sync) getClaims(defaultOnly bool) ([]jsonrpc.Claim, error) {
 }
 
 func (s *Sync) checkIntegrity() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("checkIntegrity").Add(time.Since(start))
+	}(start)
 	allClaims, err := s.getClaims(false)
 	if err != nil {
 		return err
@@ -984,6 +995,10 @@ func (s *Sync) startWorker(workerNum int) {
 var mostRecentlyFailedChannel string
 
 func (s *Sync) enqueueYoutubeVideos() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("enqueueYoutubeVideos").Add(time.Since(start))
+	}(start)
 	client := &http.Client{
 		Transport: &transport.APIKey{Key: s.APIConfig.YoutubeAPIKey},
 	}

@@ -7,9 +7,11 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/lbrycrd"
+	"github.com/lbryio/ytsync/timing"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -270,6 +272,10 @@ func CleanupLbrynet() error {
 }
 
 func StartDaemon() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("startDaemon").Add(time.Since(start))
+	}(start)
 	if IsUsingDocker() {
 		return startDaemonViaDocker()
 	}
@@ -277,6 +283,10 @@ func StartDaemon() error {
 }
 
 func StopDaemon() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("stopDaemon").Add(time.Since(start))
+	}(start)
 	if IsUsingDocker() {
 		return stopDaemonViaDocker()
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/util"
+	"github.com/lbryio/ytsync/timing"
 	logUtils "github.com/lbryio/ytsync/util"
 
 	"github.com/lbryio/ytsync/tags_manager"
@@ -49,6 +50,10 @@ func (s *Sync) enableAddressReuse() error {
 	return nil
 }
 func (s *Sync) walletSetup() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("walletSetup").Add(time.Since(start))
+	}(start)
 	//prevent unnecessary concurrent execution and publishing while refilling/reallocating UTXOs
 	s.walletMux.Lock()
 	defer s.walletMux.Unlock()
@@ -151,6 +156,10 @@ func (s *Sync) walletSetup() error {
 }
 
 func (s *Sync) getDefaultAccount() (string, error) {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("getDefaultAccount").Add(time.Since(start))
+	}(start)
 	if s.defaultAccountID == "" {
 		accountsResponse, err := s.daemon.AccountList(1, 50)
 		if err != nil {
@@ -177,6 +186,10 @@ func (s *Sync) getDefaultAccount() (string, error) {
 }
 
 func (s *Sync) ensureEnoughUTXOs() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("ensureEnoughUTXOs").Add(time.Since(start))
+	}(start)
 	defaultAccount, err := s.getDefaultAccount()
 	if err != nil {
 		return err
@@ -253,6 +266,10 @@ func (s *Sync) ensureEnoughUTXOs() error {
 }
 
 func (s *Sync) waitForNewBlock() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("waitForNewBlock").Add(time.Since(start))
+	}(start)
 	log.Printf("regtest: %t, docker: %t", logUtils.IsRegTest(), logUtils.IsUsingDocker())
 	status, err := s.daemon.Status()
 	if err != nil {
@@ -302,6 +319,10 @@ func (s *Sync) GenerateRegtestBlock() error {
 }
 
 func (s *Sync) ensureChannelOwnership() error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("ensureChannelOwnership").Add(time.Since(start))
+	}(start)
 	if s.LbryChannelName == "" {
 		return errors.Err("no channel name set")
 	}
@@ -451,6 +472,10 @@ func (s *Sync) ensureChannelOwnership() error {
 }
 
 func (s *Sync) addCredits(amountToAdd float64) error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("addCredits").Add(time.Since(start))
+	}(start)
 	log.Printf("Adding %f credits", amountToAdd)
 	lbrycrdd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
 	if err != nil {

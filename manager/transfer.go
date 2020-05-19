@@ -10,13 +10,17 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
-
 	"github.com/lbryio/ytsync/sdk"
+	"github.com/lbryio/ytsync/timing"
 
 	log "github.com/sirupsen/logrus"
 )
 
 func waitConfirmations(s *Sync) error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("waitConfirmations").Add(time.Since(start))
+	}(start)
 	defaultAccount, err := s.getDefaultAccount()
 	if err != nil {
 		return err
@@ -54,6 +58,10 @@ type abandonResponse struct {
 }
 
 func abandonSupports(s *Sync) (float64, error) {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("abandonSupports").Add(time.Since(start))
+	}(start)
 	totalPages := uint64(1)
 	var allSupports []jsonrpc.Claim
 	defaultAccount, err := s.getDefaultAccount()
@@ -185,6 +193,10 @@ type updateInfo struct {
 }
 
 func transferVideos(s *Sync) error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("transferVideos").Add(time.Since(start))
+	}(start)
 	cleanTransfer := true
 
 	streamChan := make(chan updateInfo, s.ConcurrentVideos)
@@ -273,7 +285,9 @@ func transferVideos(s *Sync) error {
 }
 
 func (s *Sync) streamUpdate(ui *updateInfo) error {
+	start := time.Now()
 	result, updateError := s.daemon.StreamUpdate(ui.ClaimID, *ui.streamUpdateOptions)
+	timing.TimedComponent("transferStreamUpdate").Add(time.Since(start))
 	if updateError != nil {
 		ui.videoStatus.FailureReason = updateError.Error()
 		ui.videoStatus.Status = VideoStatusTranferFailed
@@ -290,6 +304,10 @@ func (s *Sync) streamUpdate(ui *updateInfo) error {
 }
 
 func transferChannel(s *Sync) error {
+	start := time.Now()
+	defer func(start time.Time) {
+		timing.TimedComponent("transferChannel").Add(time.Since(start))
+	}(start)
 	account, err := s.getDefaultAccount()
 	if err != nil {
 		return err
