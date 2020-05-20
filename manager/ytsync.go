@@ -307,7 +307,7 @@ func (s *Sync) FullCycle() (e error) {
 
 	log.Infoln("Waiting for daemon to finish starting...")
 	s.daemon = jsonrpc.NewClient(os.Getenv("LBRYNET_ADDRESS"))
-	s.daemon.SetRPCTimeout(20 * time.Minute)
+	s.daemon.SetRPCTimeout(5 * time.Minute)
 
 	err = s.waitForDaemonStart()
 	if err != nil {
