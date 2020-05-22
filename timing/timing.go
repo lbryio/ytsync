@@ -33,6 +33,9 @@ func TimedComponent(component string) *Timing {
 }
 
 func ClearTimings() {
+	if timings == nil {
+		return
+	}
 	timings.Range(func(key interface{}, value interface{}) bool {
 		timings.Delete(key)
 		return true
