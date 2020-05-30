@@ -225,7 +225,9 @@ func (s *SyncManager) Start() error {
 					"this channel does not belong to this wallet!",
 					"You already have a stream claim published under the name",
 					"Daily Limit Exceeded",
+					"quotaExceeded",
 				}
+
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
 					return errors.Prefix("@Nikooo777 this requires manual intervention! Exiting...", err)
 				}
