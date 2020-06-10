@@ -24,7 +24,7 @@ addons:
 
 before_script:
   - sudo pip3 install -U youtube-dl
-  - sudo add-apt-repository -y ppa:jonathonf/ffmpeg-4
+  - sudo add-apt-repository -y ppa:savoury1/ffmpeg4
 
 env:
   global:
