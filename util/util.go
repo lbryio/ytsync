@@ -271,6 +271,19 @@ func CleanupLbrynet() error {
 	return nil
 }
 
+func SleepUntilQuotaReset() {
+	PST, _ := time.LoadLocation("America/Los_Angeles")
+	t := time.Now().In(PST)
+	n := time.Date(t.Year(), t.Month(), t.Day(), 24, 2, 0, 0, PST)
+	d := n.Sub(t)
+	if d < 0 {
+		n = n.Add(24 * time.Hour)
+		d = n.Sub(t)
+	}
+	log.Infof("gotta sleep %s until the quota resets", d.String())
+	time.Sleep(d)
+}
+
 func StartDaemon() error {
 	start := time.Now()
 	defer func(start time.Time) {

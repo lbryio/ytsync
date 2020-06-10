@@ -215,6 +215,9 @@ func (s *SyncManager) Start() error {
 			}
 
 			if err != nil {
+				if strings.Contains(err.Error(), "quotaExceeded") {
+					logUtils.SleepUntilQuotaReset()
+				}
 				fatalErrors := []string{
 					"default_wallet already exists",
 					"WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR",
@@ -224,8 +227,6 @@ func (s *SyncManager) Start() error {
 					"the channel in the wallet is different than the channel in the database",
 					"this channel does not belong to this wallet!",
 					"You already have a stream claim published under the name",
-					"Daily Limit Exceeded",
-					"quotaExceeded",
 				}
 
 				if util.SubstringInSlice(err.Error(), fatalErrors) {
