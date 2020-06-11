@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
-	"github.com/lbryio/ytsync/namer"
+	"github.com/lbryio/ytsync/v5/namer"
 )
 
 type SyncSummary struct {

@@ -10,8 +10,8 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
-	"github.com/lbryio/ytsync/sdk"
-	"github.com/lbryio/ytsync/timing"
+	"github.com/lbryio/ytsync/v5/sdk"
+	"github.com/lbryio/ytsync/v5/timing"
 
 	log "github.com/sirupsen/logrus"
 )

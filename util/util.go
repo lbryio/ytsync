@@ -11,7 +11,7 @@ import (
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/lbrycrd"
-	"github.com/lbryio/ytsync/timing"
+	"github.com/lbryio/ytsync/v5/timing"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"

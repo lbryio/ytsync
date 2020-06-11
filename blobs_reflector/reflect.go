@@ -14,7 +14,7 @@ import (
 	"github.com/lbryio/reflector.go/store"
 	"github.com/sirupsen/logrus"
 
-	"github.com/lbryio/ytsync/util"
+	"github.com/lbryio/ytsync/v5/util"
 )
 
 var dbHandle *db.SQL

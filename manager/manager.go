@@ -6,11 +6,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lbryio/ytsync/blobs_reflector"
-	"github.com/lbryio/ytsync/ip_manager"
-	"github.com/lbryio/ytsync/namer"
-	"github.com/lbryio/ytsync/sdk"
-	logUtils "github.com/lbryio/ytsync/util"
+	"github.com/lbryio/ytsync/v5/blobs_reflector"
+	"github.com/lbryio/ytsync/v5/ip_manager"
+	"github.com/lbryio/ytsync/v5/namer"
+	"github.com/lbryio/ytsync/v5/sdk"
+	logUtils "github.com/lbryio/ytsync/v5/util"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/util"

@@ -1,4 +1,4 @@
-module github.com/lbryio/ytsync
+module github.com/lbryio/ytsync/v5
 
 replace github.com/btcsuite/btcd => github.com/lbryio/lbrycrd.go v0.0.0-20200203050410-e1076f12bf19
 

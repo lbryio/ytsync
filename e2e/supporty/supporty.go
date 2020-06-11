@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lbryio/ytsync/util"
+	"github.com/lbryio/ytsync/v5/util"
 
 	"github.com/sirupsen/logrus"
 )

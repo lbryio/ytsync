@@ -10,11 +10,11 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/util"
-	"github.com/lbryio/ytsync/timing"
-	logUtils "github.com/lbryio/ytsync/util"
+	"github.com/lbryio/ytsync/v5/timing"
+	logUtils "github.com/lbryio/ytsync/v5/util"
 
-	"github.com/lbryio/ytsync/tags_manager"
-	"github.com/lbryio/ytsync/thumbs"
+	"github.com/lbryio/ytsync/v5/tags_manager"
+	"github.com/lbryio/ytsync/v5/thumbs"
 
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"

@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lbryio/ytsync/metrics"
+	"github.com/lbryio/ytsync/v5/metrics"
 	"github.com/sirupsen/logrus"
 )
 
