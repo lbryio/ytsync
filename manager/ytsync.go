@@ -1255,7 +1255,7 @@ func (s *Sync) getUnsentSupports() (float64, error) {
 		if err != nil {
 			return 0, errors.Err(err)
 		}
-		transactionList, err := s.daemon.TransactionList(&defaultAccount, 1, 90000)
+		transactionList, err := s.daemon.TransactionList(&defaultAccount, nil, 1, 90000)
 		if err != nil {
 			return 0, errors.Err(err)
 		}
