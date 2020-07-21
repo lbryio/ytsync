@@ -113,6 +113,7 @@ type SyncedVideo struct {
 	Size            int64  `json:"size"`
 	MetadataVersion int8   `json:"metadata_version"`
 	Transferred     bool   `json:"transferred"`
+	IsLbryFirst     bool   `json:"is_lbry_first"`
 }
 
 func sanitizeFailureReason(s *string) {
