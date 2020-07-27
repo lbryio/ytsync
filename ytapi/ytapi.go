@@ -142,7 +142,7 @@ func CountVideosInChannel(channelID string) (int, error) {
 }
 
 func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.ChannelBrandingSettings, error) {
-	panic("not de-youtube-ified yet")
+	return nil, nil, errors.Err("ChannelInfo doesn't work yet because we're focused on existing channels")
 	service, err := ytlib.New(&http.Client{Transport: &transport.APIKey{Key: apiKey}})
 	if err != nil {
 		return nil, nil, errors.Prefix("error creating YouTube service", err)
