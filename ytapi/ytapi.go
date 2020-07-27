@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lbryio/ytsync/v5/downloader/ytdl"
+
 	"github.com/lbryio/ytsync/v5/downloader"
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/sdk"
@@ -74,14 +76,18 @@ func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.Synce
 		mostRecentlyFailedChannel = channelID
 	}
 
-	vids, err := getVideos(apiKey, videoIDs)
+	vids, err := getVideos(videoIDs)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, item := range vids {
-		positionInList := playlistMap[item.Id]
-		videos = append(videos, sources.NewYoutubeVideo(videoParams.VideoDir, item, positionInList, videoParams.S3Config, videoParams.Grp, videoParams.IPPool))
+		positionInList := playlistMap[item.ID]
+		videoToAdd, err := sources.NewYoutubeVideo(videoParams.VideoDir, item, positionInList, videoParams.S3Config, videoParams.Grp, videoParams.IPPool)
+		if err != nil {
+			return nil, errors.Err(err)
+		}
+		videos = append(videos, videoToAdd)
 	}
 
 	for k, v := range syncedVideos {
@@ -154,16 +160,14 @@ func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.Channe
 	return response.Items[0].Snippet, response.Items[0].BrandingSettings, nil
 }
 
-func getVideos(apiKey string, videoIDs []string) ([]*ytlib.Video, error) {
-	service, err := ytlib.New(&http.Client{Transport: &transport.APIKey{Key: apiKey}})
-	if err != nil {
-		return nil, errors.Prefix("error creating YouTube service", err)
+func getVideos(videoIDs []string) ([]*ytdl.YtdlVideo, error) {
+	var videos []*ytdl.YtdlVideo
+	for _, videoID := range videoIDs {
+		video, err := downloader.GetVideoInformation(videoID)
+		if err != nil {
+			return nil, errors.Err(err)
+		}
+		videos = append(videos, video)
 	}
-
-	response, err := service.Videos.List("snippet,contentDetails,recordingDetails").Id(strings.Join(videoIDs[:], ",")).Do()
-	if err != nil {
-		return nil, errors.Prefix("error getting videos info", err)
-	}
-
-	return response.Items, nil
+	return videos, nil
 }

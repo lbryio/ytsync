@@ -5,13 +5,14 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/lbryio/ytsync/v5/downloader/ytdl"
+
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	log "github.com/sirupsen/logrus"
-	ytlib "google.golang.org/api/youtube/v3"
 )
 
 type thumbnailUploader struct {
@@ -98,15 +99,14 @@ func MirrorThumbnail(url string, name string, s3Config aws.Config) (string, erro
 	return tu.mirroredUrl, nil
 }
 
-func GetBestThumbnail(thumbnails *ytlib.ThumbnailDetails) *ytlib.Thumbnail {
-	if thumbnails.Maxres != nil {
-		return thumbnails.Maxres
-	} else if thumbnails.High != nil {
-		return thumbnails.High
-	} else if thumbnails.Medium != nil {
-		return thumbnails.Medium
-	} else if thumbnails.Standard != nil {
-		return thumbnails.Standard
+func GetBestThumbnail(thumbnails []ytdl.Thumbnail) *ytdl.Thumbnail {
+	var bestWidth *ytdl.Thumbnail
+	for _, thumbnail := range thumbnails {
+		if bestWidth == nil {
+			bestWidth = &thumbnail
+		} else if bestWidth.Width < thumbnail.Width {
+			bestWidth = &thumbnail
+		}
 	}
-	return thumbnails.Default
+	return bestWidth
 }
