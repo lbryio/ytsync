@@ -3,7 +3,6 @@ package manager
 import (
 	"fmt"
 	"math"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -12,14 +11,13 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/util"
 	"github.com/lbryio/ytsync/v5/timing"
 	logUtils "github.com/lbryio/ytsync/v5/util"
+	"github.com/lbryio/ytsync/v5/ytapi"
 
 	"github.com/lbryio/ytsync/v5/tags_manager"
 	"github.com/lbryio/ytsync/v5/thumbs"
 
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/googleapi/transport"
-	"google.golang.org/api/youtube/v3"
 )
 
 func (s *Sync) enableAddressReuse() error {
@@ -266,15 +264,14 @@ func (s *Sync) ensureEnoughUTXOs() error {
 }
 
 func (s *Sync) waitForNewBlock() error {
-	start := time.Now()
-	defer func(start time.Time) {
-		timing.TimedComponent("waitForNewBlock").Add(time.Since(start))
-	}(start)
+	defer func(start time.Time) { timing.TimedComponent("waitForNewBlock").Add(time.Since(start)) }(time.Now())
+
 	log.Printf("regtest: %t, docker: %t", logUtils.IsRegTest(), logUtils.IsUsingDocker())
 	status, err := s.daemon.Status()
 	if err != nil {
 		return err
 	}
+
 	for status.Wallet.Blocks == 0 || status.Wallet.BlocksBehind != 0 {
 		time.Sleep(5 * time.Second)
 		status, err = s.daemon.Status()
@@ -308,10 +305,12 @@ func (s *Sync) GenerateRegtestBlock() error {
 	if err != nil {
 		return errors.Prefix("error getting lbrycrd client: ", err)
 	}
+
 	txs, err := lbrycrd.Generate(1)
 	if err != nil {
 		return errors.Prefix("error generating new block: ", err)
 	}
+
 	for _, tx := range txs {
 		log.Info("Generated tx: ", tx.String())
 	}
@@ -319,10 +318,8 @@ func (s *Sync) GenerateRegtestBlock() error {
 }
 
 func (s *Sync) ensureChannelOwnership() error {
-	start := time.Now()
-	defer func(start time.Time) {
-		timing.TimedComponent("ensureChannelOwnership").Add(time.Since(start))
-	}(start)
+	defer func(start time.Time) { timing.TimedComponent("ensureChannelOwnership").Add(time.Since(start)) }(time.Now())
+
 	if s.LbryChannelName == "" {
 		return errors.Err("no channel name set")
 	}
@@ -386,26 +383,11 @@ func (s *Sync) ensureChannelOwnership() error {
 			return err
 		}
 	}
-	client := &http.Client{
-		Transport: &transport.APIKey{Key: s.APIConfig.YoutubeAPIKey},
-	}
 
-	service, err := youtube.New(client)
+	channelInfo, channelBranding, err := ytapi.ChannelInfo(s.APIConfig.YoutubeAPIKey, s.YoutubeChannelID)
 	if err != nil {
-		return errors.Prefix("error creating YouTube service", err)
+		return err
 	}
-
-	response, err := service.Channels.List("snippet,brandingSettings").Id(s.YoutubeChannelID).Do()
-	if err != nil {
-		return errors.Prefix("error getting channel details", err)
-	}
-
-	if len(response.Items) < 1 {
-		return errors.Err("youtube channel not found")
-	}
-
-	channelInfo := response.Items[0].Snippet
-	channelBranding := response.Items[0].BrandingSettings
 
 	thumbnail := thumbs.GetBestThumbnail(channelInfo.Thumbnails)
 	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
@@ -467,6 +449,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	if err != nil {
 		return err
 	}
+
 	s.lbryChannelID = c.Outputs[0].ClaimID
 	return s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, s.lbryChannelID)
 }

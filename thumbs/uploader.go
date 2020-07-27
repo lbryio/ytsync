@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/youtube/v3"
+	ytlib "google.golang.org/api/youtube/v3"
 )
 
 type thumbnailUploader struct {
@@ -98,7 +98,7 @@ func MirrorThumbnail(url string, name string, s3Config aws.Config) (string, erro
 	return tu.mirroredUrl, nil
 }
 
-func GetBestThumbnail(thumbnails *youtube.ThumbnailDetails) *youtube.Thumbnail {
+func GetBestThumbnail(thumbnails *ytlib.ThumbnailDetails) *ytlib.Thumbnail {
 	if thumbnails.Maxres != nil {
 		return thumbnails.Maxres
 	} else if thumbnails.High != nil {

@@ -3,11 +3,9 @@ package manager
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +19,7 @@ import (
 	"github.com/lbryio/ytsync/v5/thumbs"
 	"github.com/lbryio/ytsync/v5/timing"
 	logUtils "github.com/lbryio/ytsync/v5/util"
+	"github.com/lbryio/ytsync/v5/ytapi"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
@@ -34,8 +33,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/googleapi/transport"
-	"google.golang.org/api/youtube/v3"
 )
 
 const (
@@ -46,22 +43,6 @@ const (
 	publishAmount         = 0.01
 	maxReasonLength       = 500
 )
-
-type video interface {
-	Size() *int64
-	ID() string
-	IDAndNum() string
-	PlaylistPosition() int
-	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, sources.SyncParams, *sdk.SyncedVideo, bool, *sync.RWMutex) (*sources.SyncSummary, error)
-}
-
-// sorting videos
-type byPublishedAt []video
-
-func (a byPublishedAt) Len() int           { return len(a) }
-func (a byPublishedAt) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a byPublishedAt) Less(i, j int) bool { return a[i].PublishedAt().Before(a[j].PublishedAt()) }
 
 // Sync stores the options that control how syncing happens
 type Sync struct {
@@ -87,7 +68,7 @@ type Sync struct {
 	lbryChannelID        string
 	namer                *namer.Namer
 	walletMux            *sync.RWMutex
-	queue                chan video
+	queue                chan ytapi.Video
 	transferState        int
 	clientPublishAddress string
 	publicKey            string
@@ -263,7 +244,7 @@ func (s *Sync) FullCycle() (e error) {
 	s.syncedVideosMux = &sync.RWMutex{}
 	s.walletMux = &sync.RWMutex{}
 	s.grp = stopGroup
-	s.queue = make(chan video)
+	s.queue = make(chan ytapi.Video)
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(interruptChan)
@@ -847,7 +828,7 @@ func (s *Sync) doSync() error {
 }
 
 func (s *Sync) startWorker(workerNum int) {
-	var v video
+	var v ytapi.Video
 	var more bool
 
 	for {
@@ -996,107 +977,23 @@ func (s *Sync) startWorker(workerNum int) {
 	}
 }
 
-var mostRecentlyFailedChannel string
-
 func (s *Sync) enqueueYoutubeVideos() error {
-	start := time.Now()
-	defer func(start time.Time) {
-		timing.TimedComponent("enqueueYoutubeVideos").Add(time.Since(start))
-	}(start)
-	client := &http.Client{
-		Transport: &transport.APIKey{Key: s.APIConfig.YoutubeAPIKey},
-	}
+	defer func(start time.Time) { timing.TimedComponent("enqueueYoutubeVideos").Add(time.Since(start)) }(time.Now())
 
-	service, err := youtube.New(client)
-	if err != nil {
-		return errors.Prefix("error creating YouTube service", err)
-	}
-
-	response, err := service.Channels.List("contentDetails").Id(s.YoutubeChannelID).Do()
-	if err != nil {
-		return errors.Prefix("error getting channels", err)
-	}
-
-	if len(response.Items) < 1 {
-		return errors.Err("youtube channel not found")
-	}
-
-	if response.Items[0].ContentDetails.RelatedPlaylists == nil {
-		return errors.Err("no related playlists")
-	}
-
-	playlistID := response.Items[0].ContentDetails.RelatedPlaylists.Uploads
-	if playlistID == "" {
-		return errors.Err("no channel playlist")
-	}
-
-	var videos []video
 	ipPool, err := ip_manager.GetIPPool(s.grp)
 	if err != nil {
 		return err
 	}
 
-	playlistMap := make(map[string]*youtube.PlaylistItemSnippet, 50)
-	nextPageToken := ""
-	for {
-		req := service.PlaylistItems.List("snippet").
-			PlaylistId(playlistID).
-			MaxResults(50).
-			PageToken(nextPageToken)
-
-		playlistResponse, err := req.Do()
-		if err != nil {
-			return errors.Prefix("error getting playlist items", err)
-		}
-
-		if len(playlistResponse.Items) < 1 {
-			// If there are 50+ videos in a playlist but less than 50 are actually returned by the API, youtube will still redirect
-			// clients to a next page. Such next page will however be empty. This logic prevents ytsync from failing.
-			youtubeIsLying := len(videos) > 0
-			if youtubeIsLying {
-				break
-			}
-			if s.YoutubeChannelID == mostRecentlyFailedChannel {
-				return errors.Err("playlist items not found")
-			}
-			mostRecentlyFailedChannel = s.YoutubeChannelID
-			break //return errors.Err("playlist items not found") //TODO: will this work?
-		}
-		videoIDs := make([]string, 50)
-		for i, item := range playlistResponse.Items {
-			// normally we'd send the video into the channel here, but youtube api doesn't have sorting
-			// so we have to get ALL the videos, then sort them, then send them in
-			playlistMap[item.Snippet.ResourceId.VideoId] = item.Snippet
-			videoIDs[i] = item.Snippet.ResourceId.VideoId
-		}
-		req2 := service.Videos.List("snippet,contentDetails,recordingDetails").Id(strings.Join(videoIDs[:], ","))
-
-		videosListResponse, err := req2.Do()
-		if err != nil {
-			return errors.Prefix("error getting videos info", err)
-		}
-		for _, item := range videosListResponse.Items {
-			videos = append(videos, sources.NewYoutubeVideo(s.videoDirectory, item, playlistMap[item.Id].Position, s.Manager.GetS3AWSConfig(), s.grp, ipPool))
-		}
-
-		log.Infof("Got info for %d videos from youtube API", len(videos))
-
-		nextPageToken = playlistResponse.NextPageToken
-		if nextPageToken == "" || s.Manager.SyncFlags.QuickSync || len(videos) >= s.Manager.videosLimit {
-			break
-		}
+	videos, err := ytapi.Enqueue(s.APIConfig.YoutubeAPIKey, s.YoutubeChannelID, s.syncedVideos, s.Manager.SyncFlags.QuickSync, s.Manager.videosLimit, ytapi.VideoParams{
+		VideoDir: s.videoDirectory,
+		S3Config: s.Manager.GetS3AWSConfig(),
+		Grp:      s.grp,
+		IPPool:   ipPool,
+	})
+	if err != nil {
+		return err
 	}
-	for k, v := range s.syncedVideos {
-		if !v.Published {
-			continue
-		}
-		_, ok := playlistMap[k]
-		if !ok {
-			videos = append(videos, sources.NewMockedVideo(s.videoDirectory, k, s.YoutubeChannelID, s.Manager.GetS3AWSConfig(), s.grp, ipPool))
-		}
-
-	}
-	sort.Sort(byPublishedAt(videos))
 
 Enqueue:
 	for _, v := range videos {
@@ -1116,7 +1013,7 @@ Enqueue:
 	return nil
 }
 
-func (s *Sync) processVideo(v video) (err error) {
+func (s *Sync) processVideo(v ytapi.Video) (err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			logUtils.SendErrorToSlack("Video processing panic! %s", debug.Stack())
@@ -1284,8 +1181,7 @@ func (s *Sync) getUnsentSupports() (float64, error) {
 
 // waitForDaemonProcess observes the running processes and returns when the process is no longer running or when the timeout is up
 func waitForDaemonProcess(timeout time.Duration) error {
-	then := time.Now()
-	stopTime := then.Add(time.Duration(timeout * time.Second))
+	stopTime := time.Now().Add(timeout * time.Second)
 	for !time.Now().After(stopTime) {
 		wait := 10 * time.Second
 		log.Println("the daemon is still running, waiting for it to exit")

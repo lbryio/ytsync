@@ -13,24 +13,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lbryio/lbry.go/v2/extras/errors"
-	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
-	"github.com/lbryio/lbry.go/v2/extras/stop"
-	"github.com/lbryio/lbry.go/v2/extras/util"
-	"github.com/lbryio/ytsync/v5/timing"
-	logUtils "github.com/lbryio/ytsync/v5/util"
-
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/namer"
 	"github.com/lbryio/ytsync/v5/sdk"
 	"github.com/lbryio/ytsync/v5/tags_manager"
 	"github.com/lbryio/ytsync/v5/thumbs"
+	"github.com/lbryio/ytsync/v5/timing"
+	logUtils "github.com/lbryio/ytsync/v5/util"
+
+	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/v2/extras/stop"
+	"github.com/lbryio/lbry.go/v2/extras/util"
 
 	duration "github.com/ChannelMeter/iso8601duration"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/youtube/v3"
+	ytlib "google.golang.org/api/youtube/v3"
 )
 
 type YoutubeVideo struct {
@@ -43,7 +43,7 @@ type YoutubeVideo struct {
 	maxVideoLength   float64
 	publishedAt      time.Time
 	dir              string
-	youtubeInfo      *youtube.Video
+	youtubeInfo      *ytlib.Video
 	youtubeChannelID string
 	tags             []string
 	awsConfig        aws.Config
@@ -90,7 +90,7 @@ var youtubeCategories = map[string]string{
 	"44": "trailers",
 }
 
-func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
+func NewYoutubeVideo(directory string, videoData *ytlib.Video, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
 	publishedAt, _ := time.Parse(time.RFC3339Nano, videoData.Snippet.PublishedAt) // ignore parse errors
 	return &YoutubeVideo{
 		id:               videoData.Id,
