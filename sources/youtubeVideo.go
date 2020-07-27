@@ -3,7 +3,6 @@ package sources
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,7 +39,7 @@ type YoutubeVideo struct {
 	playlistPosition int64
 	size             *int64
 	maxVideoSize     int64
-	maxVideoLength   float64
+	maxVideoLength   time.Duration
 	publishedAt      time.Time
 	dir              string
 	youtubeInfo      *ytdl.YtdlVideo
@@ -236,7 +235,7 @@ func (v *YoutubeVideo) download() error {
 	if v.maxVideoLength > 0 {
 		ytdlArgs = append(ytdlArgs,
 			"--match-filter",
-			fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
+			fmt.Sprintf("duration <= %d", int(v.maxVideoLength.Seconds())),
 		)
 	}
 
@@ -432,7 +431,7 @@ type SyncParams struct {
 	ChannelID      string
 	MaxVideoSize   int
 	Namer          *namer.Namer
-	MaxVideoLength float64
+	MaxVideoLength time.Duration
 	Fee            *sdk.Fee
 	DefaultAccount string
 }
@@ -452,9 +451,11 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	var err error
 
-	if float64(v.youtubeInfo.Duration) > v.maxVideoLength {
-		log.Infof("%s is %d long and the limit is %s", v.id, v.youtubeInfo.Duration, (time.Duration(v.maxVideoLength*60) * time.Minute).String())
-		logUtils.SendErrorToSlack("%s is %d long and the limit is %s", v.id, v.youtubeInfo.Duration, (time.Duration(v.maxVideoLength*60) * time.Minute).String())
+	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
+
+	if dur > v.maxVideoLength {
+		log.Infof("%s is %d long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
+		logUtils.SendErrorToSlack("%s is %d long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
 		return nil, errors.Err("video is too long to process")
 	}
 	for {

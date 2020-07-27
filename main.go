@@ -34,7 +34,7 @@ var (
 	concurrentJobs int
 	videosLimit    int
 	maxVideoSize   int
-	maxVideoLength float64
+	maxVideoLength int
 )
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 	cmd.Flags().IntVar(&concurrentJobs, "concurrent-jobs", 1, "how many jobs to process concurrently")
 	cmd.Flags().IntVar(&videosLimit, "videos-limit", 1000, "how many videos to process per channel")
 	cmd.Flags().IntVar(&maxVideoSize, "max-size", 2048, "Maximum video size to process (in MB)")
-	cmd.Flags().Float64Var(&maxVideoLength, "max-length", 2.0, "Maximum video length to process (in hours)")
+	cmd.Flags().IntVar(&maxVideoLength, "max-length", 2, "Maximum video length to process (in hours)")
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -186,7 +186,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 		syncStatus,
 		syncProperties,
 		apiConfig,
-		maxVideoLength,
+		time.Duration(maxVideoLength)*time.Hour,
 	)
 	err := sm.Start()
 	if err != nil {

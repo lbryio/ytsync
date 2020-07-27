@@ -73,7 +73,7 @@ type Sync struct {
 	clientPublishAddress string
 	publicKey            string
 	defaultAccountID     string
-	MaxVideoLength       float64
+	MaxVideoLength       time.Duration
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -224,7 +224,7 @@ func (s *Sync) setStatusSyncing() error {
 
 func (s *Sync) setExceptions() {
 	if s.YoutubeChannelID == "UCwjQfNRW6sGYb__pd7d4nUg" { //@FreeTalkLive
-		s.MaxVideoLength = 9999.0 // skips max length checks
+		s.MaxVideoLength = 9999 * time.Hour // skips max length checks
 		s.Manager.maxVideoSize = 0
 	}
 }

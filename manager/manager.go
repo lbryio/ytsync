@@ -30,7 +30,7 @@ type SyncManager struct {
 	blobsDir         string
 	videosLimit      int
 	maxVideoSize     int
-	maxVideoLength   float64
+	maxVideoLength   time.Duration
 	lbrycrdString    string
 	awsS3ID          string
 	awsS3Secret      string
@@ -43,7 +43,7 @@ type SyncManager struct {
 
 func NewSyncManager(syncFlags sdk.SyncFlags, maxTries int, refill int, limit int, concurrentJobs int, concurrentVideos int, blobsDir string, videosLimit int,
 	maxVideoSize int, lbrycrdString string, awsS3ID string, awsS3Secret string, awsS3Region string, awsS3Bucket string,
-	syncStatus string, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength float64) *SyncManager {
+	syncStatus string, syncProperties *sdk.SyncProperties, apiConfig *sdk.APIConfig, maxVideoLength time.Duration) *SyncManager {
 	return &SyncManager{
 		SyncFlags:        syncFlags,
 		maxTries:         maxTries,
@@ -171,7 +171,7 @@ func (s *SyncManager) Start() error {
 					log.Infof("There are %d channels in the \"%s\" queue", len(channels)-i, q)
 					maxVideoLength := s.maxVideoLength
 					if c.TotalSubscribers < 1000 {
-						maxVideoLength = 1.0
+						maxVideoLength = 1 * time.Hour
 					}
 					syncs = append(syncs, Sync{
 						APIConfig:            s.apiConfig,
