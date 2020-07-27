@@ -46,7 +46,7 @@ type VideoParams struct {
 var mostRecentlyFailedChannel string // TODO: fix this hack!
 
 func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
-	playlistID, err := PlaylistID(apiKey, channelID)
+	playlistID, err := getPlaylistID(apiKey, channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.Synce
 	var videos []Video
 
 	for {
-		playlistItems, nextPageToken, err = PlaylistItems(apiKey, playlistID, nextPageToken)
+		playlistItems, nextPageToken, err = getPlaylistItems(apiKey, playlistID, nextPageToken)
 
 		if len(playlistItems) < 1 {
 			// If there are 50+ videos in a playlist but less than 50 are actually returned by the API, youtube will still redirect
@@ -81,7 +81,7 @@ func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.Synce
 			videoIDs[i] = item.Snippet.ResourceId.VideoId
 		}
 
-		vids, err := Videos(apiKey, videoIDs)
+		vids, err := getVideos(apiKey, videoIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +112,7 @@ func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.Synce
 	return videos, nil
 }
 
-func VideosInChannel(apiKey, channelID string) (uint64, error) {
+func CountVideosInChannel(apiKey, channelID string) (uint64, error) {
 	client := &http.Client{
 		Transport: &transport.APIKey{Key: apiKey},
 	}
@@ -152,7 +152,7 @@ func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.Channe
 	return response.Items[0].Snippet, response.Items[0].BrandingSettings, nil
 }
 
-func PlaylistID(apiKey, channelID string) (string, error) {
+func getPlaylistID(apiKey, channelID string) (string, error) {
 	service, err := ytlib.New(&http.Client{Transport: &transport.APIKey{Key: apiKey}})
 	if err != nil {
 		return "", errors.Prefix("error creating YouTube service", err)
@@ -179,7 +179,7 @@ func PlaylistID(apiKey, channelID string) (string, error) {
 	return playlistID, nil
 }
 
-func PlaylistItems(apiKey, playlistID, nextPageToken string) ([]*ytlib.PlaylistItem, string, error) {
+func getPlaylistItems(apiKey, playlistID, nextPageToken string) ([]*ytlib.PlaylistItem, string, error) {
 	service, err := ytlib.New(&http.Client{Transport: &transport.APIKey{Key: apiKey}})
 	if err != nil {
 		return nil, "", errors.Prefix("error creating YouTube service", err)
@@ -198,7 +198,7 @@ func PlaylistItems(apiKey, playlistID, nextPageToken string) ([]*ytlib.PlaylistI
 	return response.Items, response.NextPageToken, nil
 }
 
-func Videos(apiKey string, videoIDs []string) ([]*ytlib.Video, error) {
+func getVideos(apiKey string, videoIDs []string) ([]*ytlib.Video, error) {
 	service, err := ytlib.New(&http.Client{Transport: &transport.APIKey{Key: apiKey}})
 	if err != nil {
 		return nil, errors.Prefix("error creating YouTube service", err)
