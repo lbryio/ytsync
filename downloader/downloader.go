@@ -15,7 +15,7 @@ import (
 
 func GetPlaylistVideoIDs(channelName string, maxVideos int) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist"}
-	ids, err := run(args, true, true)
+	ids, err := run(args, false, true)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
