@@ -388,8 +388,8 @@ func (s *Sync) ensureChannelOwnership() error {
 		return err
 	}
 
-	thumbnail := thumbs.GetBestThumbnail(channelInfo.Thumbnails)
-	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.Url, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
+	thumbnail := thumbs.GetBestThumbnail(nil) //Ignore this for now ( ChannelInfo Panics)
+	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.URL, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}
