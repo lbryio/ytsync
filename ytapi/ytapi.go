@@ -45,7 +45,7 @@ type VideoParams struct {
 
 var mostRecentlyFailedChannel string // TODO: fix this hack!
 
-func Enqueue(apiKey, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
+func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
 	playlistID, err := PlaylistID(apiKey, channelID)
 	if err != nil {
 		return nil, err
