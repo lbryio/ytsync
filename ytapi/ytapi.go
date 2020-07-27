@@ -1,14 +1,16 @@
 package ytapi
 
 import (
+	"bufio"
 	"net/http"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/lbryio/ytsync/v5/downloader"
-
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/sdk"
 	"github.com/lbryio/ytsync/v5/sources"
@@ -93,26 +95,41 @@ func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.Synce
 	return videos, nil
 }
 
-func CountVideosInChannel(apiKey, channelID string) (uint64, error) {
-	client := &http.Client{
-		Transport: &transport.APIKey{Key: apiKey},
-	}
-
-	service, err := ytlib.New(client)
+func CountVideosInChannel(channelID string) (int, error) {
+	res, err := http.Get("https://socialblade.com/youtube/channel/" + channelID)
 	if err != nil {
-		return 0, errors.Prefix("error creating YouTube service", err)
+		return 0, err
+	}
+	defer res.Body.Close()
+
+	var line string
+
+	scanner := bufio.NewScanner(res.Body)
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), "youtube-stats-header-uploads") {
+			line = scanner.Text()
+			break
+		}
 	}
 
-	response, err := service.Channels.List("statistics").Id(channelID).Do()
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	if line == "" {
+		return 0, errors.Err("upload count line not found")
+	}
+
+	matches := regexp.MustCompile(">([0-9]+)<").FindStringSubmatch(line)
+	if len(matches) != 2 {
+		return 0, errors.Err("upload count not found with regex")
+	}
+
+	num, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return 0, errors.Prefix("error getting channels", err)
+		return 0, errors.Err(err)
 	}
 
-	if len(response.Items) < 1 {
-		return 0, errors.Err("youtube channel not found")
-	}
-
-	return response.Items[0].Statistics.VideoCount, nil
+	return num, nil
 }
 
 func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.ChannelBrandingSettings, error) {

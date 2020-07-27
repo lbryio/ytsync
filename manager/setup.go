@@ -72,11 +72,10 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("Starting balance is %.4f", balance)
 
-	n, err := ytapi.CountVideosInChannel(s.APIConfig.YoutubeAPIKey, s.YoutubeChannelID)
+	videosOnYoutube, err := ytapi.CountVideosInChannel(s.YoutubeChannelID)
 	if err != nil {
 		return err
 	}
-	videosOnYoutube := int(n)
 
 	log.Debugf("Source channel has %d videos", videosOnYoutube)
 	if videosOnYoutube == 0 {
