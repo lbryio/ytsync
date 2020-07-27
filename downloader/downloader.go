@@ -9,9 +9,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetPlaylistVideoIDs(channelName string) ([]string, error) {
+func GetPlaylistVideoIDs(channelName string, maxVideos int) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist"}
-	return run(args)
+	ids, err := run(args)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	videoIDs := make([]string, maxVideos)
+	for i, v := range ids {
+		if i >= maxVideos {
+			break
+		}
+		videoIDs[i] = v
+	}
+	return videoIDs, nil
 }
 
 func run(args []string) ([]string, error) {

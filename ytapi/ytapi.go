@@ -52,7 +52,10 @@ var mostRecentlyFailedChannel string // TODO: fix this hack!
 func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
 
 	var videos []Video
-	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID)
+	if quickSync {
+		maxVideos = 50
+	}
+	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
