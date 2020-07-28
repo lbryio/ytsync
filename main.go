@@ -7,8 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/util"
+	"github.com/lbryio/ytsync/v5/downloader"
 	"github.com/lbryio/ytsync/v5/manager"
 	"github.com/lbryio/ytsync/v5/sdk"
 	ytUtils "github.com/lbryio/ytsync/v5/util"
@@ -38,6 +40,9 @@ var (
 )
 
 func main() {
+	spew.Dump(downloader.GetVideoInformation("oahaMa3XB0k"))
+	return
+
 	rand.Seed(time.Now().UnixNano())
 	log.SetLevel(log.DebugLevel)
 	http.Handle("/metrics", promhttp.Handler())

@@ -2,13 +2,16 @@ package downloader
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
@@ -34,30 +37,38 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int) ([]string, error) {
 }
 
 func GetVideoInformation(videoID string) (*ytdl.YtdlVideo, error) {
-	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
-	results, err := run(args, false, true)
-	if err != nil {
-		return nil, errors.Err(err)
-	}
+	//args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
+	//results, err := run(args, false, true)
+	//if err != nil {
+	//	return nil, errors.Err(err)
+	//}
 	var video *ytdl.YtdlVideo
-	err = json.Unmarshal([]byte(results[0]), &video)
-	if err != nil {
-		return nil, errors.Err(err)
-	}
+	//err = json.Unmarshal([]byte(results[0]), &video)
+	//if err != nil {
+	//	return nil, errors.Err(err)
+	//}
+
+	video = &ytdl.YtdlVideo{}
 
 	// now get an accurate time
+	const maxTries = 5
 	tries := 0
 GetTime:
 	tries++
 	t, err := getUploadTime(videoID)
 	if err != nil {
-		if errors.Is(err, errNotScraped) && tries <= 3 {
+		slack(":warning: Upload time error: %v", err)
+		if tries <= maxTries && (errors.Is(err, errNotScraped) || errors.Is(err, errUploadTimeEmpty)) {
 			triggerScrape(videoID)
 			time.Sleep(2 * time.Second) // let them scrape it
 			goto GetTime
+		} else if !errors.Is(err, errNotScraped) && !errors.Is(err, errUploadTimeEmpty) {
+			slack(":warning: Error while trying to get accurate upload time for %s: %v", videoID, err)
+			return nil, errors.Err(err)
 		}
-		//return video, errors.Err(err) // just swallow this error and do fallback below
+		// do fallback below
 	}
+	slack("After all that, upload time for %s is %s", videoID, t)
 
 	if t != "" {
 		parsed, err := time.Parse("2006-01-02, 15:04:05 (MST)", t) // this will probably be UTC, but Go's timezone parsing is fucked up. it ignores the timezone in the date
@@ -66,7 +77,7 @@ GetTime:
 		}
 		video.UploadDateForReal = parsed
 	} else {
-		_ = util.SendToSlack(":warning: Could not get accurate time for %s. Falling back to estimated time.", videoID)
+		slack(":warning: Could not get accurate time for %s. Falling back to estimated time.", videoID)
 		// fall back to UploadDate from youtube-dl
 		video.UploadDateForReal, err = time.Parse("20060102", video.UploadDate)
 		if err != nil {
@@ -78,19 +89,36 @@ GetTime:
 }
 
 var errNotScraped = errors.Base("not yet scraped by caa.iti.gr")
+var errUploadTimeEmpty = errors.Base("upload time is empty")
+
+func slack(format string, a ...interface{}) {
+	fmt.Printf(format+"\n", a...)
+	util.SendToSlack(format, a...)
+}
 
 func triggerScrape(videoID string) error {
-	res, err := http.Get("https://caa.iti.gr/verify_videoV3?twtimeline=0&url=https://www.youtube.com/watch?v=" + videoID)
+	slack("Triggering scrape for %s", videoID)
+	u, err := url.Parse("https://caa.iti.gr/verify_videoV3")
+	q := u.Query()
+	q.Set("twtimeline", "0")
+	q.Set("url", "https://www.youtube.com/watch?v="+videoID)
+	u.RawQuery = q.Encode()
+	slack("GET %s", u.String())
+	res, err := http.Get(u.String())
 	if err != nil {
 		return errors.Err(err)
 	}
 	defer res.Body.Close()
+
+	all, err := ioutil.ReadAll(res.Body)
+	spew.Dump(string(all), err)
 
 	return nil
 	//https://caa.iti.gr/caa/api/v4/videos/reports/h-tuxHS5lSM
 }
 
 func getUploadTime(videoID string) (string, error) {
+	slack("Getting upload time for %s", videoID)
 	res, err := http.Get("https://caa.iti.gr/get_verificationV3?url=https://www.youtube.com/watch?v=" + videoID)
 	if err != nil {
 		return "", errors.Err(err)
@@ -109,6 +137,10 @@ func getUploadTime(videoID string) (string, error) {
 
 	if uploadTime.Status == "ERROR1" {
 		return "", errNotScraped
+	}
+
+	if uploadTime.Time == "" {
+		return "", errUploadTimeEmpty
 	}
 
 	return uploadTime.Time, nil

@@ -250,6 +250,7 @@ func (s *Sync) FullCycle() (e error) {
 	defer signal.Stop(interruptChan)
 	go func() {
 		<-interruptChan
+		util.SendToSlack("got interrupt, shutting down")
 		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
 		s.grp.Stop()
 	}()
@@ -855,6 +856,8 @@ func (s *Sync) startWorker(workerNum int) {
 		for {
 			tryCount++
 			err := s.processVideo(v)
+
+			util.SendToSlack("Tried to process %s. Error: %v", v.ID(), err)
 
 			if err != nil {
 				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())

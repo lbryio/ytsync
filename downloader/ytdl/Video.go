@@ -37,40 +37,8 @@ type YtdlVideo struct {
 	WebpageURLBasename string      `json:"webpage_url_basename"`
 	Acodec             string      `json:"acodec"`
 	DisplayID          string      `json:"display_id"`
-	RequestedFormats   []struct {
-		Asr             interface{} `json:"asr"`
-		Tbr             float64     `json:"tbr"`
-		Container       string      `json:"container"`
-		Language        interface{} `json:"language"`
-		Format          string      `json:"format"`
-		URL             string      `json:"url"`
-		Vcodec          string      `json:"vcodec"`
-		FormatNote      string      `json:"format_note"`
-		Height          int         `json:"height"`
-		Width           int         `json:"width"`
-		Ext             string      `json:"ext"`
-		FragmentBaseURL string      `json:"fragment_base_url"`
-		Filesize        interface{} `json:"filesize"`
-		Fps             int         `json:"fps"`
-		ManifestURL     string      `json:"manifest_url"`
-		Protocol        string      `json:"protocol"`
-		FormatID        string      `json:"format_id"`
-		HTTPHeaders     struct {
-			AcceptCharset  string `json:"Accept-Charset"`
-			AcceptLanguage string `json:"Accept-Language"`
-			AcceptEncoding string `json:"Accept-Encoding"`
-			Accept         string `json:"Accept"`
-			UserAgent      string `json:"User-Agent"`
-		} `json:"http_headers"`
-		Fragments []struct {
-			Path     string  `json:"path"`
-			Duration float64 `json:"duration,omitempty"`
-		} `json:"fragments"`
-		Acodec string `json:"acodec"`
-		Abr    int    `json:"abr,omitempty"`
-	} `json:"requested_formats"`
-	AutomaticCaptions struct {
-	} `json:"automatic_captions"`
+	//RequestedFormats   []RequestedFormat `json:"requested_formats"`
+	//AutomaticCaptions  struct{}          `json:"automatic_captions"`
 	Description        string      `json:"description"`
 	Tags               []string    `json:"tags"`
 	Track              interface{} `json:"track"`
@@ -81,8 +49,7 @@ type YtdlVideo struct {
 	FormatID           string      `json:"format_id"`
 	EpisodeNumber      interface{} `json:"episode_number"`
 	UploaderID         string      `json:"uploader_id"`
-	Subtitles          struct {
-	} `json:"subtitles"`
+	//Subtitles          struct{}          `json:"subtitles"`
 	ReleaseYear interface{} `json:"release_year"`
 	Thumbnails  []Thumbnail `json:"thumbnails"`
 	License     interface{} `json:"license"`
@@ -96,36 +63,71 @@ type YtdlVideo struct {
 	Width       int         `json:"width"`
 	EndTime     interface{} `json:"end_time"`
 	WebpageURL  string      `json:"webpage_url"`
-	Formats     []struct {
-		Asr             int         `json:"asr"`
-		Tbr             float64     `json:"tbr"`
-		Protocol        string      `json:"protocol"`
-		Format          string      `json:"format"`
-		FormatNote      string      `json:"format_note"`
-		Height          interface{} `json:"height"`
-		ManifestURL     string      `json:"manifest_url,omitempty"`
-		FormatID        string      `json:"format_id"`
-		Container       string      `json:"container,omitempty"`
-		Language        interface{} `json:"language,omitempty"`
-		HTTPHeaders     HTTPHeaders `json:"http_headers"`
-		URL             string      `json:"url"`
-		Vcodec          string      `json:"vcodec"`
-		Abr             int         `json:"abr,omitempty"`
-		Width           interface{} `json:"width"`
-		Ext             string      `json:"ext"`
-		FragmentBaseURL string      `json:"fragment_base_url,omitempty"`
-		Filesize        interface{} `json:"filesize"`
-		Fps             interface{} `json:"fps"`
-		Fragments       []struct {
-			Path     string  `json:"path"`
-			Duration float64 `json:"duration,omitempty"`
-		} `json:"fragments,omitempty"`
-		Acodec    string      `json:"acodec"`
-		PlayerURL interface{} `json:"player_url,omitempty"`
-	} `json:"formats"`
+	//Formats            []Format          `json:"formats"`
 	ChannelURL string      `json:"channel_url"`
 	Resolution interface{} `json:"resolution"`
 	Vcodec     string      `json:"vcodec"`
+}
+
+type RequestedFormat struct {
+	Asr             interface{} `json:"asr"`
+	Tbr             float64     `json:"tbr"`
+	Container       string      `json:"container"`
+	Language        interface{} `json:"language"`
+	Format          string      `json:"format"`
+	URL             string      `json:"url"`
+	Vcodec          string      `json:"vcodec"`
+	FormatNote      string      `json:"format_note"`
+	Height          int         `json:"height"`
+	Width           int         `json:"width"`
+	Ext             string      `json:"ext"`
+	FragmentBaseURL string      `json:"fragment_base_url"`
+	Filesize        interface{} `json:"filesize"`
+	Fps             int         `json:"fps"`
+	ManifestURL     string      `json:"manifest_url"`
+	Protocol        string      `json:"protocol"`
+	FormatID        string      `json:"format_id"`
+	HTTPHeaders     struct {
+		AcceptCharset  string `json:"Accept-Charset"`
+		AcceptLanguage string `json:"Accept-Language"`
+		AcceptEncoding string `json:"Accept-Encoding"`
+		Accept         string `json:"Accept"`
+		UserAgent      string `json:"User-Agent"`
+	} `json:"http_headers"`
+	Fragments []struct {
+		Path     string  `json:"path"`
+		Duration float64 `json:"duration,omitempty"`
+	} `json:"fragments"`
+	Acodec string `json:"acodec"`
+	Abr    int    `json:"abr,omitempty"`
+}
+
+type Format struct {
+	Asr             int         `json:"asr"`
+	Tbr             float64     `json:"tbr"`
+	Protocol        string      `json:"protocol"`
+	Format          string      `json:"format"`
+	FormatNote      string      `json:"format_note"`
+	Height          interface{} `json:"height"`
+	ManifestURL     string      `json:"manifest_url,omitempty"`
+	FormatID        string      `json:"format_id"`
+	Container       string      `json:"container,omitempty"`
+	Language        interface{} `json:"language,omitempty"`
+	HTTPHeaders     HTTPHeaders `json:"http_headers"`
+	URL             string      `json:"url"`
+	Vcodec          string      `json:"vcodec"`
+	Abr             int         `json:"abr,omitempty"`
+	Width           interface{} `json:"width"`
+	Ext             string      `json:"ext"`
+	FragmentBaseURL string      `json:"fragment_base_url,omitempty"`
+	Filesize        interface{} `json:"filesize"`
+	Fps             interface{} `json:"fps"`
+	Fragments       []struct {
+		Path     string  `json:"path"`
+		Duration float64 `json:"duration,omitempty"`
+	} `json:"fragments,omitempty"`
+	Acodec    string      `json:"acodec"`
+	PlayerURL interface{} `json:"player_url,omitempty"`
 }
 
 type Thumbnail struct {
