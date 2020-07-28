@@ -1,7 +1,12 @@
 package ytdl
 
+import (
+	"time"
+)
+
 type YtdlVideo struct {
 	UploadDate         string      `json:"upload_date"`
+	UploadDateForReal  time.Time   // you need to manually set this since the value in the API doesn't include the time
 	Extractor          string      `json:"extractor"`
 	Series             interface{} `json:"series"`
 	Format             string      `json:"format"`

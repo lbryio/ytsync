@@ -92,16 +92,12 @@ var youtubeCategories = map[string]string{
 func NewYoutubeVideo(directory string, videoData *ytdl.YtdlVideo, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) (*YoutubeVideo, error) {
 	// youtube-dl returns times in local timezone sometimes. this could break in the future
 	// maybe we can file a PR to choose the timezone we want from youtube-dl
-	publishedAt, err := time.ParseInLocation("20060102", videoData.UploadDate, time.Local)
-	if err != nil {
-		return nil, errors.Err(err)
-	}
 	return &YoutubeVideo{
 		id:               videoData.ID,
 		title:            videoData.Title,
 		description:      videoData.Description,
 		playlistPosition: playlistPosition,
-		publishedAt:      publishedAt,
+		publishedAt:      videoData.UploadDateForReal,
 		dir:              directory,
 		youtubeInfo:      videoData,
 		awsConfig:        awsConfig,
