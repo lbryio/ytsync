@@ -865,9 +865,8 @@ func (s *Sync) startWorker(workerNum int) {
 			tryCount++
 			err := s.processVideo(v)
 
-			util.SendToSlack("Tried to process %s. Error: %v", v.ID(), err)
-
 			if err != nil {
+				util.SendToSlack("Tried to process %s. Error: %v", v.ID(), err)
 				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())
 				log.Errorln(logMsg)
 				if strings.Contains(strings.ToLower(err.Error()), "interrupted by user") {
