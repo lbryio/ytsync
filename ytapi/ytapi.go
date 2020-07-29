@@ -51,7 +51,7 @@ type VideoParams struct {
 
 var mostRecentlyFailedChannel string // TODO: fix this hack!
 
-func GetVideosToSync(channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
+func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
 
 	var videos []Video
 	if quickSync {
@@ -76,7 +76,7 @@ func GetVideosToSync(channelID string, syncedVideos map[string]sdk.SyncedVideo, 
 		mostRecentlyFailedChannel = channelID
 	}
 
-	vids, err := getVideos(videoIDs, videoParams.Stopper.Ch(), videoParams.IPPool)
+	vids, err := getVideos(config, videoIDs, videoParams.Stopper.Ch(), videoParams.IPPool)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.Channe
 	return response.Items[0].Snippet, response.Items[0].BrandingSettings, nil
 }
 
-func getVideos(videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
+func getVideos(config *sdk.APIConfig, videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
 	var videos []*ytdl.YtdlVideo
 	for _, videoID := range videoIDs {
 		select {
@@ -175,6 +175,13 @@ func getVideos(videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool)
 		//	return nil, err
 		//}
 		//video, err := downloader.GetVideoInformation(videoID, &net.TCPAddr{IP: net.ParseIP(ip)})
+		state, err := config.VideoState(videoID)
+		if err != nil {
+			return nil, errors.Err(err)
+		}
+		if state == "published" {
+			continue
+		}
 		video, err := downloader.GetVideoInformation(videoID, stopChan, nil)
 		if err != nil {
 			//ipPool.ReleaseIP(ip)

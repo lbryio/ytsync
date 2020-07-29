@@ -368,3 +368,43 @@ func (a *APIConfig) MarkVideoStatus(status VideoStatus) error {
 	}
 	return errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
+
+func (a *APIConfig) VideoState(videoID string) (string, error) {
+	endpoint := a.ApiURL + "/yt/video_state"
+	vals := url.Values{
+		"video_id":   {videoID},
+		"auth_token": {a.ApiToken},
+	}
+
+	res, err := http.PostForm(endpoint, vals)
+	if err != nil {
+		return "", errors.Err(err)
+	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+	if res.StatusCode == http.StatusNotFound {
+		return "not_found", nil
+	}
+	if res.StatusCode != http.StatusOK {
+		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(string(body))
+		time.Sleep(30 * time.Second)
+		return a.VideoState(videoID)
+	}
+	var response struct {
+		Success bool        `json:"success"`
+		Error   null.String `json:"error"`
+		Data    null.String `json:"data"`
+	}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return "", errors.Err(err)
+	}
+	if !response.Error.IsNull() {
+		return "", errors.Err(response.Error.String)
+	}
+	if !response.Data.IsNull() {
+		return response.Data.String, nil
+	}
+	return "", errors.Err("invalid API response. Status code: %d", res.StatusCode)
+}
