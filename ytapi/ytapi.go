@@ -45,19 +45,19 @@ func (a byPublishedAt) Less(i, j int) bool { return a[i].PublishedAt().Before(a[
 type VideoParams struct {
 	VideoDir string
 	S3Config aws.Config
-	Grp      *stop.Group
+	Stopper  *stop.Group
 	IPPool   *ip_manager.IPPool
 }
 
 var mostRecentlyFailedChannel string // TODO: fix this hack!
 
-func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
+func GetVideosToSync(channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
 
 	var videos []Video
 	if quickSync {
 		maxVideos = 50
 	}
-	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos)
+	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos, videoParams.Stopper.Ch())
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -76,14 +76,14 @@ func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.Synce
 		mostRecentlyFailedChannel = channelID
 	}
 
-	vids, err := getVideos(videoIDs)
+	vids, err := getVideos(videoIDs, videoParams.Stopper.Ch(), videoParams.IPPool)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, item := range vids {
 		positionInList := playlistMap[item.ID]
-		videoToAdd, err := sources.NewYoutubeVideo(videoParams.VideoDir, item, positionInList, videoParams.S3Config, videoParams.Grp, videoParams.IPPool)
+		videoToAdd, err := sources.NewYoutubeVideo(videoParams.VideoDir, item, positionInList, videoParams.S3Config, videoParams.Stopper, videoParams.IPPool)
 		if err != nil {
 			return nil, errors.Err(err)
 		}
@@ -95,7 +95,7 @@ func GetVideosToSync(apiKey, channelID string, syncedVideos map[string]sdk.Synce
 			continue
 		}
 		if _, ok := playlistMap[k]; !ok {
-			videos = append(videos, sources.NewMockedVideo(videoParams.VideoDir, k, channelID, videoParams.S3Config, videoParams.Grp, videoParams.IPPool))
+			videos = append(videos, sources.NewMockedVideo(videoParams.VideoDir, k, channelID, videoParams.S3Config, videoParams.Stopper, videoParams.IPPool))
 		}
 	}
 
@@ -143,6 +143,7 @@ func CountVideosInChannel(channelID string) (int, error) {
 
 func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.ChannelBrandingSettings, error) {
 	return nil, nil, errors.Err("ChannelInfo doesn't work yet because we're focused on existing channels")
+
 	service, err := ytlib.New(&http.Client{Transport: &transport.APIKey{Key: apiKey}})
 	if err != nil {
 		return nil, nil, errors.Prefix("error creating YouTube service", err)
@@ -160,14 +161,27 @@ func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.Channe
 	return response.Items[0].Snippet, response.Items[0].BrandingSettings, nil
 }
 
-func getVideos(videoIDs []string) ([]*ytdl.YtdlVideo, error) {
+func getVideos(videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
 	var videos []*ytdl.YtdlVideo
 	for _, videoID := range videoIDs {
-		video, err := downloader.GetVideoInformation(videoID)
+		select {
+		case <-stopChan:
+			return videos, errors.Err("canceled by stopper")
+		default:
+		}
+
+		//ip, err := ipPool.GetIP(videoID)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//video, err := downloader.GetVideoInformation(videoID, &net.TCPAddr{IP: net.ParseIP(ip)})
+		video, err := downloader.GetVideoInformation(videoID, stopChan, nil)
 		if err != nil {
+			//ipPool.ReleaseIP(ip)
 			return nil, errors.Err(err)
 		}
 		videos = append(videos, video)
+		//ipPool.ReleaseIP(ip)
 	}
 	return videos, nil
 }

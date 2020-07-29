@@ -63,21 +63,21 @@ func GetIPPool(stopGrp *stop.Group) (*IPPool, error) {
 		lock:    &sync.RWMutex{},
 		stopGrp: stopGrp,
 	}
-	ticker := time.NewTicker(10 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-stopGrp.Ch():
-				return
-			case <-ticker.C:
-				ipPoolInstance.lock.RLock()
-				for _, ip := range ipPoolInstance.ips {
-					log.Debugf("IP: %s\tInUse: %t\tVideoID: %s\tThrottled: %t\tLastUse: %.1f", ip.IP, ip.InUse, ip.UsedForVideo, ip.Throttled, time.Since(ip.LastUse).Seconds())
-				}
-				ipPoolInstance.lock.RUnlock()
-			}
-		}
-	}()
+	//ticker := time.NewTicker(10 * time.Second)
+	//go func() {
+	//	for {
+	//		select {
+	//		case <-stopGrp.Ch():
+	//			return
+	//		case <-ticker.C:
+	//			ipPoolInstance.lock.RLock()
+	//			for _, ip := range ipPoolInstance.ips {
+	//				log.Debugf("IP: %s\tInUse: %t\tVideoID: %s\tThrottled: %t\tLastUse: %.1f", ip.IP, ip.InUse, ip.UsedForVideo, ip.Throttled, time.Since(ip.LastUse).Seconds())
+	//			}
+	//			ipPoolInstance.lock.RUnlock()
+	//		}
+	//	}
+	//}()
 	return ipPoolInstance, nil
 }
 
@@ -108,7 +108,7 @@ func AllInUse(ips []throttledIP) bool {
 func (i *IPPool) ReleaseIP(ip string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
-	for j, _ := range i.ips {
+	for j := range i.ips {
 		localIP := &i.ips[j]
 		if localIP.IP == ip {
 			localIP.InUse = false
@@ -122,7 +122,7 @@ func (i *IPPool) ReleaseIP(ip string) {
 func (i *IPPool) ReleaseAll() {
 	i.lock.Lock()
 	defer i.lock.Unlock()
-	for j, _ := range i.ips {
+	for j := range i.ips {
 		if i.ips[j].Throttled {
 			continue
 		}
@@ -183,7 +183,7 @@ func (i *IPPool) nextIP(forVideo string) (*throttledIP, error) {
 		}
 
 		var nextIP *throttledIP
-		for j, _ := range i.ips {
+		for j := range i.ips {
 			ip := &i.ips[j]
 			if ip.InUse || ip.Throttled {
 				continue

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -15,14 +16,15 @@ import (
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
 
 	"github.com/sirupsen/logrus"
 )
 
-func GetPlaylistVideoIDs(channelName string, maxVideos int) ([]string, error) {
+func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist"}
-	ids, err := run(args, false, true)
+	ids, err := run(args, false, true, stopChan)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -36,48 +38,51 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int) ([]string, error) {
 	return videoIDs, nil
 }
 
-func GetVideoInformation(videoID string) (*ytdl.YtdlVideo, error) {
-	//args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
-	//results, err := run(args, false, true)
-	//if err != nil {
-	//	return nil, errors.Err(err)
-	//}
+func GetVideoInformation(videoID string, stopChan stop.Chan, ip *net.TCPAddr) (*ytdl.YtdlVideo, error) {
+	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
+	results, err := run(args, false, true, stopChan)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
 	var video *ytdl.YtdlVideo
-	//err = json.Unmarshal([]byte(results[0]), &video)
-	//if err != nil {
-	//	return nil, errors.Err(err)
-	//}
-
-	video = &ytdl.YtdlVideo{}
+	err = json.Unmarshal([]byte(results[0]), &video)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
 
 	// now get an accurate time
 	const maxTries = 5
 	tries := 0
 GetTime:
 	tries++
-	t, err := getUploadTime(videoID)
+	t, err := getUploadTime(videoID, ip)
 	if err != nil {
-		slack(":warning: Upload time error: %v", err)
+		//slack(":warning: Upload time error: %v", err)
 		if tries <= maxTries && (errors.Is(err, errNotScraped) || errors.Is(err, errUploadTimeEmpty)) {
-			triggerScrape(videoID)
-			time.Sleep(2 * time.Second) // let them scrape it
-			goto GetTime
+			err := triggerScrape(videoID, ip)
+			if err == nil {
+				time.Sleep(2 * time.Second) // let them scrape it
+				goto GetTime
+			} else {
+				//slack("triggering scrape returned error: %v", err)
+			}
 		} else if !errors.Is(err, errNotScraped) && !errors.Is(err, errUploadTimeEmpty) {
-			slack(":warning: Error while trying to get accurate upload time for %s: %v", videoID, err)
+			//slack(":warning: Error while trying to get accurate upload time for %s: %v", videoID, err)
 			return nil, errors.Err(err)
 		}
 		// do fallback below
 	}
-	slack("After all that, upload time for %s is %s", videoID, t)
+	//slack("After all that, upload time for %s is %s", videoID, t)
 
 	if t != "" {
 		parsed, err := time.Parse("2006-01-02, 15:04:05 (MST)", t) // this will probably be UTC, but Go's timezone parsing is fucked up. it ignores the timezone in the date
 		if err != nil {
 			return nil, errors.Err(err)
 		}
+		slack(":exclamation: Got an accurate time for %s", videoID)
 		video.UploadDateForReal = parsed
 	} else {
-		slack(":warning: Could not get accurate time for %s. Falling back to estimated time.", videoID)
+		//slack(":warning: Could not get accurate time for %s. Falling back to time from upload ytdl: %s.", videoID, video.UploadDate)
 		// fall back to UploadDate from youtube-dl
 		video.UploadDateForReal, err = time.Parse("20060102", video.UploadDate)
 		if err != nil {
@@ -96,30 +101,62 @@ func slack(format string, a ...interface{}) {
 	util.SendToSlack(format, a...)
 }
 
-func triggerScrape(videoID string) error {
-	slack("Triggering scrape for %s", videoID)
+func triggerScrape(videoID string, ip *net.TCPAddr) error {
+	//slack("Triggering scrape for %s", videoID)
 	u, err := url.Parse("https://caa.iti.gr/verify_videoV3")
 	q := u.Query()
 	q.Set("twtimeline", "0")
 	q.Set("url", "https://www.youtube.com/watch?v="+videoID)
 	u.RawQuery = q.Encode()
-	slack("GET %s", u.String())
-	res, err := http.Get(u.String())
+	//slack("GET %s", u.String())
+
+	client := getClient(ip)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return errors.Err(err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36")
+
+	res, err := client.Do(req)
 	if err != nil {
 		return errors.Err(err)
 	}
 	defer res.Body.Close()
 
-	all, err := ioutil.ReadAll(res.Body)
-	spew.Dump(string(all), err)
+	var response struct {
+		Message  string `json:"message"`
+		Status   string `json:"status"`
+		VideoURL string `json:"video_url"`
+	}
+	err = json.NewDecoder(res.Body).Decode(&response)
+	if err != nil {
+		return errors.Err(err)
+	}
+
+	switch response.Status {
+	case "removed_video":
+		return errors.Err("video previously removed from service")
+	case "no_video":
+		return errors.Err("they say 'video cannot be found'. wtf?")
+	default:
+		spew.Dump(response)
+	}
 
 	return nil
 	//https://caa.iti.gr/caa/api/v4/videos/reports/h-tuxHS5lSM
 }
 
-func getUploadTime(videoID string) (string, error) {
-	slack("Getting upload time for %s", videoID)
-	res, err := http.Get("https://caa.iti.gr/get_verificationV3?url=https://www.youtube.com/watch?v=" + videoID)
+func getUploadTime(videoID string, ip *net.TCPAddr) (string, error) {
+	//slack("Getting upload time for %s", videoID)
+
+	client := getClient(ip)
+	req, err := http.NewRequest(http.MethodGet, "https://caa.iti.gr/get_verificationV3?url=https://www.youtube.com/watch?v="+videoID, nil)
+	if err != nil {
+		return "", errors.Err(err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36")
+
+	res, err := client.Do(req)
 	if err != nil {
 		return "", errors.Err(err)
 	}
@@ -139,6 +176,10 @@ func getUploadTime(videoID string) (string, error) {
 		return "", errNotScraped
 	}
 
+	if uploadTime.Status == "" && strings.HasPrefix(uploadTime.Message, "CANNOT_RETRIEVE_REPORT_FOR_VIDEO_") {
+		return "", errors.Err("cannot retrieve report for video")
+	}
+
 	if uploadTime.Time == "" {
 		return "", errUploadTimeEmpty
 	}
@@ -146,7 +187,28 @@ func getUploadTime(videoID string) (string, error) {
 	return uploadTime.Time, nil
 }
 
-func run(args []string, withStdErr, withStdOut bool) ([]string, error) {
+func getClient(ip *net.TCPAddr) *http.Client {
+	if ip == nil {
+		return http.DefaultClient
+	}
+
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				LocalAddr: ip,
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
+}
+
+func run(args []string, withStdErr, withStdOut bool, stopChan stop.Chan) ([]string, error) {
 	cmd := exec.Command("youtube-dl", args...)
 	logrus.Printf("Running command youtube-dl %s", strings.Join(args, " "))
 
@@ -181,10 +243,23 @@ func run(args []string, withStdErr, withStdOut bool) ([]string, error) {
 			return nil, errors.Err(err)
 		}
 	}
-	err := cmd.Wait()
-	if len(errorLog) > 0 {
-		return nil, errors.Err(err)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+	select {
+	case <-stopChan:
+		if err := cmd.Process.Kill(); err != nil {
+			return nil, errors.Prefix("failed to kill command after stopper cancellation", err)
+		}
+		return nil, errors.Err("canceled by stopper")
+	case err := <-done:
+		if err != nil {
+			return nil, errors.Prefix("youtube-dl "+strings.Join(args, " "), err)
+		}
 	}
+
 	if len(errorLog) > 0 {
 		return nil, errors.Err(string(errorLog))
 	}

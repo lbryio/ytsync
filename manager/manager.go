@@ -234,7 +234,7 @@ func (s *SyncManager) Start() error {
 				}
 				shouldNotCount = strings.Contains(err.Error(), "this youtube channel is being managed by another server")
 				if !shouldNotCount {
-					logUtils.SendInfoToSlack("A non fatal error was reported by the sync process. %s\nContinuing...", err.Error())
+					logUtils.SendInfoToSlack("A non fatal error was reported by the sync process.\n%s", errors.FullTrace(err))
 				}
 			}
 			err = blobs_reflector.ReflectAndClean()

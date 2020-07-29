@@ -253,6 +253,8 @@ func (s *Sync) FullCycle() (e error) {
 		util.SendToSlack("got interrupt, shutting down")
 		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
 		s.grp.Stop()
+		time.Sleep(5 * time.Second)
+		debug.PrintStack() // so we can figure out what's not stopping
 	}()
 	err := s.setStatusSyncing()
 	if err != nil {
@@ -854,6 +856,12 @@ func (s *Sync) startWorker(workerNum int) {
 
 		tryCount := 0
 		for {
+			select { // check again inside the loop so this dies faster
+			case <-s.grp.Ch():
+				log.Printf("Stopping worker %d", workerNum)
+				return
+			default:
+			}
 			tryCount++
 			err := s.processVideo(v)
 
@@ -988,10 +996,10 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		return err
 	}
 
-	videos, err := ytapi.GetVideosToSync(s.APIConfig.YoutubeAPIKey, s.YoutubeChannelID, s.syncedVideos, s.Manager.SyncFlags.QuickSync, s.Manager.videosLimit, ytapi.VideoParams{
+	videos, err := ytapi.GetVideosToSync(s.YoutubeChannelID, s.syncedVideos, s.Manager.SyncFlags.QuickSync, s.Manager.videosLimit, ytapi.VideoParams{
 		VideoDir: s.videoDirectory,
 		S3Config: s.Manager.GetS3AWSConfig(),
-		Grp:      s.grp,
+		Stopper:  s.grp,
 		IPPool:   ipPool,
 	})
 	if err != nil {
