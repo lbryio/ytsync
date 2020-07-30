@@ -253,8 +253,8 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 			break
 		}
 		defer pool.ReleaseIP(sourceAddress)
-		args = append(args, "--source-address", sourceAddress)
-		cmd := exec.Command("youtube-dl", args...)
+		argsForCommand := append(args, "--source-address", sourceAddress)
+		cmd := exec.Command("youtube-dl", argsForCommand...)
 		logrus.Printf("Running command youtube-dl %s", strings.Join(args, " "))
 
 		var stderr io.ReadCloser
