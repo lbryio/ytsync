@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/sdk"
+	"github.com/lbryio/ytsync/v5/ytapi"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
@@ -24,9 +26,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan) ([]string, error) {
+func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, videoParams ytapi.VideoParams) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist"}
-	ids, err := run(args, false, true, stopChan)
+	ids, err := run(channelName, args, false, true, stopChan, videoParams)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -42,9 +44,9 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan) 
 
 const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
-func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr) (*ytdl.YtdlVideo, error) {
+func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, videoParams ytapi.VideoParams) (*ytdl.YtdlVideo, error) {
 	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
-	results, err := run(args, false, true, stopChan)
+	results, err := run(videoID, args, false, true, stopChan, videoParams)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -229,7 +231,28 @@ func getClient(ip *net.TCPAddr) *http.Client {
 	}
 }
 
-func run(args []string, withStdErr, withStdOut bool, stopChan stop.Chan) ([]string, error) {
+func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.Chan, v ytapi.VideoParams) ([]string, error) {
+	var sourceAddress string
+	var err error
+	for {
+		sourceAddress, err = v.IPPool.GetIP(use)
+		if err != nil {
+			if errors.Is(err, ip_manager.ErrAllThrottled) {
+				select {
+				case <-stopChan:
+					return nil, errors.Err("interrupted by user")
+				default:
+					time.Sleep(ip_manager.IPCooldownPeriod)
+					continue
+				}
+			} else {
+				return nil, err
+			}
+		}
+		break
+	}
+	defer v.IPPool.ReleaseIP(sourceAddress)
+	args = append(args, "--source-address", sourceAddress)
 	cmd := exec.Command("youtube-dl", args...)
 	logrus.Printf("Running command youtube-dl %s", strings.Join(args, " "))
 
