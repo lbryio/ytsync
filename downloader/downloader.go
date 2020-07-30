@@ -59,7 +59,7 @@ func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Ch
 	tries := 0
 GetTime:
 	tries++
-	t, err := getUploadTime(config, videoID, ip)
+	t, err := getUploadTime(config, videoID, ip, video.UploadDate)
 	if err != nil {
 		//slack(":warning: Upload time error: %v", err)
 		if tries <= maxTries && (errors.Is(err, errNotScraped) || errors.Is(err, errUploadTimeEmpty) || errors.Is(err, errStatusParse) || errors.Is(err, errConnectionIssue)) {
@@ -158,7 +158,7 @@ func triggerScrape(videoID string, ip *net.TCPAddr) error {
 	//https://caa.iti.gr/caa/api/v4/videos/reports/h-tuxHS5lSM
 }
 
-func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr) (string, error) {
+func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploadDate string) (string, error) {
 	//slack("Getting upload time for %s", videoID)
 	release, err := config.GetReleasedDate(videoID)
 	if err != nil {
@@ -169,6 +169,13 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr) (stri
 				return sqlTime.Format(releaseTimeFormat), nil
 			}
 		}
+	}
+	ytdlUploadDate, err := time.Parse("20060102", uploadDate)
+	if err != nil {
+		logrus.Error(err)
+	}
+	if time.Now().Add(-5 * 24 * time.Hour).After(ytdlUploadDate) {
+		return ytdlUploadDate.Format(releaseTimeFormat), nil
 	}
 	client := getClient(ip)
 	req, err := http.NewRequest(http.MethodGet, "https://caa.iti.gr/get_verificationV3?url=https://www.youtube.com/watch?v="+videoID, nil)
@@ -314,7 +321,7 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 						break
 					}
 				}
-				logrus.Debug("Unkown error, returning failure: %s", err.Error())
+				logrus.Debugf("Unkown error, returning failure: %s", err.Error())
 				return nil, errors.Prefix("youtube-dl "+strings.Join(argsForCommand, " "), err)
 			}
 			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
