@@ -57,7 +57,7 @@ func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[s
 	if quickSync {
 		maxVideos = 50
 	}
-	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos, videoParams.Stopper.Ch())
+	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos, videoParams.Stopper.Ch(), videoParams.IPPool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -164,6 +164,9 @@ func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.Channe
 func getVideos(config *sdk.APIConfig, videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
 	var videos []*ytdl.YtdlVideo
 	for _, videoID := range videoIDs {
+		if len(videoID) < 5 {
+			continue
+		}
 		select {
 		case <-stopChan:
 			return videos, errors.Err("canceled by stopper")
@@ -182,7 +185,7 @@ func getVideos(config *sdk.APIConfig, videoIDs []string, stopChan stop.Chan, ipP
 		if state == "published" {
 			continue
 		}
-		video, err := downloader.GetVideoInformation(config, videoID, stopChan, nil)
+		video, err := downloader.GetVideoInformation(config, videoID, stopChan, nil, ipPool)
 		if err != nil {
 			//ipPool.ReleaseIP(ip)
 			return nil, errors.Err(err)

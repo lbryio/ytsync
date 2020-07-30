@@ -12,12 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lbryio/ytsync/v5/ip_manager"
-	"github.com/lbryio/ytsync/v5/sdk"
-	"github.com/lbryio/ytsync/v5/ytapi"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
+	"github.com/lbryio/ytsync/v5/ip_manager"
+	"github.com/lbryio/ytsync/v5/sdk"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
@@ -26,9 +24,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, videoParams ytapi.VideoParams) ([]string, error) {
+func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist"}
-	ids, err := run(channelName, args, false, true, stopChan, videoParams)
+	ids, err := run(channelName, args, false, true, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -44,9 +42,9 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, 
 
 const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
-func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, videoParams ytapi.VideoParams) (*ytdl.YtdlVideo, error) {
+func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
 	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
-	results, err := run(videoID, args, false, true, stopChan, videoParams)
+	results, err := run(videoID, args, false, true, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -231,14 +229,14 @@ func getClient(ip *net.TCPAddr) *http.Client {
 	}
 }
 
-func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.Chan, v ytapi.VideoParams) ([]string, error) {
+func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	var maxtries = 10
 	var attemps int
 	for {
 		var sourceAddress string
 		var err error
 		for {
-			sourceAddress, err = v.IPPool.GetIP(use)
+			sourceAddress, err = pool.GetIP(use)
 			if err != nil {
 				if errors.Is(err, ip_manager.ErrAllThrottled) {
 					select {
@@ -254,7 +252,7 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 			}
 			break
 		}
-		defer v.IPPool.ReleaseIP(sourceAddress)
+		defer pool.ReleaseIP(sourceAddress)
 		args = append(args, "--source-address", sourceAddress)
 		cmd := exec.Command("youtube-dl", args...)
 		logrus.Printf("Running command youtube-dl %s", strings.Join(args, " "))
@@ -306,13 +304,16 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 			if err != nil {
 				if strings.Contains(err.Error(), "exit status 1") {
 					if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
-						v.IPPool.SetThrottled(sourceAddress)
+						pool.SetThrottled(sourceAddress)
 					}
 					if attemps > maxtries {
+						logrus.Debug("too many tries returning failure")
 						break
 					}
+					logrus.Debugf("known throttling error...try again (%d)", attemps)
 					continue
 				}
+				logrus.Debug("Unkown error, returning failure")
 				return nil, errors.Prefix("youtube-dl "+strings.Join(args, " "), err)
 			}
 			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
