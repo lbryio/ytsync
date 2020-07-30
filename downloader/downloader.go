@@ -254,6 +254,7 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 		}
 		defer pool.ReleaseIP(sourceAddress)
 		argsForCommand := append(args, "--source-address", sourceAddress)
+		argsForCommand = append(args, "--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")
 		cmd := exec.Command("youtube-dl", argsForCommand...)
 		logrus.Printf("Running command youtube-dl %s", strings.Join(argsForCommand, " "))
 
