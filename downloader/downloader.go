@@ -305,15 +305,15 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 				if strings.Contains(err.Error(), "exit status 1") {
 					if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
 						pool.SetThrottled(sourceAddress)
+						logrus.Debugf("known throttling error...try again (%d)", attemps)
+						continue
 					}
 					if attemps > maxtries {
 						logrus.Debug("too many tries returning failure")
 						break
 					}
-					logrus.Debugf("known throttling error...try again (%d)", attemps)
-					continue
 				}
-				logrus.Debug("Unkown error, returning failure")
+				logrus.Debug("Unkown error, returning failure: %s", err.Error())
 				return nil, errors.Prefix("youtube-dl "+strings.Join(argsForCommand, " "), err)
 			}
 			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
