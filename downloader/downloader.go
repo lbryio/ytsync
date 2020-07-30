@@ -232,80 +232,94 @@ func getClient(ip *net.TCPAddr) *http.Client {
 }
 
 func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.Chan, v ytapi.VideoParams) ([]string, error) {
-	var sourceAddress string
-	var err error
+	var maxtries = 10
+	var attemps int
 	for {
-		sourceAddress, err = v.IPPool.GetIP(use)
-		if err != nil {
-			if errors.Is(err, ip_manager.ErrAllThrottled) {
-				select {
-				case <-stopChan:
-					return nil, errors.Err("interrupted by user")
-				default:
-					time.Sleep(ip_manager.IPCooldownPeriod)
-					continue
+		var sourceAddress string
+		var err error
+		for {
+			sourceAddress, err = v.IPPool.GetIP(use)
+			if err != nil {
+				if errors.Is(err, ip_manager.ErrAllThrottled) {
+					select {
+					case <-stopChan:
+						return nil, errors.Err("interrupted by user")
+					default:
+						time.Sleep(ip_manager.IPCooldownPeriod)
+						continue
+					}
+				} else {
+					return nil, err
 				}
-			} else {
-				return nil, err
+			}
+			break
+		}
+		defer v.IPPool.ReleaseIP(sourceAddress)
+		args = append(args, "--source-address", sourceAddress)
+		cmd := exec.Command("youtube-dl", args...)
+		logrus.Printf("Running command youtube-dl %s", strings.Join(args, " "))
+
+		var stderr io.ReadCloser
+		var errorLog []byte
+		if withStdErr {
+			var err error
+			stderr, err = cmd.StderrPipe()
+			if err != nil {
+				return nil, errors.Err(err)
+			}
+			errorLog, err = ioutil.ReadAll(stderr)
+			if err != nil {
+				return nil, errors.Err(err)
 			}
 		}
-		break
-	}
-	defer v.IPPool.ReleaseIP(sourceAddress)
-	args = append(args, "--source-address", sourceAddress)
-	cmd := exec.Command("youtube-dl", args...)
-	logrus.Printf("Running command youtube-dl %s", strings.Join(args, " "))
 
-	var stderr io.ReadCloser
-	var errorLog []byte
-	if withStdErr {
-		var err error
-		stderr, err = cmd.StderrPipe()
-		if err != nil {
-			return nil, errors.Err(err)
-		}
-		errorLog, err = ioutil.ReadAll(stderr)
-		if err != nil {
-			return nil, errors.Err(err)
-		}
-	}
+		var stdout io.ReadCloser
+		var outLog []byte
+		if withStdOut {
+			var err error
+			stdout, err = cmd.StdoutPipe()
+			if err != nil {
+				return nil, errors.Err(err)
+			}
 
-	var stdout io.ReadCloser
-	var outLog []byte
-	if withStdOut {
-		var err error
-		stdout, err = cmd.StdoutPipe()
-		if err != nil {
-			return nil, errors.Err(err)
+			if err := cmd.Start(); err != nil {
+				return nil, errors.Err(err)
+			}
+			outLog, err = ioutil.ReadAll(stdout)
+			if err != nil {
+				return nil, errors.Err(err)
+			}
 		}
 
-		if err := cmd.Start(); err != nil {
-			return nil, errors.Err(err)
+		done := make(chan error, 1)
+		go func() {
+			attemps++
+			done <- cmd.Wait()
+		}()
+		select {
+		case <-stopChan:
+			if err := cmd.Process.Kill(); err != nil {
+				return nil, errors.Prefix("failed to kill command after stopper cancellation", err)
+			}
+			return nil, errors.Err("canceled by stopper")
+		case err := <-done:
+			if err != nil {
+				if strings.Contains(err.Error(), "exit status 1") {
+					if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
+						v.IPPool.SetThrottled(sourceAddress)
+					}
+					if attemps > maxtries {
+						break
+					}
+					continue
+				}
+				return nil, errors.Prefix("youtube-dl "+strings.Join(args, " "), err)
+			}
+			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 		}
-		outLog, err = ioutil.ReadAll(stdout)
-		if err != nil {
-			return nil, errors.Err(err)
-		}
-	}
 
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-	}()
-	select {
-	case <-stopChan:
-		if err := cmd.Process.Kill(); err != nil {
-			return nil, errors.Prefix("failed to kill command after stopper cancellation", err)
-		}
-		return nil, errors.Err("canceled by stopper")
-	case err := <-done:
-		if err != nil {
-			return nil, errors.Prefix("youtube-dl "+strings.Join(args, " "), err)
+		if len(errorLog) > 0 {
+			return nil, errors.Err(string(errorLog))
 		}
 	}
-
-	if len(errorLog) > 0 {
-		return nil, errors.Err(string(errorLog))
-	}
-	return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 }
