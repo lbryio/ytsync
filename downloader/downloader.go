@@ -62,7 +62,7 @@ GetTime:
 	t, err := getUploadTime(config, videoID, ip)
 	if err != nil {
 		//slack(":warning: Upload time error: %v", err)
-		if tries <= maxTries && (errors.Is(err, errNotScraped) || errors.Is(err, errUploadTimeEmpty)) {
+		if tries <= maxTries && (errors.Is(err, errNotScraped) || errors.Is(err, errUploadTimeEmpty) || errors.Is(err, errStatusParse) || errors.Is(err, errConnectionIssue)) {
 			err := triggerScrape(videoID, ip)
 			if err == nil {
 				time.Sleep(2 * time.Second) // let them scrape it
@@ -99,6 +99,8 @@ GetTime:
 
 var errNotScraped = errors.Base("not yet scraped by caa.iti.gr")
 var errUploadTimeEmpty = errors.Base("upload time is empty")
+var errStatusParse = errors.Base("could not parse status, got number, need string")
+var errConnectionIssue = errors.Base("there was a connection issue with the api")
 
 func slack(format string, a ...interface{}) {
 	fmt.Printf(format+"\n", a...)
@@ -134,6 +136,12 @@ func triggerScrape(videoID string, ip *net.TCPAddr) error {
 	}
 	err = json.NewDecoder(res.Body).Decode(&response)
 	if err != nil {
+		if strings.Contains(err.Error(), "cannot unmarshal number") {
+			return errors.Err(errStatusParse)
+		}
+		if strings.Contains(err.Error(), "no route to host") {
+			return errors.Err(errConnectionIssue)
+		}
 		return errors.Err(err)
 	}
 
