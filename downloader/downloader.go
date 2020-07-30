@@ -255,7 +255,7 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 		defer pool.ReleaseIP(sourceAddress)
 		argsForCommand := append(args, "--source-address", sourceAddress)
 		cmd := exec.Command("youtube-dl", argsForCommand...)
-		logrus.Printf("Running command youtube-dl %s", strings.Join(args, " "))
+		logrus.Printf("Running command youtube-dl %s", strings.Join(argsForCommand, " "))
 
 		var stderr io.ReadCloser
 		var errorLog []byte
@@ -314,7 +314,7 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 					continue
 				}
 				logrus.Debug("Unkown error, returning failure")
-				return nil, errors.Prefix("youtube-dl "+strings.Join(args, " "), err)
+				return nil, errors.Prefix("youtube-dl "+strings.Join(argsForCommand, " "), err)
 			}
 			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 		}
