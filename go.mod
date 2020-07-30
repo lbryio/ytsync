@@ -4,11 +4,10 @@ replace github.com/btcsuite/btcd => github.com/lbryio/lbrycrd.go v0.0.0-20200203
 
 require (
 	cloud.google.com/go v0.46.3 // indirect
-	github.com/ChannelMeter/iso8601duration v0.0.0-20150204201828-8da3af7a2a61
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/aws/aws-sdk-go v1.25.9
-	github.com/channelmeter/iso8601duration v0.0.0-20150204201828-8da3af7a2a61 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0 // indirect

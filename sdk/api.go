@@ -408,3 +408,52 @@ func (a *APIConfig) VideoState(videoID string) (string, error) {
 	}
 	return "", errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
+
+type VideoRelease struct {
+	ID            uint64 `json:"id"`
+	YoutubeDataID uint64 `json:"youtube_data_id"`
+	VideoID       string `json:"video_id"`
+	ReleaseTime   string `json:"release_time""`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+func (a *APIConfig) GetReleasedDate(videoID string) (*VideoRelease, error) {
+	endpoint := a.ApiURL + "/yt/released"
+	vals := url.Values{
+		"video_id":   {videoID},
+		"auth_token": {a.ApiToken},
+	}
+
+	res, err := http.PostForm(endpoint, vals)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+	if res.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if res.StatusCode != http.StatusOK {
+		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
+		log.Debugln(string(body))
+		time.Sleep(30 * time.Second)
+		return a.GetReleasedDate(videoID)
+	}
+	var response struct {
+		Success bool         `json:"success"`
+		Error   null.String  `json:"error"`
+		Data    VideoRelease `json:"data"`
+	}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	if !response.Error.IsNull() {
+		return nil, errors.Err(response.Error.String)
+	}
+	if response.Data.ReleaseTime != "" {
+		return &response.Data, nil
+	}
+	return nil, errors.Err("invalid API response. Status code: %d", res.StatusCode)
+}

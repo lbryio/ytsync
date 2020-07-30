@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lbryio/ytsync/v5/sdk"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
@@ -38,7 +40,9 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan) 
 	return videoIDs, nil
 }
 
-func GetVideoInformation(videoID string, stopChan stop.Chan, ip *net.TCPAddr) (*ytdl.YtdlVideo, error) {
+const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
+
+func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr) (*ytdl.YtdlVideo, error) {
 	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
 	results, err := run(args, false, true, stopChan)
 	if err != nil {
@@ -55,7 +59,7 @@ func GetVideoInformation(videoID string, stopChan stop.Chan, ip *net.TCPAddr) (*
 	tries := 0
 GetTime:
 	tries++
-	t, err := getUploadTime(videoID, ip)
+	t, err := getUploadTime(config, videoID, ip)
 	if err != nil {
 		//slack(":warning: Upload time error: %v", err)
 		if tries <= maxTries && (errors.Is(err, errNotScraped) || errors.Is(err, errUploadTimeEmpty)) {
@@ -146,9 +150,18 @@ func triggerScrape(videoID string, ip *net.TCPAddr) error {
 	//https://caa.iti.gr/caa/api/v4/videos/reports/h-tuxHS5lSM
 }
 
-func getUploadTime(videoID string, ip *net.TCPAddr) (string, error) {
+func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr) (string, error) {
 	//slack("Getting upload time for %s", videoID)
-
+	release, err := config.GetReleasedDate(videoID)
+	if err != nil {
+		if release != nil {
+			const sqlTimeFormat = "2006-01-02 15:04:05"
+			sqlTime, err := time.ParseInLocation(sqlTimeFormat, release.ReleaseTime, time.UTC)
+			if err != nil {
+				return sqlTime.Format(releaseTimeFormat), nil
+			}
+		}
+	}
 	client := getClient(ip)
 	req, err := http.NewRequest(http.MethodGet, "https://caa.iti.gr/get_verificationV3?url=https://www.youtube.com/watch?v="+videoID, nil)
 	if err != nil {

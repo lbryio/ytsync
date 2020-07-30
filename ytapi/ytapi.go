@@ -182,7 +182,7 @@ func getVideos(config *sdk.APIConfig, videoIDs []string, stopChan stop.Chan, ipP
 		if state == "published" {
 			continue
 		}
-		video, err := downloader.GetVideoInformation(videoID, stopChan, nil)
+		video, err := downloader.GetVideoInformation(config, videoID, stopChan, nil)
 		if err != nil {
 			//ipPool.ReleaseIP(ip)
 			return nil, errors.Err(err)
