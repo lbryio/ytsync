@@ -121,7 +121,7 @@ type Format struct {
 	Ext             string      `json:"ext"`
 	FragmentBaseURL string      `json:"fragment_base_url,omitempty"`
 	Filesize        interface{} `json:"filesize"`
-	Fps             int         `json:"fps"`
+	Fps             float64     `json:"fps"`
 	Fragments       []struct {
 		Path     string  `json:"path"`
 		Duration float64 `json:"duration,omitempty"`

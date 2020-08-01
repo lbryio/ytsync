@@ -424,7 +424,7 @@ func (s *Sync) waitForDaemonStart() error {
 			if err == nil && status.StartupStatus.Wallet && status.IsRunning {
 				return nil
 			}
-			if time.Since(beginTime).Minutes() > 60 {
+			if time.Since(beginTime).Minutes() > 120 {
 				s.grp.Stop()
 				return errors.Err("the daemon is taking too long to start. Something is wrong")
 			}
