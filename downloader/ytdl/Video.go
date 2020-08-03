@@ -30,7 +30,7 @@ type YtdlVideo struct {
 	Abr                int         `json:"abr"`
 	UploaderURL        string      `json:"uploader_url"`
 	Categories         []string    `json:"categories"`
-	Fps                int         `json:"fps"`
+	Fps                float64     `json:"fps"`
 	StretchedRatio     interface{} `json:"stretched_ratio"`
 	SeasonNumber       interface{} `json:"season_number"`
 	Annotations        interface{} `json:"annotations"`
@@ -83,7 +83,7 @@ type RequestedFormat struct {
 	Ext             string      `json:"ext"`
 	FragmentBaseURL string      `json:"fragment_base_url"`
 	Filesize        interface{} `json:"filesize"`
-	Fps             int         `json:"fps"`
+	Fps             float64     `json:"fps"`
 	ManifestURL     string      `json:"manifest_url"`
 	Protocol        string      `json:"protocol"`
 	FormatID        string      `json:"format_id"`
