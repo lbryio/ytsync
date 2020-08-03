@@ -26,12 +26,13 @@ import (
 
 func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist"}
-	ids, err := run(channelName, args, false, true, stopChan, pool)
+	ids, err := run(channelName, args, true, true, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
 	videoIDs := make([]string, maxVideos)
 	for i, v := range ids {
+		logrus.Debugf("%d - video id %s", i, v)
 		if i >= maxVideos {
 			break
 		}
@@ -44,7 +45,7 @@ const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
 func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
 	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
-	results, err := run(videoID, args, false, true, stopChan, pool)
+	results, err := run(videoID, args, true, true, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -239,29 +240,15 @@ func getClient(ip *net.TCPAddr) *http.Client {
 func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	var maxtries = 10
 	var attemps int
+	var useragent []string
 	for {
-		var sourceAddress string
-		var err error
-		for {
-			sourceAddress, err = pool.GetIP(use)
-			if err != nil {
-				if errors.Is(err, ip_manager.ErrAllThrottled) {
-					select {
-					case <-stopChan:
-						return nil, errors.Err("interrupted by user")
-					default:
-						time.Sleep(ip_manager.IPCooldownPeriod)
-						continue
-					}
-				} else {
-					return nil, err
-				}
-			}
-			break
+		sourceAddress, err := getIPFromPool(use, stopChan, pool)
+		if err != nil {
+			return nil, err
 		}
 		defer pool.ReleaseIP(sourceAddress)
 		argsForCommand := append(args, "--source-address", sourceAddress)
-		//argsForCommand = append(args, "--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")
+		argsForCommand = append(argsForCommand, useragent...)
 		cmd := exec.Command("youtube-dl", argsForCommand...)
 		logrus.Printf("Running command youtube-dl %s", strings.Join(argsForCommand, " "))
 
@@ -270,10 +257,6 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 		if withStdErr {
 			var err error
 			stderr, err = cmd.StderrPipe()
-			if err != nil {
-				return nil, errors.Err(err)
-			}
-			errorLog, err = ioutil.ReadAll(stderr)
 			if err != nil {
 				return nil, errors.Err(err)
 			}
@@ -294,6 +277,12 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 			outLog, err = ioutil.ReadAll(stdout)
 			if err != nil {
 				return nil, errors.Err(err)
+			}
+			if withStdErr {
+				errorLog, err = ioutil.ReadAll(stderr)
+				if err != nil {
+					return nil, errors.Err(err)
+				}
 			}
 		}
 
@@ -316,13 +305,21 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 						logrus.Debugf("known throttling error...try again (%d)", attemps)
 						continue
 					}
+					if strings.Contains(string(errorLog), "YouTube said: Unable to extract video data") {
+						useragent = []string{"--user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"}
+						if attemps == 1 {
+							useragent = []string{"--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+						}
+						logrus.Debugf("known extraction issue, maybe user agent specification will work...try again (%d)", attemps)
+						continue
+					}
 					if attemps > maxtries {
 						logrus.Debug("too many tries returning failure")
 						break
 					}
 				}
 				logrus.Debugf("Unkown error, returning failure: %s", err.Error())
-				return nil, errors.Prefix("youtube-dl "+strings.Join(argsForCommand, " "), err)
+				return nil, errors.Prefix("youtube-dl "+strings.Join(argsForCommand, " ")+" ["+string(errorLog)+"] ", err)
 			}
 			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 		}
@@ -331,4 +328,26 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 			return nil, errors.Err(string(errorLog))
 		}
 	}
+}
+
+func getIPFromPool(use string, stopChan stop.Chan, pool *ip_manager.IPPool) (sourceAddress string, err error) {
+	for {
+		sourceAddress, err = pool.GetIP(use)
+		if err != nil {
+			if errors.Is(err, ip_manager.ErrAllThrottled) {
+				select {
+				case <-stopChan:
+					return "", errors.Err("interrupted by user")
+
+				default:
+					time.Sleep(ip_manager.IPCooldownPeriod)
+					continue
+				}
+			} else {
+				return "", err
+			}
+		}
+		break
+	}
+	return
 }

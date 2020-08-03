@@ -105,6 +105,7 @@ func (s *SyncManager) Start() error {
 		}
 	}
 
+	var lastChannelProcessed string
 	syncCount := 0
 	for {
 		err := s.checkUsedSpace()
@@ -205,6 +206,13 @@ func (s *SyncManager) Start() error {
 			time.Sleep(5 * time.Minute)
 		}
 		for _, sync := range syncs {
+			if lastChannelProcessed == sync.LbryChannelName {
+				util.SendToSlack("We just killed a sync for %s to stop looping!(%s)", sync.LbryChannelName, sync.YoutubeChannelID)
+				stopTheLoops := errors.Err("Found channel %s running twice, set it to failed, and reprocess later", sync.LbryChannelName)
+				sync.setChannelTerminationStatus(&stopTheLoops)
+				continue
+			}
+			lastChannelProcessed = sync.LbryChannelName
 			shouldNotCount := false
 			logUtils.SendInfoToSlack("Syncing %s (%s) to LBRY! total processed channels since startup: %d", sync.LbryChannelName, sync.YoutubeChannelID, syncCount+1)
 			err := sync.FullCycle()

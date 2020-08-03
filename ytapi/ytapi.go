@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lbryio/ytsync/v5/util"
+
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
 	"github.com/lbryio/ytsync/v5/downloader"
@@ -76,7 +78,7 @@ func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[s
 		mostRecentlyFailedChannel = channelID
 	}
 
-	vids, err := getVideos(config, videoIDs, videoParams.Stopper.Ch(), videoParams.IPPool)
+	vids, err := getVideos(config, channelID, videoIDs, videoParams.Stopper.Ch(), videoParams.IPPool)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +163,7 @@ func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.Channe
 	return response.Items[0].Snippet, response.Items[0].BrandingSettings, nil
 }
 
-func getVideos(config *sdk.APIConfig, videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
+func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
 	var videos []*ytdl.YtdlVideo
 	for _, videoID := range videoIDs {
 		if len(videoID) < 5 {
@@ -187,11 +189,19 @@ func getVideos(config *sdk.APIConfig, videoIDs []string, stopChan stop.Chan, ipP
 		}
 		video, err := downloader.GetVideoInformation(config, videoID, stopChan, nil, ipPool)
 		if err != nil {
-			//ipPool.ReleaseIP(ip)
-			return nil, errors.Err(err)
+			errSDK := config.MarkVideoStatus(sdk.VideoStatus{
+				ChannelID:     channelID,
+				VideoID:       videoID,
+				Status:        "failed",
+				FailureReason: err.Error(),
+			})
+			util.SendErrorToSlack("Skipping video: " + err.Error())
+			if errSDK != nil {
+				return nil, errors.Err(errSDK)
+			}
+		} else {
+			videos = append(videos, video)
 		}
-		videos = append(videos, video)
-		//ipPool.ReleaseIP(ip)
 	}
 	return videos, nil
 }
