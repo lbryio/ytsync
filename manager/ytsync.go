@@ -200,9 +200,11 @@ func (s *Sync) FullCycle() (e error) {
 
 func (s *Sync) processTransfers() (e error) {
 	log.Println("Processing transfers")
-	err := waitConfirmations(s)
-	if err != nil {
-		return err
+	if s.transferState != 2 {
+		err := waitConfirmations(s)
+		if err != nil {
+			return err
+		}
 	}
 	supportAmount, err := abandonSupports(s)
 	if err != nil {

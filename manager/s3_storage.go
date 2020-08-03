@@ -2,6 +2,7 @@ package manager
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -86,7 +87,16 @@ func (s *Sync) downloadBlockchainDB() error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	_ = os.Remove(defaultBDBDir)
+	files, err := filepath.Glob(defaultBDBDir + "*")
+	if err != nil {
+		return errors.Err(err)
+	}
+	for _, f := range files {
+		err = os.Remove(f)
+		if err != nil {
+			return errors.Err(err)
+		}
+	}
 
 	downloader, err := s.getS3Downloader()
 	if err != nil {
