@@ -453,7 +453,7 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 
 	if dur > v.maxVideoLength {
 		log.Infof("%s is %d long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
-		logUtils.SendErrorToSlack("%s is %d long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
+		logUtils.SendErrorToSlack("%s is %s long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
 		return nil, errors.Err("video is too long to process")
 	}
 	for {
