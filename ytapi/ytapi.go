@@ -2,6 +2,8 @@ package ytapi
 
 import (
 	"bufio"
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"sort"
@@ -25,8 +27,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/googleapi/transport"
-	ytlib "google.golang.org/api/youtube/v3"
 )
 
 type Video interface {
@@ -56,7 +56,7 @@ var mostRecentlyFailedChannel string // TODO: fix this hack!
 func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
 
 	var videos []Video
-	if quickSync {
+	if quickSync && maxVideos > 50 {
 		maxVideos = 50
 	}
 	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos, videoParams.Stopper.Ch(), videoParams.IPPool)
@@ -143,24 +143,36 @@ func CountVideosInChannel(channelID string) (int, error) {
 	return num, nil
 }
 
-func ChannelInfo(apiKey, channelID string) (*ytlib.ChannelSnippet, *ytlib.ChannelBrandingSettings, error) {
-	return nil, nil, errors.Err("ChannelInfo doesn't work yet because we're focused on existing channels")
+func ChannelInfo(channelID string) (*YoutubeStatsResponse, error) {
+	//return nil, nil, errors.Err("ChannelInfo doesn't work yet because we're focused on existing channels")
+	url := "https://www.youtube.com/channel/" + channelID + "/about"
 
-	service, err := ytlib.New(&http.Client{Transport: &transport.APIKey{Key: apiKey}})
+	req, _ := http.NewRequest("GET", url, nil)
+
+	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36")
+	req.Header.Add("Accept", "*/*")
+
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, nil, errors.Prefix("error creating YouTube service", err)
+		return nil, errors.Err(err)
 	}
-
-	response, err := service.Channels.List("snippet,brandingSettings").Id(channelID).Do()
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, nil, errors.Prefix("error getting channel details", err)
+		return nil, errors.Err(err)
+	}
+	pageBody := string(body)
+	dataStartIndex := strings.Index(pageBody, "window[\"ytInitialData\"] = ") + 26
+	dataEndIndex := strings.Index(pageBody, "]}}};") + 4
+
+	data := pageBody[dataStartIndex:dataEndIndex]
+	var decodedResponse YoutubeStatsResponse
+	err = json.Unmarshal([]byte(data), &decodedResponse)
+	if err != nil {
+		return nil, errors.Err(err)
 	}
 
-	if len(response.Items) < 1 {
-		return nil, nil, errors.Err("youtube channel not found")
-	}
-
-	return response.Items[0].Snippet, response.Items[0].BrandingSettings, nil
+	return &decodedResponse, nil
 }
 
 func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
@@ -204,4 +216,148 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 		}
 	}
 	return videos, nil
+}
+
+type YoutubeStatsResponse struct {
+	Contents struct {
+		TwoColumnBrowseResultsRenderer struct {
+			Tabs []struct {
+				TabRenderer struct {
+					Title    string `json:"title"`
+					Selected bool   `json:"selected"`
+					Content  struct {
+						SectionListRenderer struct {
+							Contents []struct {
+								ItemSectionRenderer struct {
+									Contents []struct {
+										ChannelAboutFullMetadataRenderer struct {
+											Description struct {
+												SimpleText string `json:"simpleText"`
+											} `json:"description"`
+											ViewCountText struct {
+												SimpleText string `json:"simpleText"`
+											} `json:"viewCountText"`
+											JoinedDateText struct {
+												Runs []struct {
+													Text string `json:"text"`
+												} `json:"runs"`
+											} `json:"joinedDateText"`
+											CanonicalChannelURL        string `json:"canonicalChannelUrl"`
+											BypassBusinessEmailCaptcha bool   `json:"bypassBusinessEmailCaptcha"`
+											Title                      struct {
+												SimpleText string `json:"simpleText"`
+											} `json:"title"`
+											Avatar struct {
+												Thumbnails []struct {
+													URL    string `json:"url"`
+													Width  int    `json:"width"`
+													Height int    `json:"height"`
+												} `json:"thumbnails"`
+											} `json:"avatar"`
+											ShowDescription  bool `json:"showDescription"`
+											DescriptionLabel struct {
+												Runs []struct {
+													Text string `json:"text"`
+												} `json:"runs"`
+											} `json:"descriptionLabel"`
+											DetailsLabel struct {
+												Runs []struct {
+													Text string `json:"text"`
+												} `json:"runs"`
+											} `json:"detailsLabel"`
+											ChannelID string `json:"channelId"`
+										} `json:"channelAboutFullMetadataRenderer"`
+									} `json:"contents"`
+								} `json:"itemSectionRenderer"`
+							} `json:"contents"`
+						} `json:"sectionListRenderer"`
+					} `json:"content"`
+				} `json:"tabRenderer"`
+			} `json:"tabs"`
+		} `json:"twoColumnBrowseResultsRenderer"`
+	} `json:"contents"`
+	Header struct {
+		C4TabbedHeaderRenderer struct {
+			ChannelID string `json:"channelId"`
+			Title     string `json:"title"`
+			Avatar    struct {
+				Thumbnails []struct {
+					URL    string `json:"url"`
+					Width  int    `json:"width"`
+					Height int    `json:"height"`
+				} `json:"thumbnails"`
+			} `json:"avatar"`
+			Banner struct {
+				Thumbnails []struct {
+					URL    string `json:"url"`
+					Width  int    `json:"width"`
+					Height int    `json:"height"`
+				} `json:"thumbnails"`
+			} `json:"banner"`
+			VisitTracking struct {
+				RemarketingPing string `json:"remarketingPing"`
+			} `json:"visitTracking"`
+			SubscriberCountText struct {
+				SimpleText string `json:"simpleText"`
+			} `json:"subscriberCountText"`
+		} `json:"c4TabbedHeaderRenderer"`
+	} `json:"header"`
+	Metadata struct {
+		ChannelMetadataRenderer struct {
+			Title                string   `json:"title"`
+			Description          string   `json:"description"`
+			RssURL               string   `json:"rssUrl"`
+			ChannelConversionURL string   `json:"channelConversionUrl"`
+			ExternalID           string   `json:"externalId"`
+			Keywords             string   `json:"keywords"`
+			OwnerUrls            []string `json:"ownerUrls"`
+			Avatar               struct {
+				Thumbnails []struct {
+					URL    string `json:"url"`
+					Width  int    `json:"width"`
+					Height int    `json:"height"`
+				} `json:"thumbnails"`
+			} `json:"avatar"`
+			ChannelURL       string `json:"channelUrl"`
+			IsFamilySafe     bool   `json:"isFamilySafe"`
+			VanityChannelURL string `json:"vanityChannelUrl"`
+		} `json:"channelMetadataRenderer"`
+	} `json:"metadata"`
+	Topbar struct {
+		DesktopTopbarRenderer struct {
+			CountryCode string `json:"countryCode"`
+		} `json:"desktopTopbarRenderer"`
+	} `json:"topbar"`
+	Microformat struct {
+		MicroformatDataRenderer struct {
+			URLCanonical string `json:"urlCanonical"`
+			Title        string `json:"title"`
+			Description  string `json:"description"`
+			Thumbnail    struct {
+				Thumbnails []struct {
+					URL    string `json:"url"`
+					Width  int    `json:"width"`
+					Height int    `json:"height"`
+				} `json:"thumbnails"`
+			} `json:"thumbnail"`
+			SiteName           string   `json:"siteName"`
+			AppName            string   `json:"appName"`
+			AndroidPackage     string   `json:"androidPackage"`
+			IosAppStoreID      string   `json:"iosAppStoreId"`
+			IosAppArguments    string   `json:"iosAppArguments"`
+			OgType             string   `json:"ogType"`
+			URLApplinksWeb     string   `json:"urlApplinksWeb"`
+			URLApplinksIos     string   `json:"urlApplinksIos"`
+			URLApplinksAndroid string   `json:"urlApplinksAndroid"`
+			URLTwitterIos      string   `json:"urlTwitterIos"`
+			URLTwitterAndroid  string   `json:"urlTwitterAndroid"`
+			TwitterCardType    string   `json:"twitterCardType"`
+			TwitterSiteHandle  string   `json:"twitterSiteHandle"`
+			SchemaDotOrgType   string   `json:"schemaDotOrgType"`
+			Noindex            bool     `json:"noindex"`
+			Unlisted           bool     `json:"unlisted"`
+			FamilySafe         bool     `json:"familySafe"`
+			Tags               []string `json:"tags"`
+		} `json:"microformatDataRenderer"`
+	} `json:"microformat"`
 }

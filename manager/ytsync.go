@@ -26,12 +26,6 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -100,116 +94,6 @@ func (s *Sync) IsInterrupted() bool {
 	}
 }
 
-func (s *Sync) downloadWallet() error {
-	defaultWalletDir, defaultTempWalletDir, key, err := s.getWalletPaths()
-	if err != nil {
-		return errors.Err(err)
-	}
-
-	creds := credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, "")
-	s3Session, err := session.NewSession(&aws.Config{Region: aws.String(s.AwsS3Region), Credentials: creds})
-	if err != nil {
-		return errors.Prefix("error starting session: ", err)
-	}
-	downloader := s3manager.NewDownloader(s3Session)
-	out, err := os.Create(defaultTempWalletDir)
-	if err != nil {
-		return errors.Prefix("error creating temp wallet: ", err)
-	}
-	defer out.Close()
-
-	bytesWritten, err := downloader.Download(out, &s3.GetObjectInput{
-		Bucket: aws.String(s.AwsS3Bucket),
-		Key:    key,
-	})
-	if err != nil {
-		// Casting to the awserr.Error type will allow you to inspect the error
-		// code returned by the service in code. The error code can be used
-		// to switch on context specific functionality. In this case a context
-		// specific error message is printed to the user based on the bucket
-		// and key existing.
-		//
-		// For information on other S3 API error codes see:
-		// http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
-		if aerr, ok := err.(awserr.Error); ok {
-			code := aerr.Code()
-			if code == s3.ErrCodeNoSuchKey {
-				return errors.Err("wallet not on S3")
-			}
-		}
-		return err
-	} else if bytesWritten == 0 {
-		return errors.Err("zero bytes written")
-	}
-
-	err = os.Rename(defaultTempWalletDir, defaultWalletDir)
-	if err != nil {
-		return errors.Prefix("error replacing temp wallet for default wallet: ", err)
-	}
-
-	return nil
-}
-
-func (s *Sync) getWalletPaths() (defaultWallet, tempWallet string, key *string, err error) {
-
-	defaultWallet = os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
-	tempWallet = os.Getenv("HOME") + "/.lbryum/wallets/tmp_wallet"
-	key = aws.String("/wallets/" + s.YoutubeChannelID)
-	if logUtils.IsRegTest() {
-		defaultWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
-		tempWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/tmp_wallet"
-		key = aws.String("/regtest/" + s.YoutubeChannelID)
-	}
-
-	walletPath := os.Getenv("LBRYNET_WALLETS_DIR")
-	if walletPath != "" {
-		defaultWallet = walletPath + "/wallets/default_wallet"
-		tempWallet = walletPath + "/wallets/tmp_wallet"
-	}
-
-	if _, err := os.Stat(defaultWallet); !os.IsNotExist(err) {
-		return "", "", nil, errors.Err("default_wallet already exists")
-	}
-	return
-}
-
-func (s *Sync) uploadWallet() error {
-	defaultWalletDir := logUtils.GetDefaultWalletPath()
-	key := aws.String("/wallets/" + s.YoutubeChannelID)
-	if logUtils.IsRegTest() {
-		key = aws.String("/regtest/" + s.YoutubeChannelID)
-	}
-
-	if _, err := os.Stat(defaultWalletDir); os.IsNotExist(err) {
-		return errors.Err("default_wallet does not exist")
-	}
-
-	creds := credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, "")
-	s3Session, err := session.NewSession(&aws.Config{Region: aws.String(s.AwsS3Region), Credentials: creds})
-	if err != nil {
-		return err
-	}
-
-	uploader := s3manager.NewUploader(s3Session)
-
-	file, err := os.Open(defaultWalletDir)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(s.AwsS3Bucket),
-		Key:    key,
-		Body:   file,
-	})
-	if err != nil {
-		return err
-	}
-
-	return os.Remove(defaultWalletDir)
-}
-
 func (s *Sync) setStatusSyncing() error {
 	syncedVideos, claimNames, err := s.Manager.apiConfig.SetChannelStatus(s.YoutubeChannelID, StatusSyncing, "", nil)
 	if err != nil {
@@ -269,6 +153,10 @@ func (s *Sync) FullCycle() (e error) {
 		log.Println("Continuing previous upload")
 	} else {
 		log.Println("Starting new wallet")
+	}
+	err = s.downloadBlockchainDB()
+	if err != nil {
+		return errors.Prefix("failure in downloading blockchain.db", err)
 	}
 
 	defer s.stopAndUploadWallet(&e)
@@ -450,7 +338,14 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 			if err != nil {
 				if *e == nil {
 					e = &err
-					return
+				} else {
+					*e = errors.Prefix("failure uploading wallet", *e)
+				}
+			}
+			err = s.uploadBlockchainDB()
+			if err != nil {
+				if *e == nil {
+					e = &err
 				} else {
 					*e = errors.Prefix("failure uploading wallet", *e)
 				}

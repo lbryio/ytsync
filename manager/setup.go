@@ -383,20 +383,20 @@ func (s *Sync) ensureChannelOwnership() error {
 		}
 	}
 
-	channelInfo, channelBranding, err := ytapi.ChannelInfo(s.APIConfig.YoutubeAPIKey, s.YoutubeChannelID)
+	channelInfo, err := ytapi.ChannelInfo(s.YoutubeChannelID)
 	if err != nil {
 		return err
 	}
 
-	thumbnail := thumbs.GetBestThumbnail(nil) //Ignore this for now ( ChannelInfo Panics)
-	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail.URL, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
+	thumbnail := channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails)-1].URL
+	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}
 
 	var bannerURL *string
-	if channelBranding.Image != nil && channelBranding.Image.BannerImageUrl != "" {
-		bURL, err := thumbs.MirrorThumbnail(channelBranding.Image.BannerImageUrl, "banner-"+s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
+	if channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails != nil {
+		bURL, err := thumbs.MirrorThumbnail(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails)-1].URL, "banner-"+s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
 		if err != nil {
 			return err
 		}
@@ -404,20 +404,21 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 
 	var languages []string = nil
-	if channelInfo.DefaultLanguage != "" {
-		if channelInfo.DefaultLanguage == "iw" {
-			channelInfo.DefaultLanguage = "he"
-		}
-		languages = []string{channelInfo.DefaultLanguage}
-	}
+	//we don't have this data without the API
+	//if channelInfo.DefaultLanguage != "" {
+	//	if channelInfo.DefaultLanguage == "iw" {
+	//		channelInfo.DefaultLanguage = "he"
+	//	}
+	//	languages = []string{channelInfo.DefaultLanguage}
+	//}
 	var locations []jsonrpc.Location = nil
-	if channelInfo.Country != "" {
-		locations = []jsonrpc.Location{{Country: util.PtrToString(channelInfo.Country)}}
+	if channelInfo.Topbar.DesktopTopbarRenderer.CountryCode != "" {
+		locations = []jsonrpc.Location{{Country: util.PtrToString(channelInfo.Topbar.DesktopTopbarRenderer.CountryCode)}}
 	}
 	var c *jsonrpc.TransactionSummary
 	claimCreateOptions := jsonrpc.ClaimCreateOptions{
-		Title:        &channelInfo.Title,
-		Description:  &channelInfo.Description,
+		Title:        &channelInfo.Microformat.MicroformatDataRenderer.Title,
+		Description:  &channelInfo.Microformat.MicroformatDataRenderer.Description,
 		Tags:         tags_manager.GetTagsForChannel(s.YoutubeChannelID),
 		Languages:    languages,
 		Locations:    locations,
