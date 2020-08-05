@@ -84,10 +84,10 @@ GetTime:
 		if err != nil {
 			return nil, errors.Err(err)
 		}
-		slack(":exclamation: Got an accurate time for %s", videoID)
+		//slack(":exclamation: Got an accurate time for %s", videoID)
 		video.UploadDateForReal = parsed
 	} else {
-		//slack(":warning: Could not get accurate time for %s. Falling back to time from upload ytdl: %s.", videoID, video.UploadDate)
+		slack(":warning: Could not get accurate time for %s. Falling back to time from upload ytdl: %s.", videoID, video.UploadDate)
 		// fall back to UploadDate from youtube-dl
 		video.UploadDateForReal, err = time.Parse("20060102", video.UploadDate)
 		if err != nil {
