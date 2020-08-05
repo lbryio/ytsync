@@ -163,19 +163,20 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 	//slack("Getting upload time for %s", videoID)
 	release, err := config.GetReleasedDate(videoID)
 	if err != nil {
-		if release != nil {
-			const sqlTimeFormat = "2006-01-02 15:04:05"
-			sqlTime, err := time.ParseInLocation(sqlTimeFormat, release.ReleaseTime, time.UTC)
-			if err != nil {
-				return sqlTime.Format(releaseTimeFormat), nil
-			}
+		logrus.Error(err)
+	}
+	if release != nil {
+		const sqlTimeFormat = "2006-01-02 15:04:05"
+		sqlTime, err := time.ParseInLocation(sqlTimeFormat, release.ReleaseTime, time.UTC)
+		if err == nil {
+			return sqlTime.Format(releaseTimeFormat), nil
 		}
 	}
 	ytdlUploadDate, err := time.Parse("20060102", uploadDate)
 	if err != nil {
 		logrus.Error(err)
 	}
-	if time.Now().Add(-5 * 24 * time.Hour).After(ytdlUploadDate) {
+	if time.Now().AddDate(0, 0, -5).After(ytdlUploadDate) {
 		return ytdlUploadDate.Format(releaseTimeFormat), nil
 	}
 	client := getClient(ip)

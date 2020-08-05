@@ -144,7 +144,6 @@ func CountVideosInChannel(channelID string) (int, error) {
 }
 
 func ChannelInfo(channelID string) (*YoutubeStatsResponse, error) {
-	//return nil, nil, errors.Err("ChannelInfo doesn't work yet because we're focused on existing channels")
 	url := "https://www.youtube.com/channel/" + channelID + "/about"
 
 	req, _ := http.NewRequest("GET", url, nil)
