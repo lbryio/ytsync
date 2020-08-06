@@ -53,7 +53,7 @@ type VideoParams struct {
 
 var mostRecentlyFailedChannel string // TODO: fix this hack!
 
-func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams) ([]Video, error) {
+func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams, lastUploadedVideo string) ([]Video, error) {
 
 	var videos []Video
 	if quickSync && maxVideos > 50 {
@@ -69,6 +69,14 @@ func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[s
 	playlistMap := make(map[string]int64)
 	for i, videoID := range videoIDs {
 		playlistMap[videoID] = int64(i)
+	}
+	//this will ensure that we at least try to sync the video that was marked as last uploaded video in the database.
+	if lastUploadedVideo != "" {
+		_, ok := playlistMap[lastUploadedVideo]
+		if !ok {
+			playlistMap[lastUploadedVideo] = 0
+			videoIDs = append(videoIDs, lastUploadedVideo)
+		}
 	}
 
 	if len(videoIDs) < 1 {

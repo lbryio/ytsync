@@ -63,6 +63,9 @@ type YoutubeChannel struct {
 	TransferState      int    `json:"transfer_state"`
 	PublishAddress     string `json:"publish_address"`
 	PublicKey          string `json:"public_key"`
+	LengthLimit        int    `json:"length_limit"`
+	SizeLimit          int    `json:"size_limit"`
+	LastUploadedVideo  string `json:"last_uploaded_video"`
 }
 
 func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeChannel, error) {

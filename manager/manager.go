@@ -127,6 +127,8 @@ func (s *SyncManager) Start() error {
 			}
 			lbryChannelName := channels[0].DesiredChannelName
 			syncs = make([]Sync, 1)
+			s.maxVideoLength = time.Duration(channels[0].LengthLimit) * time.Minute
+			s.maxVideoSize = channels[0].SizeLimit
 			syncs[0] = Sync{
 				APIConfig:            s.apiConfig,
 				YoutubeChannelID:     s.syncProperties.YoutubeChannelID,
@@ -147,6 +149,7 @@ func (s *SyncManager) Start() error {
 				clientPublishAddress: channels[0].PublishAddress,
 				publicKey:            channels[0].PublicKey,
 				transferState:        channels[0].TransferState,
+				LastUploadedVideo:    channels[0].LastUploadedVideo,
 			}
 			shouldInterruptLoop = true
 		} else {
@@ -174,6 +177,8 @@ func (s *SyncManager) Start() error {
 					if c.TotalSubscribers < 1000 {
 						maxVideoLength = 1 * time.Hour
 					}
+					maxVideoLength = time.Duration(c.LengthLimit) * time.Minute
+					s.maxVideoSize = c.SizeLimit
 					syncs = append(syncs, Sync{
 						APIConfig:            s.apiConfig,
 						YoutubeChannelID:     c.ChannelId,
@@ -194,6 +199,7 @@ func (s *SyncManager) Start() error {
 						clientPublishAddress: c.PublishAddress,
 						publicKey:            c.PublicKey,
 						transferState:        c.TransferState,
+						LastUploadedVideo:    c.LastUploadedVideo,
 					})
 					if q != StatusFailed {
 						continue queues

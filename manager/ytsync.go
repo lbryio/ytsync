@@ -68,6 +68,7 @@ type Sync struct {
 	publicKey            string
 	defaultAccountID     string
 	MaxVideoLength       time.Duration
+	LastUploadedVideo    string
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -897,7 +898,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		S3Config: s.Manager.GetS3AWSConfig(),
 		Stopper:  s.grp,
 		IPPool:   ipPool,
-	})
+	}, s.LastUploadedVideo)
 	if err != nil {
 		return err
 	}
