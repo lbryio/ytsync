@@ -73,7 +73,11 @@ GetTime:
 			}
 		} else if !errors.Is(err, errNotScraped) && !errors.Is(err, errUploadTimeEmpty) {
 			//slack(":warning: Error while trying to get accurate upload time for %s: %v", videoID, err)
-			return nil, errors.Err(err)
+			if t == "" {
+				return nil, errors.Err(err)
+			} else {
+				t = "" //TODO: get rid of the other piece below?
+			}
 		}
 		// do fallback below
 	}
@@ -86,7 +90,7 @@ GetTime:
 		}
 		//slack(":exclamation: Got an accurate time for %s", videoID)
 		video.UploadDateForReal = parsed
-	} else {
+	} else { //TODO: this is the piece that isn't needed!
 		slack(":warning: Could not get accurate time for %s. Falling back to time from upload ytdl: %s.", videoID, video.UploadDate)
 		// fall back to UploadDate from youtube-dl
 		video.UploadDateForReal, err = time.Parse("20060102", video.UploadDate)
@@ -166,29 +170,31 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 		logrus.Error(err)
 	}
 	if release != nil {
-		const sqlTimeFormat = "2006-01-02 15:04:05"
-		sqlTime, err := time.ParseInLocation(sqlTimeFormat, release.ReleaseTime, time.UTC)
+		//const sqlTimeFormat = "2006-01-02 15:04:05"
+		sqlTime, err := time.ParseInLocation(time.RFC3339, release.ReleaseTime, time.UTC)
 		if err == nil {
 			return sqlTime.Format(releaseTimeFormat), nil
+		} else {
+			logrus.Error(err)
 		}
 	}
 	ytdlUploadDate, err := time.Parse("20060102", uploadDate)
 	if err != nil {
 		logrus.Error(err)
 	}
-	if time.Now().AddDate(0, 0, -5).After(ytdlUploadDate) {
+	if time.Now().AddDate(0, 0, -2).After(ytdlUploadDate) {
 		return ytdlUploadDate.Format(releaseTimeFormat), nil
 	}
 	client := getClient(ip)
 	req, err := http.NewRequest(http.MethodGet, "https://caa.iti.gr/get_verificationV3?url=https://www.youtube.com/watch?v="+videoID, nil)
 	if err != nil {
-		return "", errors.Err(err)
+		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36")
 
 	res, err := client.Do(req)
 	if err != nil {
-		return "", errors.Err(err)
+		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
 	}
 	defer res.Body.Close()
 
@@ -199,19 +205,19 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 	}
 	err = json.NewDecoder(res.Body).Decode(&uploadTime)
 	if err != nil {
-		return "", errors.Err(err)
+		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
 	}
 
 	if uploadTime.Status == "ERROR1" {
-		return "", errNotScraped
+		return ytdlUploadDate.Format(releaseTimeFormat), errNotScraped
 	}
 
 	if uploadTime.Status == "" && strings.HasPrefix(uploadTime.Message, "CANNOT_RETRIEVE_REPORT_FOR_VIDEO_") {
-		return "", errors.Err("cannot retrieve report for video")
+		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err("cannot retrieve report for video")
 	}
 
 	if uploadTime.Time == "" {
-		return "", errUploadTimeEmpty
+		return ytdlUploadDate.Format(releaseTimeFormat), errUploadTimeEmpty
 	}
 
 	return uploadTime.Time, nil

@@ -206,7 +206,7 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 				Status:        "failed",
 				FailureReason: err.Error(),
 			})
-			util.SendErrorToSlack("Skipping video: " + err.Error())
+			util.SendErrorToSlack("Skipping video: " + errors.FullTrace(err))
 			if errSDK != nil {
 				return nil, errors.Err(errSDK)
 			}

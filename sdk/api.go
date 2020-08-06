@@ -413,7 +413,7 @@ type VideoRelease struct {
 	ID            uint64 `json:"id"`
 	YoutubeDataID uint64 `json:"youtube_data_id"`
 	VideoID       string `json:"video_id"`
-	ReleaseTime   string `json:"release_time""`
+	ReleaseTime   string `json:"release_time"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 }
