@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
@@ -32,7 +33,9 @@ func (u *thumbnailUploader) downloadThumbnail() error {
 		return errors.Err(err)
 	}
 	defer img.Close()
-
+	if strings.HasPrefix(u.originalUrl, "//") {
+		u.originalUrl = "https:" + u.originalUrl
+	}
 	resp, err := http.Get(u.originalUrl)
 	if err != nil {
 		return errors.Err(err)
