@@ -13,6 +13,7 @@ import (
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/null"
+	"github.com/lbryio/ytsync/v5/shared"
 
 	"github.com/lbryio/ytsync/v5/util"
 
@@ -30,59 +31,21 @@ type APIConfig struct {
 	HostName      string
 }
 
-type SyncProperties struct {
-	SyncFrom         int64
-	SyncUntil        int64
-	YoutubeChannelID string
-}
-
-type SyncFlags struct {
-	StopOnError             bool
-	TakeOverExistingChannel bool
-	SkipSpaceCheck          bool
-	SyncUpdate              bool
-	SingleRun               bool
-	RemoveDBUnpublished     bool
-	UpgradeMetadata         bool
-	DisableTransfers        bool
-	QuickSync               bool
-}
-
-type Fee struct {
-	Amount   string `json:"amount"`
-	Address  string `json:"address"`
-	Currency string `json:"currency"`
-}
-type YoutubeChannel struct {
-	ChannelId          string `json:"channel_id"`
-	TotalVideos        uint   `json:"total_videos"`
-	TotalSubscribers   uint   `json:"total_subscribers"`
-	DesiredChannelName string `json:"desired_channel_name"`
-	Fee                *Fee   `json:"fee"`
-	ChannelClaimID     string `json:"channel_claim_id"`
-	TransferState      int    `json:"transfer_state"`
-	PublishAddress     string `json:"publish_address"`
-	PublicKey          string `json:"public_key"`
-	LengthLimit        int    `json:"length_limit"`
-	SizeLimit          int    `json:"size_limit"`
-	LastUploadedVideo  string `json:"last_uploaded_video"`
-}
-
-func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeChannel, error) {
+func (a *APIConfig) FetchChannels(status string, cliFlags *shared.SyncFlags) ([]shared.YoutubeChannel, error) {
 	type apiJobsResponse struct {
-		Success bool             `json:"success"`
-		Error   null.String      `json:"error"`
-		Data    []YoutubeChannel `json:"data"`
+		Success bool                    `json:"success"`
+		Error   null.String             `json:"error"`
+		Data    []shared.YoutubeChannel `json:"data"`
 	}
 	endpoint := a.ApiURL + "/yt/jobs"
 	res, err := http.PostForm(endpoint, url.Values{
 		"auth_token":  {a.ApiToken},
 		"sync_status": {status},
 		"min_videos":  {strconv.Itoa(1)},
-		"after":       {strconv.Itoa(int(cp.SyncFrom))},
-		"before":      {strconv.Itoa(int(cp.SyncUntil))},
+		"after":       {strconv.Itoa(int(cliFlags.SyncFrom))},
+		"before":      {strconv.Itoa(int(cliFlags.SyncUntil))},
 		"sync_server": {a.HostName},
-		"channel_id":  {cp.YoutubeChannelID},
+		"channel_id":  {cliFlags.ChannelID},
 	})
 	if err != nil {
 		return nil, errors.Err(err)
@@ -93,7 +56,7 @@ func (a *APIConfig) FetchChannels(status string, cp *SyncProperties) ([]YoutubeC
 		util.SendErrorToSlack("Error %d while trying to call %s. Waiting to retry", res.StatusCode, endpoint)
 		log.Debugln(string(body))
 		time.Sleep(30 * time.Second)
-		return a.FetchChannels(status, cp)
+		return a.FetchChannels(status, cliFlags)
 	}
 	var response apiJobsResponse
 	err = json.Unmarshal(body, &response)
@@ -129,7 +92,6 @@ func sanitizeFailureReason(s *string) {
 }
 
 func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
-
 	type apiSetChannelCertResponse struct {
 		Success bool        `json:"success"`
 		Error   null.String `json:"error"`
@@ -300,19 +262,7 @@ func (a *APIConfig) DeleteVideos(videos []string) error {
 	return errors.Err("invalid API response. Status code: %d", res.StatusCode)
 }
 
-type VideoStatus struct {
-	ChannelID       string
-	VideoID         string
-	Status          string
-	ClaimID         string
-	ClaimName       string
-	FailureReason   string
-	Size            *int64
-	MetaDataVersion uint
-	IsTransferred   *bool
-}
-
-func (a *APIConfig) MarkVideoStatus(status VideoStatus) error {
+func (a *APIConfig) MarkVideoStatus(status shared.VideoStatus) error {
 	endpoint := a.ApiURL + "/yt/video_status"
 
 	sanitizeFailureReason(&status.FailureReason)

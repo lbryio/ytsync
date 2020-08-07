@@ -6,7 +6,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -17,8 +16,7 @@ import (
 )
 
 func (s *Sync) getS3Downloader() (*s3manager.Downloader, error) {
-	creds := credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, "")
-	s3Session, err := session.NewSession(&aws.Config{Region: aws.String(s.AwsS3Region), Credentials: creds})
+	s3Session, err := session.NewSession(s.Manager.AwsConfigs.GetS3AWSConfig())
 	if err != nil {
 		return nil, errors.Prefix("error starting session: ", err)
 	}
@@ -26,8 +24,7 @@ func (s *Sync) getS3Downloader() (*s3manager.Downloader, error) {
 	return downloader, nil
 }
 func (s *Sync) getS3Uploader() (*s3manager.Uploader, error) {
-	creds := credentials.NewStaticCredentials(s.AwsS3ID, s.AwsS3Secret, "")
-	s3Session, err := session.NewSession(&aws.Config{Region: aws.String(s.AwsS3Region), Credentials: creds})
+	s3Session, err := session.NewSession(s.Manager.AwsConfigs.GetS3AWSConfig())
 	if err != nil {
 		return nil, errors.Prefix("error starting session: ", err)
 	}
@@ -51,7 +48,7 @@ func (s *Sync) downloadWallet() error {
 	defer out.Close()
 
 	bytesWritten, err := downloader.Download(out, &s3.GetObjectInput{
-		Bucket: aws.String(s.AwsS3Bucket),
+		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
 		Key:    key,
 	})
 	if err != nil {
@@ -112,7 +109,7 @@ func (s *Sync) downloadBlockchainDB() error {
 	defer out.Close()
 
 	bytesWritten, err := downloader.Download(out, &s3.GetObjectInput{
-		Bucket: aws.String(s.AwsS3Bucket),
+		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
 		Key:    key,
 	})
 	if err != nil {
@@ -146,11 +143,11 @@ func (s *Sync) downloadBlockchainDB() error {
 func (s *Sync) getWalletPaths() (defaultWallet, tempWallet string, key *string, err error) {
 	defaultWallet = os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
 	tempWallet = os.Getenv("HOME") + "/.lbryum/wallets/tmp_wallet"
-	key = aws.String("/wallets/" + s.YoutubeChannelID)
+	key = aws.String("/wallets/" + s.DbChannelData.ChannelId)
 	if logUtils.IsRegTest() {
 		defaultWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
 		tempWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/tmp_wallet"
-		key = aws.String("/regtest/" + s.YoutubeChannelID)
+		key = aws.String("/regtest/" + s.DbChannelData.ChannelId)
 	}
 
 	lbryumDir := os.Getenv("LBRYUM_DIR")
@@ -176,20 +173,20 @@ func (s *Sync) getBlockchainDBPaths() (defaultDB, tempDB string, key *string, er
 	}
 	defaultDB = lbryumDir + "/lbc_mainnet/blockchain.db"
 	tempDB = lbryumDir + "/lbc_mainnet/tmp_blockchain.db"
-	key = aws.String("/blockchain_dbs/" + s.YoutubeChannelID)
+	key = aws.String("/blockchain_dbs/" + s.DbChannelData.ChannelId)
 	if logUtils.IsRegTest() {
 		defaultDB = lbryumDir + "/lbc_regtest/blockchain.db"
 		tempDB = lbryumDir + "/lbc_regtest/tmp_blockchain.db"
-		key = aws.String("/regtest_dbs/" + s.YoutubeChannelID)
+		key = aws.String("/regtest_dbs/" + s.DbChannelData.ChannelId)
 	}
 	return
 }
 
 func (s *Sync) uploadWallet() error {
 	defaultWalletDir := logUtils.GetDefaultWalletPath()
-	key := aws.String("/wallets/" + s.YoutubeChannelID)
+	key := aws.String("/wallets/" + s.DbChannelData.ChannelId)
 	if logUtils.IsRegTest() {
-		key = aws.String("/regtest/" + s.YoutubeChannelID)
+		key = aws.String("/regtest/" + s.DbChannelData.ChannelId)
 	}
 
 	if _, err := os.Stat(defaultWalletDir); os.IsNotExist(err) {
@@ -208,7 +205,7 @@ func (s *Sync) uploadWallet() error {
 	defer file.Close()
 
 	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(s.AwsS3Bucket),
+		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
 		Key:    key,
 		Body:   file,
 	})
@@ -241,7 +238,7 @@ func (s *Sync) uploadBlockchainDB() error {
 	defer file.Close()
 
 	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(s.AwsS3Bucket),
+		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
 		Key:    key,
 		Body:   file,
 	})

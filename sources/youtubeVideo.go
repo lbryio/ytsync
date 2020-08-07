@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
+	"github.com/lbryio/ytsync/v5/shared"
 
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/namer"
@@ -430,7 +431,7 @@ type SyncParams struct {
 	MaxVideoSize   int
 	Namer          *namer.Namer
 	MaxVideoLength time.Duration
-	Fee            *sdk.Fee
+	Fee            *shared.Fee
 	DefaultAccount string
 }
 

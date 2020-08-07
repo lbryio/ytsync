@@ -9,6 +9,7 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/util"
+	"github.com/lbryio/ytsync/v5/shared"
 	"github.com/lbryio/ytsync/v5/timing"
 	logUtils "github.com/lbryio/ytsync/v5/util"
 	"github.com/lbryio/ytsync/v5/ytapi"
@@ -72,7 +73,7 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("Starting balance is %.4f", balance)
 
-	videosOnYoutube, err := ytapi.CountVideosInChannel(s.YoutubeChannelID)
+	videosOnYoutube, err := ytapi.CountVideosInChannel(s.DbChannelData.ChannelId)
 	if err != nil {
 		return err
 	}
@@ -100,17 +101,17 @@ func (s *Sync) walletSetup() error {
 
 	log.Debugf("We already allocated credits for %d published videos and %d failed videos", publishedCount, failedCount)
 
-	if videosOnYoutube > s.Manager.videosLimit {
-		videosOnYoutube = s.Manager.videosLimit
+	if videosOnYoutube > s.Manager.CliFlags.VideosLimit {
+		videosOnYoutube = s.Manager.CliFlags.VideosLimit
 	}
 	unallocatedVideos := videosOnYoutube - (publishedCount + failedCount)
 	channelFee := channelClaimAmount
-	channelAlreadyClaimed := s.lbryChannelID != ""
+	channelAlreadyClaimed := s.DbChannelData.ChannelClaimID != ""
 	if channelAlreadyClaimed {
 		channelFee = 0.0
 	}
 	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelFee
-	if s.Manager.SyncFlags.UpgradeMetadata {
+	if s.Manager.CliFlags.UpgradeMetadata {
 		requiredBalance += float64(notUpgradedCount) * 0.001
 	}
 
@@ -119,8 +120,8 @@ func (s *Sync) walletSetup() error {
 		refillAmount = math.Max(math.Max(requiredBalance-balance, minimumAccountBalance-balance), minimumRefillAmount)
 	}
 
-	if s.Refill > 0 {
-		refillAmount += float64(s.Refill)
+	if s.Manager.CliFlags.Refill > 0 {
+		refillAmount += float64(s.Manager.CliFlags.Refill)
 	}
 
 	if refillAmount > 0 {
@@ -136,12 +137,11 @@ func (s *Sync) walletSetup() error {
 	} else if claimAddress == nil {
 		return errors.Err("could not get an address")
 	}
-	s.claimAddress = string(claimAddress.Items[0].Address)
-	if s.claimAddress == "" {
-		return errors.Err("found blank claim address")
+	if s.DbChannelData.PublishAddress == "" || !s.shouldTransfer() {
+		s.DbChannelData.PublishAddress = string(claimAddress.Items[0].Address)
 	}
-	if s.shouldTransfer() {
-		s.claimAddress = s.clientPublishAddress
+	if s.DbChannelData.PublishAddress == "" {
+		return errors.Err("found blank claim address")
 	}
 
 	err = s.ensureEnoughUTXOs()
@@ -300,7 +300,7 @@ func (s *Sync) waitForNewBlock() error {
 }
 
 func (s *Sync) GenerateRegtestBlock() error {
-	lbrycrd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
+	lbrycrd, err := logUtils.GetLbrycrdClient(s.Manager.LbrycrdDsn)
 	if err != nil {
 		return errors.Prefix("error getting lbrycrd client: ", err)
 	}
@@ -319,7 +319,7 @@ func (s *Sync) GenerateRegtestBlock() error {
 func (s *Sync) ensureChannelOwnership() error {
 	defer func(start time.Time) { timing.TimedComponent("ensureChannelOwnership").Add(time.Since(start)) }(time.Now())
 
-	if s.LbryChannelName == "" {
+	if s.DbChannelData.DesiredChannelName == "" {
 		return errors.Err("no channel name set")
 	}
 
@@ -332,27 +332,27 @@ func (s *Sync) ensureChannelOwnership() error {
 
 	var channelToUse *jsonrpc.Transaction
 	if len((*channels).Items) > 0 {
-		if s.lbryChannelID == "" {
+		if s.DbChannelData.ChannelClaimID == "" {
 			return errors.Err("this channel does not have a recorded claimID in the database. To prevent failures, updates are not supported until an entry is manually added in the database")
 		}
 		for _, c := range (*channels).Items {
 			log.Debugf("checking listed channel %s (%s)", c.ClaimID, c.Name)
-			if c.ClaimID != s.lbryChannelID {
+			if c.ClaimID != s.DbChannelData.ChannelClaimID {
 				continue
 			}
-			if c.Name != s.LbryChannelName {
+			if c.Name != s.DbChannelData.DesiredChannelName {
 				return errors.Err("the channel in the wallet is different than the channel in the database")
 			}
 			channelToUse = &c
 			break
 		}
 		if channelToUse == nil {
-			return errors.Err("this wallet has channels but not a single one is ours! Expected claim_id: %s (%s)", s.lbryChannelID, s.LbryChannelName)
+			return errors.Err("this wallet has channels but not a single one is ours! Expected claim_id: %s (%s)", s.DbChannelData.ChannelClaimID, s.DbChannelData.DesiredChannelName)
 		}
-	} else if s.transferState == TransferStateComplete {
+	} else if s.DbChannelData.TransferState == shared.TransferStateComplete {
 		return errors.Err("the channel was transferred but appears to have been abandoned!")
-	} else if s.lbryChannelID != "" {
-		return errors.Err("the database has a channel recorded (%s) but nothing was found in our control", s.lbryChannelID)
+	} else if s.DbChannelData.ChannelClaimID != "" {
+		return errors.Err("the database has a channel recorded (%s) but nothing was found in our control", s.DbChannelData.ChannelClaimID)
 	}
 
 	channelUsesOldMetadata := false
@@ -383,20 +383,23 @@ func (s *Sync) ensureChannelOwnership() error {
 		}
 	}
 
-	channelInfo, err := ytapi.ChannelInfo(s.YoutubeChannelID)
+	channelInfo, err := ytapi.ChannelInfo(s.DbChannelData.ChannelId)
 	if err != nil {
 		return err
 	}
 
 	thumbnail := channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails)-1].URL
-	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail, s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
+	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail, s.DbChannelData.ChannelId, *s.Manager.AwsConfigs.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}
 
 	var bannerURL *string
 	if channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails != nil {
-		bURL, err := thumbs.MirrorThumbnail(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails)-1].URL, "banner-"+s.YoutubeChannelID, s.Manager.GetS3AWSConfig())
+		bURL, err := thumbs.MirrorThumbnail(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails)-1].URL,
+			"banner-"+s.DbChannelData.ChannelId,
+			*s.Manager.AwsConfigs.GetS3AWSConfig(),
+		)
 		if err != nil {
 			return err
 		}
@@ -419,14 +422,14 @@ func (s *Sync) ensureChannelOwnership() error {
 	claimCreateOptions := jsonrpc.ClaimCreateOptions{
 		Title:        &channelInfo.Microformat.MicroformatDataRenderer.Title,
 		Description:  &channelInfo.Microformat.MicroformatDataRenderer.Description,
-		Tags:         tags_manager.GetTagsForChannel(s.YoutubeChannelID),
+		Tags:         tags_manager.GetTagsForChannel(s.DbChannelData.ChannelId),
 		Languages:    languages,
 		Locations:    locations,
 		ThumbnailURL: &thumbnailURL,
 	}
 	if channelUsesOldMetadata {
-		if s.transferState <= 1 {
-			c, err = s.daemon.ChannelUpdate(s.lbryChannelID, jsonrpc.ChannelUpdateOptions{
+		if s.DbChannelData.TransferState <= 1 {
+			c, err = s.daemon.ChannelUpdate(s.DbChannelData.ChannelClaimID, jsonrpc.ChannelUpdateOptions{
 				ClearTags:      util.PtrToBool(true),
 				ClearLocations: util.PtrToBool(true),
 				ClearLanguages: util.PtrToBool(true),
@@ -436,11 +439,11 @@ func (s *Sync) ensureChannelOwnership() error {
 				},
 			})
 		} else {
-			logUtils.SendInfoToSlack("%s (%s) has a channel with old metadata but isn't in our control anymore. Ignoring", s.LbryChannelName, s.lbryChannelID)
+			logUtils.SendInfoToSlack("%s (%s) has a channel with old metadata but isn't in our control anymore. Ignoring", s.DbChannelData.DesiredChannelName, s.DbChannelData.ChannelClaimID)
 			return nil
 		}
 	} else {
-		c, err = s.daemon.ChannelCreate(s.LbryChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
+		c, err = s.daemon.ChannelCreate(s.DbChannelData.DesiredChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: claimCreateOptions,
 			CoverURL:           bannerURL,
 		})
@@ -450,8 +453,8 @@ func (s *Sync) ensureChannelOwnership() error {
 		return err
 	}
 
-	s.lbryChannelID = c.Outputs[0].ClaimID
-	return s.Manager.apiConfig.SetChannelClaimID(s.YoutubeChannelID, s.lbryChannelID)
+	s.DbChannelData.ChannelClaimID = c.Outputs[0].ClaimID
+	return s.Manager.ApiConfig.SetChannelClaimID(s.DbChannelData.ChannelId, s.DbChannelData.ChannelClaimID)
 }
 
 func (s *Sync) addCredits(amountToAdd float64) error {
@@ -460,7 +463,7 @@ func (s *Sync) addCredits(amountToAdd float64) error {
 		timing.TimedComponent("addCredits").Add(time.Since(start))
 	}(start)
 	log.Printf("Adding %f credits", amountToAdd)
-	lbrycrdd, err := logUtils.GetLbrycrdClient(s.LbrycrdString)
+	lbrycrdd, err := logUtils.GetLbrycrdClient(s.Manager.LbrycrdDsn)
 	if err != nil {
 		return err
 	}

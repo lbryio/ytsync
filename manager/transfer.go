@@ -10,7 +10,7 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
-	"github.com/lbryio/ytsync/v5/sdk"
+	"github.com/lbryio/ytsync/v5/shared"
 	"github.com/lbryio/ytsync/v5/timing"
 
 	log "github.com/sirupsen/logrus"
@@ -97,7 +97,7 @@ func abandonSupports(s *Sync) (float64, error) {
 	//TODO: remove this once the SDK team fixes their RPC bugs....
 	s.daemon.SetRPCTimeout(60 * time.Second)
 	defer s.daemon.SetRPCTimeout(5 * time.Minute)
-	for i := 0; i < s.ConcurrentVideos; i++ {
+	for i := 0; i < s.Manager.CliFlags.ConcurrentJobs; i++ {
 		consumerWG.Add(1)
 		go func() {
 			defer consumerWG.Done()
@@ -189,7 +189,7 @@ func abandonSupports(s *Sync) (float64, error) {
 type updateInfo struct {
 	ClaimID             string
 	streamUpdateOptions *jsonrpc.StreamUpdateOptions
-	videoStatus         *sdk.VideoStatus
+	videoStatus         *shared.VideoStatus
 }
 
 func transferVideos(s *Sync) error {
@@ -199,7 +199,7 @@ func transferVideos(s *Sync) error {
 	}(start)
 	cleanTransfer := true
 
-	streamChan := make(chan updateInfo, s.ConcurrentVideos)
+	streamChan := make(chan updateInfo, s.Manager.CliFlags.ConcurrentJobs)
 	account, err := s.getDefaultAccount()
 	if err != nil {
 		return err
@@ -213,13 +213,13 @@ func transferVideos(s *Sync) error {
 	go func() {
 		defer producerWG.Done()
 		for _, video := range s.syncedVideos {
-			if !video.Published || video.Transferred || video.MetadataVersion != LatestMetadataVersion {
+			if !video.Published || video.Transferred || video.MetadataVersion != shared.LatestMetadataVersion {
 				continue
 			}
 
 			var stream *jsonrpc.Claim = nil
 			for _, c := range streams.Items {
-				if c.ClaimID != video.ClaimID || (c.SigningChannel != nil && c.SigningChannel.ClaimID != s.lbryChannelID) {
+				if c.ClaimID != video.ClaimID || (c.SigningChannel != nil && c.SigningChannel.ClaimID != s.DbChannelData.ChannelClaimID) {
 					continue
 				}
 				stream = &c
@@ -232,7 +232,7 @@ func transferVideos(s *Sync) error {
 			streamUpdateOptions := jsonrpc.StreamUpdateOptions{
 				StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 					ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-						ClaimAddress: &s.clientPublishAddress,
+						ClaimAddress: &s.DbChannelData.PublishAddress,
 						FundingAccountIDs: []string{
 							account,
 						},
@@ -240,12 +240,12 @@ func transferVideos(s *Sync) error {
 				},
 				Bid: util.PtrToString("0.005"), // Todo - Dont hardcode
 			}
-			videoStatus := sdk.VideoStatus{
-				ChannelID:     s.YoutubeChannelID,
+			videoStatus := shared.VideoStatus{
+				ChannelID:     s.DbChannelData.ChannelId,
 				VideoID:       video.VideoID,
 				ClaimID:       video.ClaimID,
 				ClaimName:     video.ClaimName,
-				Status:        VideoStatusPublished,
+				Status:        shared.VideoStatusPublished,
 				IsTransferred: util.PtrToBool(true),
 			}
 			streamChan <- updateInfo{
@@ -257,7 +257,7 @@ func transferVideos(s *Sync) error {
 	}()
 
 	consumerWG := &stop.Group{}
-	for i := 0; i < s.ConcurrentVideos; i++ {
+	for i := 0; i < s.Manager.CliFlags.ConcurrentJobs; i++ {
 		consumerWG.Add(1)
 		go func(worker int) {
 			defer consumerWG.Done()
@@ -290,13 +290,13 @@ func (s *Sync) streamUpdate(ui *updateInfo) error {
 	timing.TimedComponent("transferStreamUpdate").Add(time.Since(start))
 	if updateError != nil {
 		ui.videoStatus.FailureReason = updateError.Error()
-		ui.videoStatus.Status = VideoStatusTranferFailed
+		ui.videoStatus.Status = shared.VideoStatusTranferFailed
 		ui.videoStatus.IsTransferred = util.PtrToBool(false)
 	} else {
 		ui.videoStatus.IsTransferred = util.PtrToBool(len(result.Outputs) != 0)
 	}
 	log.Infof("TRANSFERRED %t", *ui.videoStatus.IsTransferred)
-	statusErr := s.APIConfig.MarkVideoStatus(*ui.videoStatus)
+	statusErr := s.Manager.ApiConfig.MarkVideoStatus(*ui.videoStatus)
 	if statusErr != nil {
 		return errors.Prefix(statusErr.Error(), updateError)
 	}
@@ -318,7 +318,7 @@ func transferChannel(s *Sync) error {
 	}
 	var channelClaim *jsonrpc.Transaction = nil
 	for _, c := range channelClaims.Items {
-		if c.ClaimID != s.lbryChannelID {
+		if c.ClaimID != s.DbChannelData.ChannelClaimID {
 			continue
 		}
 		channelClaim = &c
@@ -332,11 +332,11 @@ func transferChannel(s *Sync) error {
 		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.005)),
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-				ClaimAddress: &s.clientPublishAddress,
+				ClaimAddress: &s.DbChannelData.PublishAddress,
 			},
 		},
 	}
-	result, err := s.daemon.ChannelUpdate(s.lbryChannelID, updateOptions)
+	result, err := s.daemon.ChannelUpdate(s.DbChannelData.ChannelClaimID, updateOptions)
 	if err != nil {
 		return errors.Err(err)
 	}

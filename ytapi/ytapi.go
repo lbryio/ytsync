@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lbryio/ytsync/v5/shared"
 	"github.com/lbryio/ytsync/v5/util"
 
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
@@ -208,7 +209,7 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 		}
 		video, err := downloader.GetVideoInformation(config, videoID, stopChan, nil, ipPool)
 		if err != nil {
-			errSDK := config.MarkVideoStatus(sdk.VideoStatus{
+			errSDK := config.MarkVideoStatus(shared.VideoStatus{
 				ChannelID:     channelID,
 				VideoID:       videoID,
 				Status:        "failed",

@@ -11,6 +11,7 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/util"
 	"github.com/lbryio/ytsync/v5/manager"
 	"github.com/lbryio/ytsync/v5/sdk"
+	"github.com/lbryio/ytsync/v5/shared"
 	ytUtils "github.com/lbryio/ytsync/v5/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -23,39 +24,11 @@ var Version string
 const defaultMaxTries = 3
 
 var (
-	flags          sdk.SyncFlags
-	maxTries       int
-	refill         int
-	limit          int
-	syncStatus     string
-	channelID      string
-	syncFrom       int64
-	syncUntil      int64
-	concurrentJobs int
-	videosLimit    int
-	maxVideoSize   int
+	cliFlags       shared.SyncFlags
 	maxVideoLength int
 )
 
 func main() {
-	//grp := stop.New()
-	//ipPool, err := ip_manager.GetIPPool(grp)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//videoID := "vtIzMaLkCaM"
-	//
-	//ip, err := ipPool.GetIP(videoID)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//spew.Dump(ip)
-	//
-	//spew.Dump(downloader.GetVideoInformation(videoID, &net.TCPAddr{IP: net.ParseIP(ip)}))
-	//return
-
 	rand.Seed(time.Now().UnixNano())
 	log.SetLevel(log.DebugLevel)
 	http.Handle("/metrics", promhttp.Handler())
@@ -69,24 +42,24 @@ func main() {
 		Args:  cobra.RangeArgs(0, 0),
 	}
 
-	cmd.Flags().BoolVar(&flags.StopOnError, "stop-on-error", false, "If a publish fails, stop all publishing and exit")
-	cmd.Flags().IntVar(&maxTries, "max-tries", defaultMaxTries, "Number of times to try a publish that fails")
-	cmd.Flags().BoolVar(&flags.TakeOverExistingChannel, "takeover-existing-channel", false, "If channel exists and we don't own it, take over the channel")
-	cmd.Flags().IntVar(&limit, "limit", 0, "limit the amount of channels to sync")
-	cmd.Flags().BoolVar(&flags.SkipSpaceCheck, "skip-space-check", false, "Do not perform free space check on startup")
-	cmd.Flags().BoolVar(&flags.SyncUpdate, "update", false, "Update previously synced channels instead of syncing new ones")
-	cmd.Flags().BoolVar(&flags.SingleRun, "run-once", false, "Whether the process should be stopped after one cycle or not")
-	cmd.Flags().BoolVar(&flags.RemoveDBUnpublished, "remove-db-unpublished", false, "Remove videos from the database that are marked as published but aren't really published")
-	cmd.Flags().BoolVar(&flags.UpgradeMetadata, "upgrade-metadata", false, "Upgrade videos if they're on the old metadata version")
-	cmd.Flags().BoolVar(&flags.DisableTransfers, "no-transfers", false, "Skips the transferring process of videos, channels and supports")
-	cmd.Flags().BoolVar(&flags.QuickSync, "quick", false, "Look up only the last 50 videos from youtube")
-	cmd.Flags().StringVar(&syncStatus, "status", "", "Specify which queue to pull from. Overrides --update")
-	cmd.Flags().StringVar(&channelID, "channelID", "", "If specified, only this channel will be synced.")
-	cmd.Flags().Int64Var(&syncFrom, "after", time.Unix(0, 0).Unix(), "Specify from when to pull jobs [Unix time](Default: 0)")
-	cmd.Flags().Int64Var(&syncUntil, "before", time.Now().AddDate(1, 0, 0).Unix(), "Specify until when to pull jobs [Unix time](Default: current Unix time)")
-	cmd.Flags().IntVar(&concurrentJobs, "concurrent-jobs", 1, "how many jobs to process concurrently")
-	cmd.Flags().IntVar(&videosLimit, "videos-limit", 1000, "how many videos to process per channel")
-	cmd.Flags().IntVar(&maxVideoSize, "max-size", 2048, "Maximum video size to process (in MB)")
+	cmd.Flags().BoolVar(&cliFlags.StopOnError, "stop-on-error", false, "If a publish fails, stop all publishing and exit")
+	cmd.Flags().IntVar(&cliFlags.MaxTries, "max-tries", defaultMaxTries, "Number of times to try a publish that fails")
+	cmd.Flags().BoolVar(&cliFlags.TakeOverExistingChannel, "takeover-existing-channel", false, "If channel exists and we don't own it, take over the channel")
+	cmd.Flags().IntVar(&cliFlags.Limit, "limit", 0, "limit the amount of channels to sync")
+	cmd.Flags().BoolVar(&cliFlags.SkipSpaceCheck, "skip-space-check", false, "Do not perform free space check on startup")
+	cmd.Flags().BoolVar(&cliFlags.SyncUpdate, "update", false, "Update previously synced channels instead of syncing new ones")
+	cmd.Flags().BoolVar(&cliFlags.SingleRun, "run-once", false, "Whether the process should be stopped after one cycle or not")
+	cmd.Flags().BoolVar(&cliFlags.RemoveDBUnpublished, "remove-db-unpublished", false, "Remove videos from the database that are marked as published but aren't really published")
+	cmd.Flags().BoolVar(&cliFlags.UpgradeMetadata, "upgrade-metadata", false, "Upgrade videos if they're on the old metadata version")
+	cmd.Flags().BoolVar(&cliFlags.DisableTransfers, "no-transfers", false, "Skips the transferring process of videos, channels and supports")
+	cmd.Flags().BoolVar(&cliFlags.QuickSync, "quick", false, "Look up only the last 50 videos from youtube")
+	cmd.Flags().StringVar(&cliFlags.SyncStatus, "status", "", "Specify which queue to pull from. Overrides --update")
+	cmd.Flags().StringVar(&cliFlags.ChannelID, "channelID", "", "If specified, only this channel will be synced.")
+	cmd.Flags().Int64Var(&cliFlags.SyncFrom, "after", time.Unix(0, 0).Unix(), "Specify from when to pull jobs [Unix time](Default: 0)")
+	cmd.Flags().Int64Var(&cliFlags.SyncUntil, "before", time.Now().AddDate(1, 0, 0).Unix(), "Specify until when to pull jobs [Unix time](Default: current Unix time)")
+	cmd.Flags().IntVar(&cliFlags.ConcurrentJobs, "concurrent-jobs", 1, "how many jobs to process concurrently")
+	cmd.Flags().IntVar(&cliFlags.VideosLimit, "videos-limit", 1000, "how many videos to process per channel")
+	cmd.Flags().IntVar(&cliFlags.MaxVideoSize, "max-size", 2048, "Maximum video size to process (in MB)")
 	cmd.Flags().IntVar(&maxVideoLength, "max-length", 2, "Maximum video length to process (in hours)")
 
 	if err := cmd.Execute(); err != nil {
@@ -114,29 +87,30 @@ func ytSync(cmd *cobra.Command, args []string) {
 		util.InitSlack(os.Getenv("SLACK_TOKEN"), os.Getenv("SLACK_CHANNEL"), hostname)
 	}
 
-	if syncStatus != "" && !util.InSlice(syncStatus, manager.SyncStatuses) {
-		log.Errorf("status must be one of the following: %v\n", manager.SyncStatuses)
+	if cliFlags.SyncStatus != "" && !util.InSlice(cliFlags.SyncStatus, shared.SyncStatuses) {
+		log.Errorf("status must be one of the following: %v\n", shared.SyncStatuses)
 		return
 	}
 
-	if flags.StopOnError && maxTries != defaultMaxTries {
+	if cliFlags.StopOnError && cliFlags.MaxTries != defaultMaxTries {
 		log.Errorln("--stop-on-error and --max-tries are mutually exclusive")
 		return
 	}
-	if maxTries < 1 {
+	if cliFlags.MaxTries < 1 {
 		log.Errorln("setting --max-tries less than 1 doesn't make sense")
 		return
 	}
 
-	if limit < 0 {
+	if cliFlags.Limit < 0 {
 		log.Errorln("setting --limit less than 0 (unlimited) doesn't make sense")
 		return
 	}
+	cliFlags.MaxVideoLength = time.Duration(maxVideoLength) * time.Hour
 
 	apiURL := os.Getenv("LBRY_WEB_API")
 	apiToken := os.Getenv("LBRY_API_TOKEN")
 	youtubeAPIKey := os.Getenv("YOUTUBE_API_KEY")
-	lbrycrdString := os.Getenv("LBRYCRD_STRING")
+	lbrycrdDsn := os.Getenv("LBRYCRD_STRING")
 	awsS3ID := os.Getenv("AWS_S3_ID")
 	awsS3Secret := os.Getenv("AWS_S3_SECRET")
 	awsS3Region := os.Getenv("AWS_S3_REGION")
@@ -169,42 +143,30 @@ func ytSync(cmd *cobra.Command, args []string) {
 		log.Errorln("AWS S3 Bucket was not defined. Please set the environment variable AWS_S3_BUCKET")
 		return
 	}
-	if lbrycrdString == "" {
+	if lbrycrdDsn == "" {
 		log.Infoln("Using default (local) lbrycrd instance. Set LBRYCRD_STRING if you want to use something else")
 	}
 
 	blobsDir := ytUtils.GetBlobsDir()
 
-	syncProperties := &sdk.SyncProperties{
-		SyncFrom:         syncFrom,
-		SyncUntil:        syncUntil,
-		YoutubeChannelID: channelID,
-	}
 	apiConfig := &sdk.APIConfig{
 		YoutubeAPIKey: youtubeAPIKey,
 		ApiURL:        apiURL,
 		ApiToken:      apiToken,
 		HostName:      hostname,
 	}
+	awsConfig := &shared.AwsConfigs{
+		AwsS3ID:     awsS3ID,
+		AwsS3Secret: awsS3Secret,
+		AwsS3Region: awsS3Region,
+		AwsS3Bucket: awsS3Bucket,
+	}
 	sm := manager.NewSyncManager(
-		flags,
-		maxTries,
-		refill,
-		limit,
-		concurrentJobs,
-		concurrentJobs,
+		cliFlags,
 		blobsDir,
-		videosLimit,
-		maxVideoSize,
-		lbrycrdString,
-		awsS3ID,
-		awsS3Secret,
-		awsS3Region,
-		awsS3Bucket,
-		syncStatus,
-		syncProperties,
+		lbrycrdDsn,
+		awsConfig,
 		apiConfig,
-		time.Duration(maxVideoLength)*time.Hour,
 	)
 	err := sm.Start()
 	if err != nil {
