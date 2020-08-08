@@ -75,7 +75,8 @@ func (s *Sync) walletSetup() error {
 
 	videosOnYoutube, err := ytapi.CountVideosInChannel(s.DbChannelData.ChannelId)
 	if err != nil {
-		return err
+		logUtils.SendErrorToSlack(errors.FullTrace(errors.Prefix("failed to get video count through socialblade. Falling back to API count", err)))
+		videosOnYoutube = int(s.DbChannelData.TotalVideos)
 	}
 
 	log.Debugf("Source channel has %d videos", videosOnYoutube)
@@ -416,7 +417,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	//}
 	var locations []jsonrpc.Location = nil
 	if channelInfo.Topbar.DesktopTopbarRenderer.CountryCode != "" {
-		locations = []jsonrpc.Location{{Country: util.PtrToString(channelInfo.Topbar.DesktopTopbarRenderer.CountryCode)}}
+		locations = []jsonrpc.Location{{Country: &channelInfo.Topbar.DesktopTopbarRenderer.CountryCode}}
 	}
 	var c *jsonrpc.TransactionSummary
 	claimCreateOptions := jsonrpc.ClaimCreateOptions{
