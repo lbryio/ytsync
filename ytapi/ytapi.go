@@ -3,6 +3,7 @@ package ytapi
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -215,7 +216,7 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 				Status:        "failed",
 				FailureReason: err.Error(),
 			})
-			util.SendErrorToSlack("Skipping video: " + errors.FullTrace(err))
+			util.SendErrorToSlack(fmt.Sprintf("Skipping video (%s): %s", videoID, errors.FullTrace(err)))
 			if errSDK != nil {
 				return nil, errors.Err(errSDK)
 			}
