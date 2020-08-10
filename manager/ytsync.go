@@ -239,7 +239,7 @@ func deleteSyncFolder(videoDirectory string) {
 }
 
 func (s *Sync) shouldTransfer() bool {
-	return s.DbChannelData.TransferState >= 1 && s.DbChannelData.PublishAddress != "" && !s.Manager.CliFlags.DisableTransfers
+	return s.DbChannelData.TransferState >= 1 && s.DbChannelData.PublishAddress != "" && !s.Manager.CliFlags.DisableTransfers && s.DbChannelData.TransferState != 3
 }
 
 func (s *Sync) setChannelTerminationStatus(e *error) {
@@ -456,8 +456,8 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 		claimNameDiffers := claimInDatabase && sv.ClaimName != chainInfo.ClaimName
 		claimMarkedUnpublished := claimInDatabase && !sv.Published
 		_, isOwnClaim := ownClaimsInfo[videoID]
-		tranferred := !isOwnClaim
-		transferStatusMismatch := sv.Transferred != tranferred
+		transferred := !isOwnClaim || s.DbChannelData.TransferState == 3
+		transferStatusMismatch := sv.Transferred != transferred
 
 		if metadataDiffers {
 			log.Debugf("%s: Mismatch in database for metadata. DB: %d - Blockchain: %d", videoID, sv.MetadataVersion, chainInfo.MetadataVersion)
@@ -475,7 +475,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 			log.Debugf("%s: Published but is not in database (%s - %s)", videoID, chainInfo.ClaimName, chainInfo.ClaimID)
 		}
 		if transferStatusMismatch {
-			log.Debugf("%s: is marked as transferred %t on it's actually %t", videoID, sv.Transferred, tranferred)
+			log.Debugf("%s: is marked as transferred %t on it's actually %t", videoID, sv.Transferred, transferred)
 		}
 
 		if !claimInDatabase || metadataDiffers || claimIDDiffers || claimNameDiffers || claimMarkedUnpublished || transferStatusMismatch {
@@ -493,7 +493,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 				ClaimName:       chainInfo.ClaimName,
 				Size:            util.PtrToInt64(int64(claimSize)),
 				MetaDataVersion: chainInfo.MetadataVersion,
-				IsTransferred:   &tranferred,
+				IsTransferred:   &transferred,
 			})
 			if err != nil {
 				return count, fixed, 0, err
