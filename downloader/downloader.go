@@ -245,8 +245,8 @@ func getClient(ip *net.TCPAddr) *http.Client {
 }
 
 func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
-	var maxtries = 10
-	var attemps int
+	var maxTries = 10
+	var attempts int
 	var useragent []string
 	for {
 		sourceAddress, err := getIPFromPool(use, stopChan, pool)
@@ -295,7 +295,7 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 
 		done := make(chan error, 1)
 		go func() {
-			attemps++
+			attempts++
 			done <- cmd.Wait()
 		}()
 		select {
@@ -309,23 +309,26 @@ func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.C
 				if strings.Contains(err.Error(), "exit status 1") {
 					if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
 						pool.SetThrottled(sourceAddress)
-						logrus.Debugf("known throttling error...try again (%d)", attemps)
-						continue
+						logrus.Debugf("known throttling error...try again (%d)", attempts)
 					}
 					if strings.Contains(string(errorLog), "YouTube said: Unable to extract video data") {
 						useragent = []string{"--user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"}
-						if attemps == 1 {
+						if attempts == 1 {
 							useragent = []string{"--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
 						}
-						logrus.Debugf("known extraction issue, maybe user agent specification will work...try again (%d)", attemps)
-						continue
+						if attempts > 3 {
+							logrus.Debugf("It's pointless to keep trying here... skipping (%d)", attempts)
+							break
+						}
+						logrus.Debugf("known extraction issue, maybe user agent specification will work...try again (%d)", attempts)
 					}
-					if attemps > maxtries {
+					if attempts > maxTries {
 						logrus.Debug("too many tries returning failure")
 						break
 					}
+					continue
 				}
-				logrus.Debugf("Unkown error, returning failure: %s", err.Error())
+				logrus.Debugf("Unknown error, returning failure: %s", err.Error())
 				return nil, errors.Prefix("youtube-dl "+strings.Join(argsForCommand, " ")+" ["+string(errorLog)+"] ", err)
 			}
 			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
