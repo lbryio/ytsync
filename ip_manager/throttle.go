@@ -45,7 +45,7 @@ func GetIPPool(stopGrp *stop.Group) (*IPPool, error) {
 	var pool []throttledIP
 	for _, address := range addrs {
 		if ipnet, ok := address.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() {
-			if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) && false {
+			if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) {
 				pool = append(pool, throttledIP{
 					IP:      ipnet.IP.String(),
 					LastUse: time.Now().Add(-5 * time.Minute),
