@@ -3,7 +3,6 @@ package downloader
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -25,8 +24,8 @@ import (
 )
 
 func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
-	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist"}
-	ids, err := run(channelName, args, true, true, stopChan, pool)
+	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist", "--cookies", "cookies.txt"}
+	ids, err := run(channelName, args, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -44,8 +43,8 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, 
 const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
 func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
-	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID}
-	results, err := run(videoID, args, true, true, stopChan, pool)
+	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID, "--cookies", "cookies.txt"}
+	results, err := run(videoID, args, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -244,99 +243,96 @@ func getClient(ip *net.TCPAddr) *http.Client {
 	}
 }
 
-func run(use string, args []string, withStdErr, withStdOut bool, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
-	var maxTries = 10
-	var attempts int
+const (
+	googleBotUA             = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+	chromeUA                = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+	maxAttempts             = 3
+	extractionError         = "YouTube said: Unable to extract video data"
+	throttledError          = "HTTP Error 429"
+	AlternateThrottledError = "returned non-zero exit status 8"
+	youtubeDlError          = "exit status 1"
+)
+
+func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	var useragent []string
-	for {
+	var lastError error
+	for attempts := 0; attempts < maxAttempts; attempts++ {
 		sourceAddress, err := getIPFromPool(use, stopChan, pool)
 		if err != nil {
 			return nil, err
 		}
-		defer pool.ReleaseIP(sourceAddress)
 		argsForCommand := append(args, "--source-address", sourceAddress)
 		argsForCommand = append(argsForCommand, useragent...)
 		cmd := exec.Command("youtube-dl", argsForCommand...)
-		logrus.Printf("Running command youtube-dl %s", strings.Join(argsForCommand, " "))
 
-		var stderr io.ReadCloser
-		var errorLog []byte
-		if withStdErr {
-			var err error
-			stderr, err = cmd.StderrPipe()
-			if err != nil {
-				return nil, errors.Err(err)
+		res, err := runCmd(cmd, stopChan)
+		pool.ReleaseIP(sourceAddress)
+		if err == nil {
+			return res, nil
+		}
+		lastError = err
+		if strings.Contains(err.Error(), youtubeDlError) {
+			if strings.Contains(err.Error(), extractionError) {
+				logrus.Warnf("known extraction error: %s", errors.FullTrace(err))
+				useragent = nextUA(useragent)
+			}
+			if strings.Contains(err.Error(), throttledError) || strings.Contains(err.Error(), AlternateThrottledError) {
+				pool.SetThrottled(sourceAddress)
+				//we don't want throttle errors to count toward the max retries
+				attempts--
 			}
 		}
+	}
+	return nil, lastError
+}
 
-		var stdout io.ReadCloser
-		var outLog []byte
-		if withStdOut {
-			var err error
-			stdout, err = cmd.StdoutPipe()
-			if err != nil {
-				return nil, errors.Err(err)
-			}
+func nextUA(current []string) []string {
+	if len(current) == 0 {
+		return []string{"--user-agent", googleBotUA}
+	}
+	return []string{"--user-agent", chromeUA}
+}
 
-			if err := cmd.Start(); err != nil {
-				return nil, errors.Err(err)
-			}
-			outLog, err = ioutil.ReadAll(stdout)
-			if err != nil {
-				return nil, errors.Err(err)
-			}
-			if withStdErr {
-				errorLog, err = ioutil.ReadAll(stderr)
-				if err != nil {
-					return nil, errors.Err(err)
-				}
-			}
+func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
+	logrus.Infof("running youtube-dl cmd: %s", strings.Join(cmd.Args, " "))
+	var err error
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	err = cmd.Start()
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	outLog, err := ioutil.ReadAll(stdout)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	errorLog, err := ioutil.ReadAll(stderr)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-stopChan:
+		err := cmd.Process.Kill()
+		if err != nil {
+			return nil, errors.Prefix("failed to kill command after stopper cancellation", err)
 		}
-
-		done := make(chan error, 1)
-		go func() {
-			attempts++
-			done <- cmd.Wait()
-		}()
-		select {
-		case <-stopChan:
-			if err := cmd.Process.Kill(); err != nil {
-				return nil, errors.Prefix("failed to kill command after stopper cancellation", err)
-			}
-			return nil, errors.Err("canceled by stopper")
-		case err := <-done:
-			if err != nil {
-				if strings.Contains(err.Error(), "exit status 1") {
-					if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
-						pool.SetThrottled(sourceAddress)
-						logrus.Debugf("known throttling error...try again (%d)", attempts)
-					}
-					if strings.Contains(string(errorLog), "YouTube said: Unable to extract video data") {
-						useragent = []string{"--user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"}
-						if attempts == 1 {
-							useragent = []string{"--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
-						}
-						if attempts > 3 {
-							logrus.Debugf("It's pointless to keep trying here... skipping (%d)", attempts)
-							break
-						}
-						logrus.Debugf("known extraction issue, maybe user agent specification will work...try again (%d)", attempts)
-					}
-					if attempts > maxTries {
-						logrus.Debug("too many tries returning failure")
-						break
-					}
-					continue
-				}
-				logrus.Debugf("Unknown error, returning failure: %s", err.Error())
-				return nil, errors.Prefix("youtube-dl "+strings.Join(argsForCommand, " ")+" ["+string(errorLog)+"] ", err)
-			}
-			return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
+		return nil, errors.Err("canceled by stopper")
+	case err := <-done:
+		if err != nil {
+			return nil, errors.Prefix("youtube-dl "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
 		}
-
-		if len(errorLog) > 0 {
-			return nil, errors.Err(string(errorLog))
-		}
+		return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 	}
 }
 
