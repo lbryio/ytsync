@@ -71,7 +71,10 @@ func abandonSupports(s *Sync) (float64, error) {
 	for page := uint64(1); page <= totalPages; page++ {
 		supports, err := s.daemon.SupportList(&defaultAccount, page, 50)
 		if err != nil {
-			return 0, errors.Prefix("cannot list claims", err)
+			supports, err = s.daemon.SupportList(&defaultAccount, page, 50)
+			if err != nil {
+				return 0, errors.Prefix("cannot list supports", err)
+			}
 		}
 		allSupports = append(allSupports, (*supports).Items...)
 		totalPages = (*supports).TotalPages
