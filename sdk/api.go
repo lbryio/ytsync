@@ -48,6 +48,11 @@ func (a *APIConfig) FetchChannels(status string, cliFlags *shared.SyncFlags) ([]
 		"channel_id":  {cliFlags.ChannelID},
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.FetchChannels(status, cliFlags)
+		}
 		return nil, errors.Err(err)
 	}
 	defer res.Body.Close()
@@ -106,6 +111,11 @@ func (a *APIConfig) SetChannelCert(certHex string, channelID string) error {
 		"auth_token":       {a.ApiToken},
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.SetChannelCert(certHex, channelID)
+		}
 		return errors.Err(err)
 	}
 	defer res.Body.Close()
@@ -149,6 +159,11 @@ func (a *APIConfig) SetChannelStatus(channelID string, status string, failureRea
 	}
 	res, err := http.PostForm(endpoint, params)
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.SetChannelStatus(channelID, status, failureReason, transferState)
+		}
 		return nil, nil, errors.Err(err)
 	}
 	defer res.Body.Close()
@@ -194,6 +209,11 @@ func (a *APIConfig) SetChannelClaimID(channelID string, channelClaimID string) e
 		"channel_claim_id": {channelClaimID},
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.SetChannelClaimID(channelID, channelClaimID)
+		}
 		return errors.Err(err)
 	}
 	defer res.Body.Close()
@@ -233,6 +253,11 @@ func (a *APIConfig) DeleteVideos(videos []string) error {
 	}
 	res, err := http.PostForm(endpoint, vals)
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.DeleteVideos(videos)
+		}
 		return errors.Err(err)
 	}
 	defer res.Body.Close()
@@ -294,6 +319,11 @@ func (a *APIConfig) MarkVideoStatus(status shared.VideoStatus) error {
 	}
 	res, err := http.PostForm(endpoint, vals)
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.MarkVideoStatus(status)
+		}
 		return errors.Err(err)
 	}
 	defer res.Body.Close()
@@ -331,6 +361,11 @@ func (a *APIConfig) VideoState(videoID string) (string, error) {
 
 	res, err := http.PostForm(endpoint, vals)
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.VideoState(videoID)
+		}
 		return "", errors.Err(err)
 	}
 	defer res.Body.Close()
@@ -380,6 +415,11 @@ func (a *APIConfig) GetReleasedDate(videoID string) (*VideoRelease, error) {
 
 	res, err := http.PostForm(endpoint, vals)
 	if err != nil {
+		if strings.Contains(err.Error(), "EOF") {
+			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			time.Sleep(30 * time.Second)
+			return a.GetReleasedDate(videoID)
+		}
 		return nil, errors.Err(err)
 	}
 	defer res.Body.Close()

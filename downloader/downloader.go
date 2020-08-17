@@ -125,7 +125,7 @@ func triggerScrape(videoID string, ip *net.TCPAddr) error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -168,20 +168,25 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 	if err != nil {
 		logrus.Error(err)
 	}
-	if release != nil {
-		//const sqlTimeFormat = "2006-01-02 15:04:05"
-		sqlTime, err := time.ParseInLocation(time.RFC3339, release.ReleaseTime, time.UTC)
-		if err == nil {
-			return sqlTime.Format(releaseTimeFormat), nil
-		} else {
-			logrus.Error(err)
-		}
-	}
 	ytdlUploadDate, err := time.Parse("20060102", uploadDate)
 	if err != nil {
 		logrus.Error(err)
 	}
-	if time.Now().AddDate(0, 0, -2).After(ytdlUploadDate) {
+	if release != nil {
+		//const sqlTimeFormat = "2006-01-02 15:04:05"
+		sqlTime, err := time.ParseInLocation(time.RFC3339, release.ReleaseTime, time.UTC)
+		if err == nil {
+			if sqlTime.Day() != ytdlUploadDate.Day() {
+				logrus.Infof("upload day from APIs differs from the ytdl one by more than 1 day.")
+			} else {
+				return sqlTime.Format(releaseTimeFormat), nil
+			}
+		} else {
+			logrus.Error(err)
+		}
+	}
+
+	if time.Now().AddDate(0, 0, -3).After(ytdlUploadDate) {
 		return ytdlUploadDate.Format(releaseTimeFormat), nil
 	}
 	client := getClient(ip)
@@ -189,7 +194,7 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 	if err != nil {
 		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -245,7 +250,7 @@ func getClient(ip *net.TCPAddr) *http.Client {
 
 const (
 	googleBotUA             = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-	chromeUA                = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+	chromeUA                = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"
 	maxAttempts             = 3
 	extractionError         = "YouTube said: Unable to extract video data"
 	throttledError          = "HTTP Error 429"

@@ -27,6 +27,19 @@ type YoutubeChannel struct {
 	LastUploadedVideo  string `json:"last_uploaded_video"`
 }
 
+var NeverRetryFailures = []string{
+	"Error extracting sts from embedded url response",
+	"Unable to extract signature tokens",
+	"the video is too big to sync, skipping for now",
+	"video is too long to process",
+	"This video contains content from",
+	"no compatible format available for this video",
+	"Watch this video on YouTube.",
+	"have blocked it on copyright grounds",
+	"giving up after 0 fragment retries",
+	"Sign in to confirm your age",
+}
+
 type SyncFlags struct {
 	StopOnError             bool
 	TakeOverExistingChannel bool

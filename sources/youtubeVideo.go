@@ -209,6 +209,15 @@ func (v *YoutubeVideo) download() error {
 		"480",
 		"320",
 	}
+	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
+	if dur.Hours() > 2 { //for videos longer than 2 hours only sync up to 720p
+		qualities = []string{
+			"720",
+			"480",
+			"320",
+		}
+	}
+
 	ytdlArgs := []string{
 		"--no-progress",
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
@@ -219,12 +228,11 @@ func (v *YoutubeVideo) download() error {
 		"-movflags faststart",
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
-		"0",
-		"--user-agent",
-		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
+		"1",
 		"--cookies",
 		"cookies.txt",
 	}
+	userAgent := []string{"--user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"}
 	if v.maxVideoSize > 0 {
 		ytdlArgs = append(ytdlArgs,
 			"--max-filesize",
@@ -264,8 +272,10 @@ func (v *YoutubeVideo) download() error {
 		"https://www.youtube.com/watch?v="+v.ID(),
 	)
 
-	for i, quality := range qualities {
+	for i := 0; i < len(qualities); i++ {
+		quality := qualities[i]
 		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][height<="+quality+"]+bestaudio[ext!=webm]")
+		argsWithFilters = append(argsWithFilters, userAgent...)
 		cmd := exec.Command("youtube-dl", argsWithFilters...)
 		log.Printf("Running command youtube-dl %s", strings.Join(argsWithFilters, " "))
 
@@ -294,6 +304,11 @@ func (v *YoutubeVideo) download() error {
 						return errors.Err(string(errorLog))
 					}
 					continue //this bypasses the yt throttling IP redistribution... TODO: don't
+				} else if strings.Contains(string(errorLog), "YouTube said: Unable to extract video data") && !strings.Contains(userAgent[1], "Googlebot") {
+					i-- //do not lower quality when trying a different user agent
+					userAgent = []string{"--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+					log.Infof("trying different user agent for video %s", v.ID())
+					continue
 				}
 				return errors.Err(string(errorLog))
 			}

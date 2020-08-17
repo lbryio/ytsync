@@ -918,18 +918,7 @@ func (s *Sync) processVideo(v ytapi.Video) (err error) {
 	alreadyPublished := ok && sv.Published
 	videoRequiresUpgrade := ok && s.Manager.CliFlags.UpgradeMetadata && sv.MetadataVersion < newMetadataVersion
 
-	neverRetryFailures := []string{
-		"Error extracting sts from embedded url response",
-		"Unable to extract signature tokens",
-		"the video is too big to sync, skipping for now",
-		"video is too long to process",
-		"This video contains content from",
-		"no compatible format available for this video",
-		"Watch this video on YouTube.",
-		"have blocked it on copyright grounds",
-		"giving up after 0 fragment retries",
-		"Sign in to confirm your age",
-	}
+	neverRetryFailures := shared.NeverRetryFailures
 	if ok && !sv.Published && util.SubstringInSlice(sv.FailureReason, neverRetryFailures) {
 		log.Println(v.ID() + " can't ever be published")
 		return nil

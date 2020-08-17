@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/lbryio/ytsync/v5/shared"
-	"github.com/lbryio/ytsync/v5/util"
+	logUtils "github.com/lbryio/ytsync/v5/util"
 
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
+	"github.com/lbryio/lbry.go/v2/extras/util"
 
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/sirupsen/logrus"
@@ -56,16 +57,22 @@ type VideoParams struct {
 var mostRecentlyFailedChannel string // TODO: fix this hack!
 
 func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams, lastUploadedVideo string) ([]Video, error) {
-
 	var videos []Video
 	if quickSync && maxVideos > 50 {
 		maxVideos = 50
 	}
-	videoIDs, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos, videoParams.Stopper.Ch(), videoParams.IPPool)
+	allVideos, err := downloader.GetPlaylistVideoIDs(channelID, maxVideos, videoParams.Stopper.Ch(), videoParams.IPPool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
-
+	videoIDs := make([]string, 0, len(allVideos))
+	for _, video := range allVideos {
+		sv, ok := syncedVideos[video]
+		if ok && util.SubstringInSlice(sv.FailureReason, shared.NeverRetryFailures) {
+			continue
+		}
+		videoIDs = append(videoIDs, video)
+	}
 	log.Infof("Got info for %d videos from youtube downloader", len(videoIDs))
 
 	playlistMap := make(map[string]int64)
@@ -216,7 +223,7 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 				Status:        "failed",
 				FailureReason: err.Error(),
 			})
-			util.SendErrorToSlack(fmt.Sprintf("Skipping video (%s): %s", videoID, errors.FullTrace(err)))
+			logUtils.SendErrorToSlack(fmt.Sprintf("Skipping video (%s): %s", videoID, errors.FullTrace(err)))
 			if errSDK != nil {
 				return nil, errors.Err(errSDK)
 			}
