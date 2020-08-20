@@ -123,15 +123,23 @@ func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[s
 	return videos, nil
 }
 
+// CountVideosInChannel is unused for now... keeping it here just in case
 func CountVideosInChannel(channelID string) (int, error) {
-	res, err := http.Get("https://socialblade.com/youtube/channel/" + channelID)
+	url := "https://socialblade.com/youtube/channel/" + channelID
+
+	req, _ := http.NewRequest("GET", url, nil)
+
+	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36")
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Host", "socialblade.com")
+
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return 0, err
+		return 0, errors.Err(err)
 	}
 	defer res.Body.Close()
 
 	var line string
-
 	scanner := bufio.NewScanner(res.Body)
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), "youtube-stats-header-uploads") {

@@ -73,11 +73,7 @@ func (s *Sync) walletSetup() error {
 	}
 	log.Debugf("Starting balance is %.4f", balance)
 
-	videosOnYoutube, err := ytapi.CountVideosInChannel(s.DbChannelData.ChannelId)
-	if err != nil {
-		logUtils.SendErrorToSlack(errors.FullTrace(errors.Prefix("failed to get video count through socialblade. Falling back to API count", err)))
-		videosOnYoutube = int(s.DbChannelData.TotalVideos)
-	}
+	videosOnYoutube := int(s.DbChannelData.TotalVideos)
 
 	log.Debugf("Source channel has %d videos", videosOnYoutube)
 	if videosOnYoutube == 0 {
