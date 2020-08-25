@@ -207,17 +207,21 @@ func (s *Sync) processTransfers() (e error) {
 		isTip := true
 		summary, err := s.daemon.SupportCreate(s.DbChannelData.ChannelClaimID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, []string{defaultAccount}, nil)
 		if err != nil {
-			if strings.Contains(err.Error(), "tx-size") { //TODO: this is a silly workaround and should be written in an recursive function
-				summary, err = s.daemon.SupportCreate(s.DbChannelData.ChannelClaimID, fmt.Sprintf("%.6f", supportAmount/2.0), &isTip, nil, []string{defaultAccount}, nil)
+			if strings.Contains(err.Error(), "tx-size") { //TODO: this is a silly workaround...
+				_, spendErr := s.daemon.TxoSpend(util.PtrToString("other"), nil, nil, nil, nil, &s.defaultAccountID)
+				if spendErr != nil {
+					return errors.Prefix(fmt.Sprintf("something went wrong while tipping the channel for %.6f LBCs", supportAmount), err)
+				}
+				err = s.waitForNewBlock()
+				if err != nil {
+					return errors.Prefix(fmt.Sprintf("something went wrong while tipping the channel for %.6f LBCs (waiting for new block)", supportAmount), err)
+				}
+				summary, err = s.daemon.SupportCreate(s.DbChannelData.ChannelClaimID, fmt.Sprintf("%.6f", supportAmount), &isTip, nil, []string{defaultAccount}, nil)
 				if err != nil {
 					return errors.Prefix(fmt.Sprintf("something went wrong while tipping the channel for %.6f LBCs", supportAmount), err)
 				}
-				summary, err = s.daemon.SupportCreate(s.DbChannelData.ChannelClaimID, fmt.Sprintf("%.6f", supportAmount/2.0), &isTip, nil, []string{defaultAccount}, nil)
-				if err != nil {
-					return errors.Err(err)
-				}
 			} else {
-				return errors.Err(err)
+				return errors.Prefix(fmt.Sprintf("something went wrong while tipping the channel for %.6f LBCs", supportAmount), err)
 			}
 		}
 		if len(summary.Outputs) < 1 {
