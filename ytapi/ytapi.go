@@ -207,7 +207,7 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 		}
 		select {
 		case <-stopChan:
-			return videos, errors.Err("canceled by stopper")
+			return videos, errors.Err("interrupted by user")
 		default:
 		}
 
