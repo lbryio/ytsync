@@ -418,7 +418,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	var c *jsonrpc.TransactionSummary
 	claimCreateOptions := jsonrpc.ClaimCreateOptions{
 		Title:        &channelInfo.Microformat.MicroformatDataRenderer.Title,
-		Description:  &channelInfo.Microformat.MicroformatDataRenderer.Description,
+		Description:  &channelInfo.Metadata.ChannelMetadataRenderer.Description,
 		Tags:         tags_manager.GetTagsForChannel(s.DbChannelData.ChannelId),
 		Languages:    languages,
 		Locations:    locations,
