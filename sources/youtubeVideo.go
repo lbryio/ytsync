@@ -3,7 +3,6 @@ package sources
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,24 +12,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lbryio/lbry.go/v2/extras/errors"
-	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
-	"github.com/lbryio/lbry.go/v2/extras/stop"
-	"github.com/lbryio/lbry.go/v2/extras/util"
-	"github.com/lbryio/ytsync/v5/timing"
-	logUtils "github.com/lbryio/ytsync/v5/util"
+	"github.com/lbryio/ytsync/v5/downloader/ytdl"
+	"github.com/lbryio/ytsync/v5/shared"
 
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/namer"
 	"github.com/lbryio/ytsync/v5/sdk"
 	"github.com/lbryio/ytsync/v5/tags_manager"
 	"github.com/lbryio/ytsync/v5/thumbs"
+	"github.com/lbryio/ytsync/v5/timing"
+	logUtils "github.com/lbryio/ytsync/v5/util"
 
-	duration "github.com/ChannelMeter/iso8601duration"
+	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
+	"github.com/lbryio/lbry.go/v2/extras/stop"
+	"github.com/lbryio/lbry.go/v2/extras/util"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/youtube/v3"
 )
 
 type YoutubeVideo struct {
@@ -40,10 +40,10 @@ type YoutubeVideo struct {
 	playlistPosition int64
 	size             *int64
 	maxVideoSize     int64
-	maxVideoLength   float64
+	maxVideoLength   time.Duration
 	publishedAt      time.Time
 	dir              string
-	youtubeInfo      *youtube.Video
+	youtubeInfo      *ytdl.YtdlVideo
 	youtubeChannelID string
 	tags             []string
 	awsConfig        aws.Config
@@ -90,22 +90,23 @@ var youtubeCategories = map[string]string{
 	"44": "trailers",
 }
 
-func NewYoutubeVideo(directory string, videoData *youtube.Video, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
-	publishedAt, _ := time.Parse(time.RFC3339Nano, videoData.Snippet.PublishedAt) // ignore parse errors
+func NewYoutubeVideo(directory string, videoData *ytdl.YtdlVideo, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) (*YoutubeVideo, error) {
+	// youtube-dl returns times in local timezone sometimes. this could break in the future
+	// maybe we can file a PR to choose the timezone we want from youtube-dl
 	return &YoutubeVideo{
-		id:               videoData.Id,
-		title:            videoData.Snippet.Title,
-		description:      videoData.Snippet.Description,
+		id:               videoData.ID,
+		title:            videoData.Title,
+		description:      videoData.Description,
 		playlistPosition: playlistPosition,
-		publishedAt:      publishedAt,
+		publishedAt:      videoData.UploadDateForReal,
 		dir:              directory,
 		youtubeInfo:      videoData,
 		awsConfig:        awsConfig,
 		mocked:           false,
-		youtubeChannelID: videoData.Snippet.ChannelId,
+		youtubeChannelID: videoData.ChannelID,
 		stopGroup:        stopGroup,
 		pool:             pool,
-	}
+	}, nil
 }
 func NewMockedVideo(directory string, videoID string, youtubeChannelID string, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
 	return &YoutubeVideo{
@@ -185,7 +186,7 @@ func (v *YoutubeVideo) download() error {
 	defer func(start time.Time) {
 		timing.TimedComponent("download").Add(time.Since(start))
 	}(start)
-	if v.youtubeInfo.Snippet.LiveBroadcastContent != "none" {
+	if v.youtubeInfo.IsLive != nil {
 		return errors.Err("video is a live stream and hasn't completed yet")
 	}
 	videoPath := v.getFullPath()
@@ -208,6 +209,15 @@ func (v *YoutubeVideo) download() error {
 		"480",
 		"320",
 	}
+	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
+	if dur.Hours() > 2 { //for videos longer than 2 hours only sync up to 720p
+		qualities = []string{
+			"720",
+			"480",
+			"320",
+		}
+	}
+
 	ytdlArgs := []string{
 		"--no-progress",
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
@@ -218,12 +228,11 @@ func (v *YoutubeVideo) download() error {
 		"-movflags faststart",
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
-		"0",
-		"--user-agent",
-		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
+		"1",
 		"--cookies",
 		"cookies.txt",
 	}
+	userAgent := []string{"--user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"}
 	if v.maxVideoSize > 0 {
 		ytdlArgs = append(ytdlArgs,
 			"--max-filesize",
@@ -233,7 +242,7 @@ func (v *YoutubeVideo) download() error {
 	if v.maxVideoLength > 0 {
 		ytdlArgs = append(ytdlArgs,
 			"--match-filter",
-			fmt.Sprintf("duration <= %d", int(math.Round(v.maxVideoLength*3600))),
+			fmt.Sprintf("duration <= %d", int(v.maxVideoLength.Seconds())),
 		)
 	}
 
@@ -263,8 +272,10 @@ func (v *YoutubeVideo) download() error {
 		"https://www.youtube.com/watch?v="+v.ID(),
 	)
 
-	for i, quality := range qualities {
+	for i := 0; i < len(qualities); i++ {
+		quality := qualities[i]
 		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][height<="+quality+"]+bestaudio[ext!=webm]")
+		argsWithFilters = append(argsWithFilters, userAgent...)
 		cmd := exec.Command("youtube-dl", argsWithFilters...)
 		log.Printf("Running command youtube-dl %s", strings.Join(argsWithFilters, " "))
 
@@ -293,6 +304,11 @@ func (v *YoutubeVideo) download() error {
 						return errors.Err(string(errorLog))
 					}
 					continue //this bypasses the yt throttling IP redistribution... TODO: don't
+				} else if strings.Contains(string(errorLog), "YouTube said: Unable to extract video data") && !strings.Contains(userAgent[1], "Googlebot") {
+					i-- //do not lower quality when trying a different user agent
+					userAgent = []string{"--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+					log.Infof("trying different user agent for video %s", v.ID())
+					continue
 				}
 				return errors.Err(string(errorLog))
 			}
@@ -370,8 +386,8 @@ func (v *YoutubeVideo) delete(reason string) error {
 }
 
 func (v *YoutubeVideo) triggerThumbnailSave() (err error) {
-	thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Snippet.Thumbnails)
-	v.thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.Url, v.ID(), v.awsConfig)
+	thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Thumbnails)
+	v.thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.URL, v.ID(), v.awsConfig)
 	return err
 }
 
@@ -429,8 +445,8 @@ type SyncParams struct {
 	ChannelID      string
 	MaxVideoSize   int
 	Namer          *namer.Namer
-	MaxVideoLength float64
-	Fee            *sdk.Fee
+	MaxVideoLength time.Duration
+	Fee            *shared.Fee
 	DefaultAccount string
 }
 
@@ -448,13 +464,11 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	var err error
-	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
-	if err != nil {
-		return nil, errors.Err(err)
-	}
-	if videoDuration.ToDuration() > time.Duration(v.maxVideoLength*60)*time.Minute {
-		log.Infof("%s is %s long and the limit is %s", v.id, videoDuration.ToDuration().String(), (time.Duration(v.maxVideoLength*60) * time.Minute).String())
-		logUtils.SendErrorToSlack("%s is %s long and the limit is %s", v.id, videoDuration.ToDuration().String(), (time.Duration(v.maxVideoLength*60) * time.Minute).String())
+
+	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
+
+	if dur > v.maxVideoLength {
+		logUtils.SendErrorToSlack("%s is %s long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
 		return nil, errors.Err("video is too long to process")
 	}
 	for {
@@ -487,27 +501,30 @@ func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Lo
 	locations = nil
 	tags = nil
 	if !v.mocked {
-		if v.youtubeInfo.Snippet.DefaultLanguage != "" {
-			if v.youtubeInfo.Snippet.DefaultLanguage == "iw" {
-				v.youtubeInfo.Snippet.DefaultLanguage = "he"
-			}
-			languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
-		}
+		/*
+			if v.youtubeInfo.Snippet.DefaultLanguage != "" {
+				if v.youtubeInfo.Snippet.DefaultLanguage == "iw" {
+					v.youtubeInfo.Snippet.DefaultLanguage = "he"
+				}
+				languages = []string{v.youtubeInfo.Snippet.DefaultLanguage}
+			}*/
 
-		if v.youtubeInfo.RecordingDetails != nil && v.youtubeInfo.RecordingDetails.Location != nil {
+		/*if v.youtubeInfo.!= nil && v.youtubeInfo.RecordingDetails.Location != nil {
 			locations = []jsonrpc.Location{{
 				Latitude:  util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Latitude)),
 				Longitude: util.PtrToString(fmt.Sprintf("%.7f", v.youtubeInfo.RecordingDetails.Location.Longitude)),
 			}}
-		}
-		tags = v.youtubeInfo.Snippet.Tags
+		}*/
+		tags = v.youtubeInfo.Tags
 	}
 	tags, err := tags_manager.SanitizeTags(tags, v.youtubeChannelID)
 	if err != nil {
 		log.Errorln(err.Error())
 	}
 	if !v.mocked {
-		tags = append(tags, youtubeCategories[v.youtubeInfo.Snippet.CategoryId])
+		for _, category := range v.youtubeInfo.Categories {
+			tags = append(tags, youtubeCategories[category])
+		}
 	}
 
 	return languages, locations, tags
@@ -532,8 +549,8 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		if v.mocked {
 			return nil, errors.Err("could not find thumbnail for mocked video")
 		}
-		thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Snippet.Thumbnails)
-		thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.Url, v.ID(), v.awsConfig)
+		thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Thumbnails)
+		thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.URL, v.ID(), v.awsConfig)
 	} else {
 		thumbnailURL = thumbs.ThumbnailEndpoint + v.ID()
 	}
@@ -605,14 +622,9 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 		}, nil
 	}
 
-	videoDuration, err := duration.FromString(v.youtubeInfo.ContentDetails.Duration)
-	if err != nil {
-		return nil, errors.Err(err)
-	}
-
 	streamCreateOptions.ClaimCreateOptions.Title = &v.title
 	streamCreateOptions.ClaimCreateOptions.Description = util.PtrToString(v.getAbbrevDescription())
-	streamCreateOptions.Duration = util.PtrToUint64(uint64(math.Ceil(videoDuration.ToDuration().Seconds())))
+	streamCreateOptions.Duration = util.PtrToUint64(uint64(v.youtubeInfo.Duration))
 	streamCreateOptions.ReleaseTime = util.PtrToInt64(v.publishedAt.Unix())
 	start := time.Now()
 	pr, err := daemon.StreamUpdate(existingVideoData.ClaimID, jsonrpc.StreamUpdateOptions{

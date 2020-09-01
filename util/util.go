@@ -52,7 +52,7 @@ func GetLBRYNetDir() string {
 }
 
 func GetLbryumDir() string {
-	lbryumDir := os.Getenv("LBRYNET_WALLETS_DIR")
+	lbryumDir := os.Getenv("LBRYUM_DIR")
 	if lbryumDir == "" {
 		usr, err := user.Current()
 		if err != nil {
@@ -255,7 +255,7 @@ func CleanupLbrynet() error {
 		}
 		return errors.Err(err)
 	}
-	dbSizeLimit := int64(1 * 1024 * 1024 * 1024)
+	dbSizeLimit := int64(2 * 1024 * 1024 * 1024)
 	if db.Size() > dbSizeLimit {
 		files, err := filepath.Glob(lbryumDir + "/blockchain.db*")
 		if err != nil {
@@ -366,9 +366,31 @@ func GetDefaultWalletPath() string {
 		defaultWalletDir = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
 	}
 
-	walletPath := os.Getenv("LBRYNET_WALLETS_DIR")
+	walletPath := os.Getenv("LBRYUM_DIR")
 	if walletPath != "" {
 		defaultWalletDir = walletPath + "/wallets/default_wallet"
 	}
 	return defaultWalletDir
+}
+func GetBlockchainDBPath() string {
+	lbryumDir := os.Getenv("LBRYUM_DIR")
+	if lbryumDir == "" {
+		if IsRegTest() {
+			lbryumDir = os.Getenv("HOME") + "/.lbryum_regtest"
+		} else {
+			lbryumDir = os.Getenv("HOME") + "/.lbryum"
+		}
+	}
+	defaultDB := lbryumDir + "/lbc_mainnet/blockchain.db"
+	if IsRegTest() {
+		defaultDB = lbryumDir + "/lbc_regtest/blockchain.db"
+	}
+	return defaultDB
+}
+func GetBlockchainDirectoryName() string {
+	ledger := "lbc_mainnet"
+	if IsRegTest() {
+		ledger = "lbc_regtest"
+	}
+	return ledger
 }
