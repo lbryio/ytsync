@@ -4,6 +4,7 @@ replace github.com/btcsuite/btcd => github.com/lbryio/lbrycrd.go v0.0.0-20200203
 
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/abadojack/whatlanggo v1.0.1
 	github.com/asaskevich/govalidator v0.0.0-20200819183940-29e1ff8eb0bb
 	github.com/aws/aws-sdk-go v1.25.9
 	github.com/davecgh/go-spew v1.1.1

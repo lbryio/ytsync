@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/abadojack/whatlanggo"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 	"github.com/lbryio/ytsync/v5/shared"
 
@@ -409,7 +410,11 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*Sync
 			FeeCurrency: jsonrpc.Currency(params.Fee.Currency),
 		}
 	}
-
+	info := whatlanggo.Detect(v.getAbbrevDescription())
+	if info.IsReliable() {
+		language := info.Lang.Iso6391()
+		languages = []string{language}
+	}
 	options := jsonrpc.StreamCreateOptions{
 		ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
 			Title:        &v.title,
