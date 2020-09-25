@@ -29,13 +29,13 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, 
 	if err != nil {
 		return nil, errors.Err(err)
 	}
-	videoIDs := make([]string, maxVideos)
+	videoIDs := make([]string, 0, maxVideos)
 	for i, v := range ids {
 		logrus.Debugf("%d - video id %s", i, v)
 		if i >= maxVideos {
 			break
 		}
-		videoIDs[i] = v
+		videoIDs = append(videoIDs, v)
 	}
 	return videoIDs, nil
 }
