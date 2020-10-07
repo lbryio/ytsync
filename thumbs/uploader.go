@@ -72,6 +72,7 @@ func (u *thumbnailUploader) uploadThumbnail() error {
 		ContentType:  aws.String("image/jpeg"),
 		CacheControl: aws.String("public, max-age=2592000"),
 	})
+
 	u.mirroredUrl = ThumbnailEndpoint + u.name
 	return errors.Err(err)
 }
@@ -95,6 +96,19 @@ func MirrorThumbnail(url string, name string, s3Config aws.Config) (string, erro
 	defer tu.deleteTmpFile()
 
 	err = tu.uploadThumbnail()
+	if err != nil {
+		return "", err
+	}
+
+	ownS3Config := s3Config.Copy(&aws.Config{Endpoint: aws.String("s3.lbry.tech")})
+
+	tu2 := thumbnailUploader{
+		originalUrl: url,
+		name:        name,
+		s3Config:    *ownS3Config,
+	}
+	//own S3
+	err = tu2.uploadThumbnail()
 	if err != nil {
 		return "", err
 	}

@@ -12,14 +12,13 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/lbryio/lbry.go/v2 v2.6.1-0.20200901175808-73382bb02128
-	github.com/lbryio/reflector.go v1.1.3-0.20200901181534-e8b98bc862d5
+	github.com/lbryio/reflector.go v1.1.3-0.20201006141750-a80e0f5b0dc6
 	github.com/lbryio/types v0.0.0-20200605192618-366870b2862d // indirect
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
@@ -32,8 +31,6 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.4.0
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/ini.v1 v1.60.2 // indirect
 )

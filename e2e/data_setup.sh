@@ -19,6 +19,6 @@ mysql -u lbry -plbry -D lbry -h "127.0.0.1" -P 15500 -e "$ADDYTSYNCER"
 ADDYTSYNCAUTHTOKEN='INSERT INTO auth_token (user_id, value) VALUE(2,"youtubertoken")'
 mysql -u lbry -plbry -D lbry -h "127.0.0.1" -P 15500 -e "$ADDYTSYNCAUTHTOKEN"
 #Add their youtube channel to be synced
-ADDYTCHANNEL="INSERT INTO youtube_data (user_id, status_token,desired_lbry_channel,channel_id,channel_name,status,created_at,source,total_videos,total_subscribers,should_sync,redeemable,total_views,reviewed,last_uploaded_video,length_limit,size_limit)
-VALUE(2,'3qzGyuVjQaf7t4pKKu2Er1NRW2LJkeWw','@test"$(date +%s)"','UCNQfQvFMPnInwsU_iGYArJQ','BeamerAtLBRY','queued','2019-08-01 00:00:00','sync',10,10,1,1,10000,1,'7bBV2Z-9wpo',60,2048)"
+ADDYTCHANNEL="INSERT INTO youtube_data (user_id, status_token,desired_lbry_channel,channel_id,channel_name,status,created_at,source,total_videos,total_subscribers,should_sync,redeemable,total_views,reviewed,last_uploaded_video,length_limit,size_limit,reward_amount,reward_expiration)
+VALUE(2,'3qzGyuVjQaf7t4pKKu2Er1NRW2LJkeWw','@test"$(date +%s)"','UCNQfQvFMPnInwsU_iGYArJQ','BeamerAtLBRY','queued','2019-08-01 00:00:00','sync',10,10,1,1,10000,1,'7bBV2Z-9wpo',60,2048,0,'2019-08-01 00:00:00')"
 mysql -u lbry -plbry -D lbry -h "127.0.0.1" -P 15500 -e "$ADDYTCHANNEL"
