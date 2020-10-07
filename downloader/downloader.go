@@ -332,7 +332,7 @@ func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
 		if err != nil {
 			return nil, errors.Prefix("failed to kill command after stopper cancellation", err)
 		}
-		return nil, errors.Err("canceled by stopper")
+		return nil, errors.Err("interrupted by user")
 	case err := <-done:
 		if err != nil {
 			return nil, errors.Prefix("youtube-dl "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
