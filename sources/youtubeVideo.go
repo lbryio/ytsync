@@ -411,7 +411,7 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*Sync
 		}
 	}
 	info := whatlanggo.Detect(v.getAbbrevDescription())
-	if info.IsReliable() {
+	if info.IsReliable() && info.Lang.Iso6391() != "" {
 		language := info.Lang.Iso6391()
 		languages = []string{language}
 	}
