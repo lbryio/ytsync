@@ -25,6 +25,7 @@ type YoutubeChannel struct {
 	LengthLimit        int    `json:"length_limit"`
 	SizeLimit          int    `json:"size_limit"`
 	LastUploadedVideo  string `json:"last_uploaded_video"`
+	WipeDB             bool   `json:"wipe_db"`
 }
 
 var NeverRetryFailures = []string{
@@ -53,7 +54,8 @@ type SyncFlags struct {
 	MaxTries                int
 	Refill                  int
 	Limit                   int
-	SyncStatus              string
+	Status                  string
+	SecondaryStatus         string
 	ChannelID               string
 	SyncFrom                int64
 	SyncUntil               int64
@@ -86,6 +88,7 @@ const (
 	StatusPendingUpgrade = "pendingupgrade" // in sync queue. will be synced soon
 	StatusSyncing        = "syncing"        // syncing now
 	StatusSynced         = "synced"         // done
+	StatusWipeDb         = "pendingdbwipe"  // in sync queue. lbryum database will be pruned
 	StatusFailed         = "failed"
 	StatusFinalized      = "finalized" // no more changes allowed
 	StatusAbandoned      = "abandoned" // deleted on youtube or banned

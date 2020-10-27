@@ -53,7 +53,8 @@ func main() {
 	cmd.Flags().BoolVar(&cliFlags.UpgradeMetadata, "upgrade-metadata", false, "Upgrade videos if they're on the old metadata version")
 	cmd.Flags().BoolVar(&cliFlags.DisableTransfers, "no-transfers", false, "Skips the transferring process of videos, channels and supports")
 	cmd.Flags().BoolVar(&cliFlags.QuickSync, "quick", false, "Look up only the last 50 videos from youtube")
-	cmd.Flags().StringVar(&cliFlags.SyncStatus, "status", "", "Specify which queue to pull from. Overrides --update")
+	cmd.Flags().StringVar(&cliFlags.Status, "status", "", "Specify which queue to pull from. Overrides --update")
+	cmd.Flags().StringVar(&cliFlags.SecondaryStatus, "status2", "", "Specify which secondary queue to pull from.")
 	cmd.Flags().StringVar(&cliFlags.ChannelID, "channelID", "", "If specified, only this channel will be synced.")
 	cmd.Flags().Int64Var(&cliFlags.SyncFrom, "after", time.Unix(0, 0).Unix(), "Specify from when to pull jobs [Unix time](Default: 0)")
 	cmd.Flags().Int64Var(&cliFlags.SyncUntil, "before", time.Now().AddDate(1, 0, 0).Unix(), "Specify until when to pull jobs [Unix time](Default: current Unix time)")
@@ -87,7 +88,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 		util.InitSlack(os.Getenv("SLACK_TOKEN"), os.Getenv("SLACK_CHANNEL"), hostname)
 	}
 
-	if cliFlags.SyncStatus != "" && !util.InSlice(cliFlags.SyncStatus, shared.SyncStatuses) {
+	if cliFlags.Status != "" && !util.InSlice(cliFlags.Status, shared.SyncStatuses) {
 		log.Errorf("status must be one of the following: %v\n", shared.SyncStatuses)
 		return
 	}

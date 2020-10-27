@@ -76,12 +76,15 @@ func (s *SyncManager) Start() error {
 			shouldInterruptLoop = true
 		} else {
 			var queuesToSync []string
-			if s.CliFlags.SyncStatus != "" {
-				queuesToSync = append(queuesToSync, s.CliFlags.SyncStatus)
+			if s.CliFlags.Status != "" {
+				queuesToSync = append(queuesToSync, s.CliFlags.Status)
 			} else if s.CliFlags.SyncUpdate {
 				queuesToSync = append(queuesToSync, shared.StatusSyncing, shared.StatusSynced)
 			} else {
 				queuesToSync = append(queuesToSync, shared.StatusSyncing, shared.StatusQueued)
+			}
+			if s.CliFlags.SecondaryStatus != "" {
+				queuesToSync = append(queuesToSync, s.CliFlags.SecondaryStatus)
 			}
 		queues:
 			for _, q := range queuesToSync {

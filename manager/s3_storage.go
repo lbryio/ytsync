@@ -97,7 +97,9 @@ func (s *Sync) downloadBlockchainDB() error {
 			return errors.Err(err)
 		}
 	}
-
+	if s.DbChannelData.WipeDB {
+		return nil
+	}
 	downloader, err := s.getS3Downloader()
 	if err != nil {
 		return errors.Err(err)
