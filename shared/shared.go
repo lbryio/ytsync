@@ -94,7 +94,7 @@ const (
 	StatusAbandoned      = "abandoned" // deleted on youtube or banned
 )
 
-var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned}
+var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned, StatusWipeDb}
 
 const LatestMetadataVersion = 2
 

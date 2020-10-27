@@ -260,6 +260,7 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 			"this youtube channel is being managed by another server",
 			"interrupted during daemon startup",
 			"interrupted by user",
+			"use --skip-space-check to ignore",
 		}
 		if util.SubstringInSlice((*e).Error(), noFailConditions) {
 			return
