@@ -262,11 +262,18 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 			"interrupted by user",
 			"use --skip-space-check to ignore",
 		}
+		dbWipeConditions := []string{
+			"Missing inputs",
+		}
 		if util.SubstringInSlice((*e).Error(), noFailConditions) {
 			return
 		}
+		channelStatus := shared.StatusFailed
+		if util.SubstringInSlice((*e).Error(), dbWipeConditions) {
+			channelStatus = shared.StatusWipeDb
+		}
 		failureReason := (*e).Error()
-		_, _, err := s.Manager.ApiConfig.SetChannelStatus(s.DbChannelData.ChannelId, shared.StatusFailed, failureReason, transferState)
+		_, _, err := s.Manager.ApiConfig.SetChannelStatus(s.DbChannelData.ChannelId, channelStatus, failureReason, transferState)
 		if err != nil {
 			msg := fmt.Sprintf("Failed setting failed state for channel %s", s.DbChannelData.DesiredChannelName)
 			*e = errors.Prefix(msg+err.Error(), *e)
@@ -395,15 +402,14 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 		}
 		if claimToAbandon.Address != s.DbChannelData.PublishAddress && !s.syncedVideos[videoID].Transferred {
 			log.Debugf("abandoning %+v", claimToAbandon)
-			_, err := s.daemon.StreamAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, false)
+			_, err := s.daemon.StreamAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, true)
 			if err != nil {
 				return true, err
 			}
+			abandonedClaims = true
 		} else {
 			log.Debugf("lbrynet stream abandon --txid=%s --nout=%d", claimToAbandon.Txid, claimToAbandon.Nout)
 		}
-		abandonedClaims = true
-		//return true, nil
 	}
 	return abandonedClaims, nil
 }
@@ -757,6 +763,7 @@ func (s *Sync) startWorker(workerNum int) {
 					"more than 90% of the space has been used.",
 					"Couldn't find private key for id",
 					"You already have a stream claim published under the name",
+					"Missing inputs",
 				}
 				if util.SubstringInSlice(err.Error(), fatalErrors) || s.Manager.CliFlags.StopOnError {
 					s.grp.Stop()
@@ -806,7 +813,7 @@ func (s *Sync) startWorker(workerNum int) {
 							"Not enough funds to cover this transaction",
 							"failed: Not enough funds",
 							"Error in daemon: Insufficient funds, please deposit additional LBC",
-							"Missing inputs",
+							//"Missing inputs",
 						}) {
 							log.Println("checking funds and UTXOs before retrying...")
 							err := s.walletSetup()

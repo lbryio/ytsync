@@ -55,6 +55,7 @@ func (s *SyncManager) Start() error {
 	}
 
 	var lastChannelProcessed string
+	var secondLastChannelProcessed string
 	syncCount := 0
 	for {
 		s.channelsToSync = make([]Sync, 0, 10) // reset sync queue
@@ -108,12 +109,13 @@ func (s *SyncManager) Start() error {
 			time.Sleep(5 * time.Minute)
 		}
 		for _, sync := range s.channelsToSync {
-			if lastChannelProcessed == sync.DbChannelData.ChannelId {
+			if lastChannelProcessed == sync.DbChannelData.ChannelId && secondLastChannelProcessed == lastChannelProcessed {
 				util.SendToSlack("We just killed a sync for %s to stop looping! (%s)", sync.DbChannelData.DesiredChannelName, sync.DbChannelData.ChannelId)
-				stopTheLoops := errors.Err("Found channel %s running twice, set it to failed, and reprocess later", sync.DbChannelData.DesiredChannelName)
+				stopTheLoops := errors.Err("Found channel %s running 3 times, set it to failed, and reprocess later", sync.DbChannelData.DesiredChannelName)
 				sync.setChannelTerminationStatus(&stopTheLoops)
 				continue
 			}
+			secondLastChannelProcessed = lastChannelProcessed
 			lastChannelProcessed = sync.DbChannelData.ChannelId
 			shouldNotCount := false
 			logUtils.SendInfoToSlack("Syncing %s (%s) to LBRY! total processed channels since startup: %d", sync.DbChannelData.DesiredChannelName, sync.DbChannelData.ChannelId, syncCount+1)

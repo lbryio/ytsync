@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
@@ -382,7 +383,16 @@ func (s *Sync) ensureChannelOwnership() error {
 
 	channelInfo, err := ytapi.ChannelInfo(s.DbChannelData.ChannelId)
 	if err != nil {
-		return err
+		if strings.Contains(err.Error(), "invalid character 'e' looking for beginning of value") {
+			logUtils.SendInfoToSlack("failed to get channel data for %s. Waiting 1 minute to retry", s.DbChannelData.ChannelId)
+			time.Sleep(1 * time.Minute)
+			channelInfo, err = ytapi.ChannelInfo(s.DbChannelData.ChannelId)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	thumbnail := channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails)-1].URL
