@@ -722,10 +722,16 @@ func (s *Sync) doSync() error {
 	}
 	close(s.queue)
 	s.grp.Wait()
-	return err
+	if err != nil {
+		return err
+	}
+	if s.hardVideoFailure.failed {
+		return errors.Err(s.hardVideoFailure.failureReason)
+	}
+	return nil
 }
 
-func (s *Sync) startWorker(workerNum int) error {
+func (s *Sync) startWorker(workerNum int) {
 	var v ytapi.Video
 	var more bool
 	fatalErrors := []string{
@@ -781,18 +787,18 @@ func (s *Sync) startWorker(workerNum int) error {
 		select {
 		case <-s.grp.Ch():
 			log.Printf("Stopping worker %d", workerNum)
-			return nil
+			return
 		default:
 		}
 
 		select {
 		case v, more = <-s.queue:
 			if !more {
-				return nil
+				return
 			}
 		case <-s.grp.Ch():
 			log.Printf("Stopping worker %d", workerNum)
-			return nil
+			return
 		}
 
 		log.Println("================================================================================")
@@ -802,7 +808,7 @@ func (s *Sync) startWorker(workerNum int) error {
 			select { // check again inside the loop so this dies faster
 			case <-s.grp.Ch():
 				log.Printf("Stopping worker %d", workerNum)
-				return nil
+				return
 			default:
 			}
 			tryCount++
@@ -813,6 +819,7 @@ func (s *Sync) startWorker(workerNum int) error {
 				if strings.Contains(strings.ToLower(err.Error()), "interrupted by user") {
 					s.grp.Stop()
 				} else if util.SubstringInSlice(err.Error(), fatalErrors) {
+					s.hardVideoFailure.flagFailure(err.Error())
 					s.grp.Stop()
 				} else if shouldRetry {
 					if util.SubstringInSlice(err.Error(), blockchainErrors) {
