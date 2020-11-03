@@ -471,10 +471,15 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 	var err error
 
 	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
+	minDuration := 7 * time.Second
 
 	if dur > v.maxVideoLength {
 		logUtils.SendErrorToSlack("%s is %s long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
 		return nil, errors.Err("video is too long to process")
+	}
+	if dur < minDuration {
+		logUtils.SendErrorToSlack("%s is %s long and the minimum is %s", v.id, dur.String(), minDuration.String())
+		return nil, errors.Err("video is too short to process")
 	}
 	for {
 		err = v.download()

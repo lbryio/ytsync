@@ -53,6 +53,23 @@ type Sync struct {
 	walletMux        *sync.RWMutex
 	queue            chan ytapi.Video
 	defaultAccountID string
+	hardVideoFailure hardVideoFailure
+}
+
+type hardVideoFailure struct {
+	lock          *sync.Mutex
+	failed        bool
+	failureReason string
+}
+
+func (hv *hardVideoFailure) flagFailure(reason string) {
+	hv.lock.Lock()
+	defer hv.lock.Unlock()
+	if hv.failed {
+		return
+	}
+	hv.failed = true
+	hv.failureReason = reason
 }
 
 func (s *Sync) AppendSyncedVideo(videoID string, published bool, failureReason string, claimName string, claimID string, metadataVersion int8, size int64) {
@@ -690,10 +707,6 @@ func (s *Sync) doSync() error {
 		}
 	}
 
-	if s.Manager.CliFlags.StopOnError {
-		log.Println("Will stop publishing if an error is detected")
-	}
-
 	for i := 0; i < s.Manager.CliFlags.ConcurrentJobs; i++ {
 		s.grp.Add(1)
 		go func(i int) {
@@ -712,26 +725,74 @@ func (s *Sync) doSync() error {
 	return err
 }
 
-func (s *Sync) startWorker(workerNum int) {
+func (s *Sync) startWorker(workerNum int) error {
 	var v ytapi.Video
 	var more bool
-
+	fatalErrors := []string{
+		":5279: read: connection reset by peer",
+		"no space left on device",
+		"NotEnoughFunds",
+		"Cannot publish using channel",
+		"cannot concatenate 'str' and 'NoneType' objects",
+		"more than 90% of the space has been used.",
+		"Couldn't find private key for id",
+		"You already have a stream claim published under the name",
+		"Missing inputs",
+	}
+	errorsNoRetry := []string{
+		"non 200 status code received",
+		"This video contains content from",
+		"dont know which claim to update",
+		"uploader has not made this video available in your country",
+		"download error: AccessDenied: Access Denied",
+		"Playback on other websites has been disabled by the video owner",
+		"Error in daemon: Cannot publish empty file",
+		"Error extracting sts from embedded url response",
+		"Unable to extract signature tokens",
+		"Client.Timeout exceeded while awaiting headers",
+		"the video is too big to sync, skipping for now",
+		"video is too long to process",
+		"video is too short to process",
+		"no compatible format available for this video",
+		"Watch this video on YouTube.",
+		"have blocked it on copyright grounds",
+		"the video must be republished as we can't get the right size",
+		"HTTP Error 403",
+		"giving up after 0 fragment retries",
+		"Sorry about that",
+		"This video is not available",
+		"requested format not available",
+		"interrupted by user",
+		"Sign in to confirm your age",
+		"This video is unavailable",
+		"video is a live stream and hasn't completed yet",
+	}
+	walletErrors := []string{
+		"Not enough funds to cover this transaction",
+		"failed: Not enough funds",
+		"Error in daemon: Insufficient funds, please deposit additional LBC",
+		//"Missing inputs",
+	}
+	blockchainErrors := []string{
+		"txn-mempool-conflict",
+		"too-long-mempool-chain",
+	}
 	for {
 		select {
 		case <-s.grp.Ch():
 			log.Printf("Stopping worker %d", workerNum)
-			return
+			return nil
 		default:
 		}
 
 		select {
 		case v, more = <-s.queue:
 			if !more {
-				return
+				return nil
 			}
 		case <-s.grp.Ch():
 			log.Printf("Stopping worker %d", workerNum)
-			return
+			return nil
 		}
 
 		log.Println("================================================================================")
@@ -741,95 +802,43 @@ func (s *Sync) startWorker(workerNum int) {
 			select { // check again inside the loop so this dies faster
 			case <-s.grp.Ch():
 				log.Printf("Stopping worker %d", workerNum)
-				return
+				return nil
 			default:
 			}
 			tryCount++
 			err := s.processVideo(v)
-
 			if err != nil {
-				util.SendToSlack("Tried to process %s. Error: %v", v.ID(), err)
-				logMsg := fmt.Sprintf("error processing video %s: %s", v.ID(), err.Error())
-				log.Errorln(logMsg)
+				logUtils.SendErrorToSlack("error processing video %s: %s", v.ID(), err.Error())
+				shouldRetry := s.Manager.CliFlags.MaxTries > 1 && !util.SubstringInSlice(err.Error(), errorsNoRetry) && tryCount < s.Manager.CliFlags.MaxTries
 				if strings.Contains(strings.ToLower(err.Error()), "interrupted by user") {
-					return
-				}
-				fatalErrors := []string{
-					":5279: read: connection reset by peer",
-					"no space left on device",
-					"NotEnoughFunds",
-					"Cannot publish using channel",
-					"cannot concatenate 'str' and 'NoneType' objects",
-					"more than 90% of the space has been used.",
-					"Couldn't find private key for id",
-					"You already have a stream claim published under the name",
-					"Missing inputs",
-				}
-				if util.SubstringInSlice(err.Error(), fatalErrors) || s.Manager.CliFlags.StopOnError {
 					s.grp.Stop()
-				} else if s.Manager.CliFlags.MaxTries > 1 {
-					errorsNoRetry := []string{
-						"non 200 status code received",
-						"This video contains content from",
-						"dont know which claim to update",
-						"uploader has not made this video available in your country",
-						"download error: AccessDenied: Access Denied",
-						"Playback on other websites has been disabled by the video owner",
-						"Error in daemon: Cannot publish empty file",
-						"Error extracting sts from embedded url response",
-						"Unable to extract signature tokens",
-						"Client.Timeout exceeded while awaiting headers",
-						"the video is too big to sync, skipping for now",
-						"video is too long to process",
-						"no compatible format available for this video",
-						"Watch this video on YouTube.",
-						"have blocked it on copyright grounds",
-						"the video must be republished as we can't get the right size",
-						"HTTP Error 403",
-						"giving up after 0 fragment retries",
-						"Sorry about that",
-						"This video is not available",
-						"requested format not available",
-						"interrupted by user",
-						"Sign in to confirm your age",
-						"This video is unavailable",
-						"video is a live stream and hasn't completed yet",
-					}
-					if util.SubstringInSlice(err.Error(), errorsNoRetry) {
-						log.Println("This error should not be retried at all")
-					} else if tryCount < s.Manager.CliFlags.MaxTries {
-						if util.SubstringInSlice(err.Error(), []string{
-							"txn-mempool-conflict",
-							"too-long-mempool-chain",
-						}) {
-							log.Println("waiting for a block before retrying")
-							err := s.waitForNewBlock()
-							if err != nil {
-								s.grp.Stop()
-								logUtils.SendErrorToSlack("something went wrong while waiting for a block: %s", errors.FullTrace(err))
-								break
-							}
-						} else if util.SubstringInSlice(err.Error(), []string{
-							"Not enough funds to cover this transaction",
-							"failed: Not enough funds",
-							"Error in daemon: Insufficient funds, please deposit additional LBC",
-							//"Missing inputs",
-						}) {
-							log.Println("checking funds and UTXOs before retrying...")
-							err := s.walletSetup()
-							if err != nil {
-								s.grp.Stop()
-								logUtils.SendErrorToSlack("failed to setup the wallet for a refill: %s", errors.FullTrace(err))
-								break
-							}
-						} else if strings.Contains(err.Error(), "Error in daemon: 'str' object has no attribute 'get'") {
-							time.Sleep(5 * time.Second)
+				} else if util.SubstringInSlice(err.Error(), fatalErrors) {
+					s.grp.Stop()
+				} else if shouldRetry {
+					if util.SubstringInSlice(err.Error(), blockchainErrors) {
+						log.Println("waiting for a block before retrying")
+						err := s.waitForNewBlock()
+						if err != nil {
+							s.grp.Stop()
+							logUtils.SendErrorToSlack("something went wrong while waiting for a block: %s", errors.FullTrace(err))
+							break
 						}
-						log.Println("Retrying")
-						continue
+					} else if util.SubstringInSlice(err.Error(), walletErrors) {
+						log.Println("checking funds and UTXOs before retrying...")
+						err := s.walletSetup()
+						if err != nil {
+							s.grp.Stop()
+							logUtils.SendErrorToSlack("failed to setup the wallet for a refill: %s", errors.FullTrace(err))
+							break
+						}
+					} else if strings.Contains(err.Error(), "Error in daemon: 'str' object has no attribute 'get'") {
+						time.Sleep(5 * time.Second)
 					}
-					logUtils.SendErrorToSlack("Video failed after %d retries, skipping. Stack: %s", tryCount, logMsg)
+					log.Println("Retrying")
+					continue
 				}
+				logUtils.SendErrorToSlack("Video %s failed after %d retries, skipping. Stack: %s", tryCount, v.ID(), errors.FullTrace(err))
+
 				s.syncedVideosMux.RLock()
 				existingClaim, ok := s.syncedVideos[v.ID()]
 				s.syncedVideosMux.RUnlock()

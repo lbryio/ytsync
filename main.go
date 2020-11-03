@@ -42,7 +42,6 @@ func main() {
 		Args:  cobra.RangeArgs(0, 0),
 	}
 
-	cmd.Flags().BoolVar(&cliFlags.StopOnError, "stop-on-error", false, "If a publish fails, stop all publishing and exit")
 	cmd.Flags().IntVar(&cliFlags.MaxTries, "max-tries", defaultMaxTries, "Number of times to try a publish that fails")
 	cmd.Flags().BoolVar(&cliFlags.TakeOverExistingChannel, "takeover-existing-channel", false, "If channel exists and we don't own it, take over the channel")
 	cmd.Flags().IntVar(&cliFlags.Limit, "limit", 0, "limit the amount of channels to sync")
@@ -93,10 +92,6 @@ func ytSync(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if cliFlags.StopOnError && cliFlags.MaxTries != defaultMaxTries {
-		log.Errorln("--stop-on-error and --max-tries are mutually exclusive")
-		return
-	}
 	if cliFlags.MaxTries < 1 {
 		log.Errorln("setting --max-tries less than 1 doesn't make sense")
 		return

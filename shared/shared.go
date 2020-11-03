@@ -33,6 +33,7 @@ var NeverRetryFailures = []string{
 	"Unable to extract signature tokens",
 	"the video is too big to sync, skipping for now",
 	"video is too long to process",
+	"video is too short to process",
 	"This video contains content from",
 	"no compatible format available for this video",
 	"Watch this video on YouTube.",
@@ -42,7 +43,6 @@ var NeverRetryFailures = []string{
 }
 
 type SyncFlags struct {
-	StopOnError             bool
 	TakeOverExistingChannel bool
 	SkipSpaceCheck          bool
 	SyncUpdate              bool

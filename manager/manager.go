@@ -3,6 +3,7 @@ package manager
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -43,6 +44,9 @@ func (s *SyncManager) enqueueChannel(channel *shared.YoutubeChannel) {
 		DbChannelData: channel,
 		Manager:       s,
 		namer:         namer.NewNamer(),
+		hardVideoFailure: hardVideoFailure{
+			lock: &sync.Mutex{},
+		},
 	})
 }
 
@@ -78,7 +82,7 @@ func (s *SyncManager) Start() error {
 		} else {
 			var queuesToSync []string
 			if s.CliFlags.Status != "" {
-				queuesToSync = append(queuesToSync, s.CliFlags.Status)
+				queuesToSync = append(queuesToSync, shared.StatusSyncing, s.CliFlags.Status)
 			} else if s.CliFlags.SyncUpdate {
 				queuesToSync = append(queuesToSync, shared.StatusSyncing, shared.StatusSynced)
 			} else {
