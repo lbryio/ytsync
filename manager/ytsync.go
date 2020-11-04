@@ -1089,6 +1089,7 @@ func waitForDaemonProcess(timeout time.Duration) error {
 			return errors.Err(err)
 		}
 		if !running {
+			log.Println("daemon stopped")
 			return nil
 		}
 	}

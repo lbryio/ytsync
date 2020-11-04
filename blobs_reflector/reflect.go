@@ -46,6 +46,7 @@ func reflectBlobs() error {
 	if util.IsBlobReflectionOff() {
 		return nil
 	}
+	logrus.Infoln("reflecting blobs...")
 	//make sure lbrynet is off
 	running, err := util.IsLbrynetRunning()
 	if err != nil {
@@ -72,9 +73,7 @@ func reflectBlobs() error {
 			return errors.Err(err)
 		}
 	}
-	st := store.NewDBBackedStore(
-		store.NewS3BlobStore(config.AwsID, config.AwsSecret, config.BucketRegion, config.BucketName),
-		dbHandle)
+	st := store.NewDBBackedStore(store.NewS3BlobStore(config.AwsID, config.AwsSecret, config.BucketRegion, config.BucketName), dbHandle)
 
 	uploadWorkers := 10
 	uploader := reflector.NewUploader(dbHandle, st, uploadWorkers, false, false)

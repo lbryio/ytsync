@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 
@@ -138,7 +139,7 @@ func (s *Sync) downloadBlockchainDB() error {
 	if err != nil {
 		return errors.Prefix("error replacing temp blockchain.db for default blockchain.db: ", err)
 	}
-
+	log.Printf("blockchain.db downloaded to %s", defaultBDBDir)
 	return nil
 }
 
@@ -214,6 +215,7 @@ func (s *Sync) uploadWallet() error {
 	if err != nil {
 		return err
 	}
+	log.Println("wallet uploaded to S3")
 
 	return os.Remove(defaultWalletDir)
 }
@@ -247,6 +249,6 @@ func (s *Sync) uploadBlockchainDB() error {
 	if err != nil {
 		return err
 	}
-
+	log.Println("blockchain.db uploaded to S3")
 	return os.Remove(defaultBDBDir)
 }
