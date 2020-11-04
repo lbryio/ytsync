@@ -844,7 +844,7 @@ func (s *Sync) startWorker(workerNum int) {
 					log.Println("Retrying")
 					continue
 				}
-				logUtils.SendErrorToSlack("Video %s failed after %d retries, skipping. Stack: %s", tryCount, v.ID(), errors.FullTrace(err))
+				logUtils.SendErrorToSlack("Video %s failed after %d retries, skipping. Stack: %s", v.ID(), tryCount, errors.FullTrace(err))
 
 				s.syncedVideosMux.RLock()
 				existingClaim, ok := s.syncedVideos[v.ID()]
