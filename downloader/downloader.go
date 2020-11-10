@@ -268,7 +268,7 @@ func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool)
 		}
 		argsForCommand := append(args, "--source-address", sourceAddress)
 		argsForCommand = append(argsForCommand, useragent...)
-		cmd := exec.Command("youtube-dl", argsForCommand...)
+		cmd := exec.Command("youtube-dlc", argsForCommand...)
 
 		res, err := runCmd(cmd, stopChan)
 		pool.ReleaseIP(sourceAddress)
@@ -299,7 +299,7 @@ func nextUA(current []string) []string {
 }
 
 func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
-	logrus.Infof("running youtube-dl cmd: %s", strings.Join(cmd.Args, " "))
+	logrus.Infof("running youtube-dlc cmd: %s", strings.Join(cmd.Args, " "))
 	var err error
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -335,7 +335,7 @@ func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
 		return nil, errors.Err("interrupted by user")
 	case err := <-done:
 		if err != nil {
-			return nil, errors.Prefix("youtube-dl "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
+			return nil, errors.Prefix("youtube-dlc "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
 		}
 		return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 	}
