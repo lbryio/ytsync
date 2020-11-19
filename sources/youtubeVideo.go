@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/abadojack/whatlanggo"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 	"github.com/lbryio/ytsync/v5/shared"
+	"gopkg.in/vansante/go-ffprobe.v2"
 
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/namer"
@@ -492,7 +494,17 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 	}
 
 	log.Debugln("Downloaded " + v.id)
+	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFn()
 
+	data, err := ffprobe.ProbeURL(ctx, v.getFullPath())
+	if err != nil {
+		log.Errorf("failure in probing downloaded video: %s", err.Error())
+	} else {
+		if data.Format.Duration() < minDuration {
+			return nil, errors.Err("video is too short to process")
+		}
+	}
 	err = v.triggerThumbnailSave()
 	if err != nil {
 		return nil, errors.Prefix("thumbnail error", err)

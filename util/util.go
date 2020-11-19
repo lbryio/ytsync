@@ -248,24 +248,14 @@ func CleanupLbrynet() error {
 	}
 	lbryumDir = lbryumDir + ledger
 
-	db, err := os.Stat(lbryumDir + "/blockchain.db")
+	files, err = filepath.Glob(lbryumDir + "/blockchain.db*")
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
 		return errors.Err(err)
 	}
-	dbSizeLimit := int64(2 * 1024 * 1024 * 1024)
-	if db.Size() > dbSizeLimit {
-		files, err := filepath.Glob(lbryumDir + "/blockchain.db*")
+	for _, f := range files {
+		err = os.Remove(f)
 		if err != nil {
 			return errors.Err(err)
-		}
-		for _, f := range files {
-			err = os.Remove(f)
-			if err != nil {
-				return errors.Err(err)
-			}
 		}
 	}
 	return nil

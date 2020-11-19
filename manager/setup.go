@@ -99,8 +99,8 @@ func (s *Sync) walletSetup() error {
 
 	log.Debugf("We already allocated credits for %d published videos and %d failed videos", publishedCount, failedCount)
 
-	if videosOnYoutube > s.Manager.CliFlags.VideosLimit {
-		videosOnYoutube = s.Manager.CliFlags.VideosLimit
+	if videosOnYoutube > s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers) {
+		videosOnYoutube = s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers)
 	}
 	unallocatedVideos := videosOnYoutube - (publishedCount + failedCount)
 	channelFee := channelClaimAmount

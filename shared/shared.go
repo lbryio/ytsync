@@ -65,6 +65,30 @@ type SyncFlags struct {
 	MaxVideoLength          time.Duration
 }
 
+// VideosToSync dynamically figures out how many videos should be synced for a given subs count if nothing was otherwise specified
+func (f *SyncFlags) VideosToSync(totalSubscribers uint) int {
+	if f.VideosLimit > 0 {
+		return f.VideosLimit
+	}
+	defaultVideosToSync := map[int]int{
+		10000: 1000,
+		5000:  500,
+		1000:  400,
+		800:   250,
+		600:   200,
+		200:   80,
+		100:   50,
+		1:     10,
+	}
+	videosToSync := 0
+	for s, r := range defaultVideosToSync {
+		if int(totalSubscribers) >= s && r > videosToSync {
+			videosToSync = r
+		}
+	}
+	return videosToSync
+}
+
 func (f *SyncFlags) IsSingleChannelSync() bool {
 	return f.ChannelID != ""
 }

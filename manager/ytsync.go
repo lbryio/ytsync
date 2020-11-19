@@ -894,7 +894,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		return err
 	}
 
-	videos, err := ytapi.GetVideosToSync(s.Manager.ApiConfig, s.DbChannelData.ChannelId, s.syncedVideos, s.Manager.CliFlags.QuickSync, s.Manager.CliFlags.VideosLimit, ytapi.VideoParams{
+	videos, err := ytapi.GetVideosToSync(s.Manager.ApiConfig, s.DbChannelData.ChannelId, s.syncedVideos, s.Manager.CliFlags.QuickSync, s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers), ytapi.VideoParams{
 		VideoDir: s.videoDirectory,
 		S3Config: *s.Manager.AwsConfigs.GetS3AWSConfig(),
 		Stopper:  s.grp,
@@ -962,7 +962,7 @@ func (s *Sync) processVideo(v ytapi.Video) (err error) {
 		return nil
 	}
 
-	if !videoRequiresUpgrade && v.PlaylistPosition() >= s.Manager.CliFlags.VideosLimit {
+	if !videoRequiresUpgrade && v.PlaylistPosition() >= s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers) {
 		log.Println(v.ID() + " is old: skipping")
 		return nil
 	}

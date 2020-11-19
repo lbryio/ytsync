@@ -33,6 +33,8 @@ require (
 	github.com/stretchr/testify v1.4.0
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/ini.v1 v1.60.2 // indirect
+	gopkg.in/vansante/go-ffprobe.v2 v2.0.2
+	gotest.tools v2.2.0+incompatible
 )
 
 go 1.13
