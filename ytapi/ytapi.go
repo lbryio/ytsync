@@ -188,7 +188,9 @@ func ChannelInfo(channelID string) (*YoutubeStatsResponse, error) {
 	pageBody := string(body)
 	dataStartIndex := strings.Index(pageBody, "window[\"ytInitialData\"] = ") + 26
 	dataEndIndex := strings.Index(pageBody, "]}}};") + 4
-
+	if dataEndIndex < dataStartIndex {
+		return nil, errors.Err("start index is lower than end index. cannot extract channel info!")
+	}
 	data := pageBody[dataStartIndex:dataEndIndex]
 	var decodedResponse YoutubeStatsResponse
 	err = json.Unmarshal([]byte(data), &decodedResponse)
