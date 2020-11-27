@@ -173,7 +173,7 @@ func ChannelInfo(channelID string) (*YoutubeStatsResponse, error) {
 
 	req, _ := http.NewRequest("GET", url, nil)
 
-	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36")
+	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36")
 	req.Header.Add("Accept", "*/*")
 
 	res, err := http.DefaultClient.Do(req)
@@ -187,6 +187,9 @@ func ChannelInfo(channelID string) (*YoutubeStatsResponse, error) {
 	}
 	pageBody := string(body)
 	dataStartIndex := strings.Index(pageBody, "window[\"ytInitialData\"] = ") + 26
+	if dataStartIndex == 25 {
+		dataStartIndex = strings.Index(pageBody, "var ytInitialData = ") + 20
+	}
 	dataEndIndex := strings.Index(pageBody, "]}}};") + 4
 	if dataEndIndex < dataStartIndex {
 		return nil, errors.Err("start index is lower than end index. cannot extract channel info!")
