@@ -294,6 +294,7 @@ func (s *Sync) waitForNewBlock() error {
 			return err
 		}
 	}
+	time.Sleep(5 * time.Second)
 	return nil
 }
 

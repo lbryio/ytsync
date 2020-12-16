@@ -664,10 +664,10 @@ func (s *Sync) checkIntegrity() error {
 		logUtils.SendInfoToSlack("we're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.DbChannelData.ChannelId)
 	}
 
-	_, err = s.getUnsentSupports() //TODO: use the returned value when it works
-	if err != nil {
-		return err
-	}
+	//_, err = s.getUnsentSupports() //TODO: use the returned value when it works
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 
