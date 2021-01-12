@@ -225,6 +225,15 @@ func (s *Sync) ensureEnoughUTXOs() error {
 		if err != nil {
 			return errors.Err(err)
 		}
+		//this is dumb but sometimes the balance is negative and it breaks everything, so let's check again
+		if balanceAmount < 0 {
+			log.Infof("negative balance of %.2f found. Waiting to retry...", balanceAmount)
+			time.Sleep(10 * time.Second)
+			balanceAmount, err = strconv.ParseFloat(balance.Available.String(), 64)
+			if err != nil {
+				return errors.Err(err)
+			}
+		}
 		maxUTXOs := uint64(500)
 		desiredUTXOCount := uint64(math.Floor((balanceAmount) / 0.1))
 		if desiredUTXOCount > maxUTXOs {
