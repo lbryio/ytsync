@@ -14,7 +14,7 @@ import (
 )
 
 const IPCooldownPeriod = 20 * time.Second
-const unbanTimeout = 3 * time.Hour
+const unbanTimeout = 48 * time.Hour
 
 var stopper = stop.New()
 

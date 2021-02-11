@@ -125,7 +125,7 @@ func triggerScrape(videoID string, ip *net.TCPAddr) error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -194,7 +194,7 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 	if err != nil {
 		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -250,7 +250,7 @@ func getClient(ip *net.TCPAddr) *http.Client {
 
 const (
 	googleBotUA             = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-	chromeUA                = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36"
+	chromeUA                = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36"
 	maxAttempts             = 3
 	extractionError         = "YouTube said: Unable to extract video data"
 	throttledError          = "HTTP Error 429"
