@@ -25,7 +25,7 @@ import (
 
 func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist", "--cookies", "cookies.txt"}
-	ids, err := run(channelName, args, stopChan, pool)
+	ids, err := run(channelName, args, stopChan, pool, true)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -44,7 +44,7 @@ const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
 func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
 	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID, "--cookies", "cookies.txt"}
-	results, err := run(videoID, args, stopChan, pool)
+	results, err := run(videoID, args, stopChan, pool, false)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -258,7 +258,7 @@ const (
 	youtubeDlError          = "exit status 1"
 )
 
-func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
+func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool, dlc bool) ([]string, error) {
 	var useragent []string
 	var lastError error
 	for attempts := 0; attempts < maxAttempts; attempts++ {
@@ -268,7 +268,11 @@ func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool)
 		}
 		argsForCommand := append(args, "--source-address", sourceAddress)
 		argsForCommand = append(argsForCommand, useragent...)
-		cmd := exec.Command("youtube-dlc", argsForCommand...)
+		binary := "youtube-dl"
+		if dlc {
+			binary = "youtube-dlc"
+		}
+		cmd := exec.Command(binary, argsForCommand...)
 
 		res, err := runCmd(cmd, stopChan)
 		pool.ReleaseIP(sourceAddress)
@@ -299,7 +303,7 @@ func nextUA(current []string) []string {
 }
 
 func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
-	logrus.Infof("running youtube-dlc cmd: %s", strings.Join(cmd.Args, " "))
+	logrus.Infof("running youtube-dl(c) cmd: %s", strings.Join(cmd.Args, " "))
 	var err error
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -335,7 +339,7 @@ func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
 		return nil, errors.Err("interrupted by user")
 	case err := <-done:
 		if err != nil {
-			return nil, errors.Prefix("youtube-dlc "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
+			return nil, errors.Prefix("youtube-dl(c) "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
 		}
 		return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 	}
