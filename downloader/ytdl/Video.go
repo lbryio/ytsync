@@ -27,7 +27,7 @@ type YtdlVideo struct {
 	ID                 string      `json:"id"`
 	DislikeCount       interface{} `json:"dislike_count"`
 	AverageRating      float64     `json:"average_rating"`
-	Abr                int         `json:"abr"`
+	Abr                float64     `json:"abr"`
 	UploaderURL        string      `json:"uploader_url"`
 	Categories         []string    `json:"categories"`
 	Fps                float64     `json:"fps"`
