@@ -328,6 +328,9 @@ func (v *YoutubeVideo) download() error {
 			return errors.Err("the video is too big to sync, skipping for now")
 		}
 		if string(errorLog) != "" {
+			if strings.Contains(string(errorLog), "HTTP Error 429") {
+				v.pool.SetThrottled(sourceAddress)
+			}
 			log.Printf("Command finished with error: %v", errors.Err(string(errorLog)))
 			_ = v.delete("due to error")
 			return errors.Err(string(errorLog))
