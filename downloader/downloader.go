@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -176,8 +177,9 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 		//const sqlTimeFormat = "2006-01-02 15:04:05"
 		sqlTime, err := time.ParseInLocation(time.RFC3339, release.ReleaseTime, time.UTC)
 		if err == nil {
-			if sqlTime.Day() != ytdlUploadDate.Day() {
-				logrus.Infof("upload day from APIs differs from the ytdl one by more than 1 day.")
+			hoursDiff := math.Abs(sqlTime.Sub(ytdlUploadDate).Hours())
+			if hoursDiff > 48 {
+				logrus.Infof("upload day from APIs differs from the ytdl one by more than 2 days.")
 			} else {
 				return sqlTime.Format(releaseTimeFormat), nil
 			}
