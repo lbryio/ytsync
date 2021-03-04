@@ -50,11 +50,14 @@ until curl --output /dev/null --silent --head --fail http://localhost:15400; do
 done
 echo "successfully started..."
 
+channelToSync="UCJIMS94jwjEmvnsNqkH_KUg"
+channelName=@СтопХам"$(date +%s)"
+
 #Data Setup for test
-./data_setup.sh
+./data_setup.sh "$channelName" "$channelToSync"
 
 # Execute the sync test!
-./../bin/ytsync --channelID UCNQfQvFMPnInwsU_iGYArJQ --videos-limit 2 --concurrent-jobs 4 --quick #Force channel intended...just in case. This channel lines up with the api container
+./../bin/ytsync --channelID "$channelToSync" --videos-limit 2 --concurrent-jobs 4 --quick #Force channel intended...just in case. This channel lines up with the api container
 status=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM youtube_data WHERE id=1')
 videoStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT status FROM synced_video WHERE id=1')
 videoClaimID1=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT publish.claim_id FROM synced_video INNER JOIN publish ON publish.id = synced_video.publish_id WHERE synced_video.id=1')
@@ -62,17 +65,17 @@ videoClaimID2=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SEL
 videoClaimAddress1=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT claim_address FROM claim WHERE id=2')
 videoClaimAddress2=$(mysql -u lbry -plbry -ss -D chainquery -h "127.0.0.1" -P 15500 -e 'SELECT claim_address FROM claim WHERE id=3')
 # Create Supports for published claim
-./supporty/supporty @BeamerTest "${videoClaimID1}" "${videoClaimAddress1}" lbrycrd_regtest 1.0
-./supporty/supporty @BeamerTest "${videoClaimID2}" "${videoClaimAddress2}" lbrycrd_regtest 2.0
-./supporty/supporty @BeamerTest "${videoClaimID1}" "${videoClaimAddress1}" lbrycrd_regtest 3.0
-./supporty/supporty @BeamerTest "${videoClaimID2}" "${videoClaimAddress2}" lbrycrd_regtest 3.0
+./supporty/supporty "$channelName" "${videoClaimID1}" "${videoClaimAddress1}" lbrycrd_regtest 1.0
+./supporty/supporty "$channelName" "${videoClaimID2}" "${videoClaimAddress2}" lbrycrd_regtest 2.0
+./supporty/supporty "$channelName" "${videoClaimID2}" "${videoClaimAddress2}" lbrycrd_regtest 3.0
+./supporty/supporty "$channelName" "${videoClaimID1}" "${videoClaimAddress1}" lbrycrd_regtest 3.0
 curl --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"generate","params":[1]}' -H 'content-type:text/plain;' --user lbry:lbry http://localhost:15200
 # Reset status for transfer test
 mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e "UPDATE youtube_data SET status = 'queued' WHERE id = 1"
 # Trigger transfer api
 curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' 'http://localhost:15400/yt/transfer?auth_token=youtubertoken&address=n4eYeXAYmHo4YRUDEfsEhucy8y5LKRMcHg&public_key=tpubDA9GDAntyJu4hD3wU7175p7CuV6DWbYXfyb2HedBA3yuBp9HZ4n3QE4Ex6RHCSiEuVp2nKAL1Lzf2ZLo9ApaFgNaJjG6Xo1wB3iEeVbrDZp'
 # Execute the transfer test!
-./../bin/ytsync --channelID UCNQfQvFMPnInwsU_iGYArJQ --videos-limit 2 --concurrent-jobs 4 --quick #Force channel intended...just in case. This channel lines up with the api container
+./../bin/ytsync --channelID $channelToSync --videos-limit 2 --concurrent-jobs 4 --quick #Force channel intended...just in case. This channel lines up with the api container
 # Check that the channel and the video are marked as transferred and that all supports are spent
 channelTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT distinct transfer_state FROM youtube_data')
 videoTransferStatus=$(mysql -u lbry -plbry -ss -D lbry -h "127.0.0.1" -P 15500 -e 'SELECT distinct transferred FROM synced_video')

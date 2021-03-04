@@ -8,7 +8,7 @@ services:
   ## Lbrynet ##
   #############
   lbrynet:
-    image: lbry/lbrynet:v0.83.0
+    image: lbry/lbrynet:v0.90.1
     restart: "no"
     networks:
       lbry-network:

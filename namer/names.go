@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-var titleRegexp = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+var claimNameRegexp = regexp.MustCompile(`[=&#:$@%?;\\"/<>%{}|^~\x60[\]\s]`)
 
 type Namer struct {
 	mu    *sync.Mutex
@@ -68,7 +68,7 @@ func getClaimNameFromTitle(title string, attempt int) string {
 	}
 	maxLen := 40 - len(suffix)
 
-	chunks := strings.Split(strings.ToLower(strings.Trim(titleRegexp.ReplaceAllString(title, "-"), "-")), "-")
+	chunks := strings.Split(strings.ToLower(strings.Trim(claimNameRegexp.ReplaceAllString(title, "-"), "-")), "-")
 
 	name := chunks[0]
 	if len(name) > maxLen {
@@ -76,6 +76,9 @@ func getClaimNameFromTitle(title string, attempt int) string {
 	}
 
 	for _, chunk := range chunks[1:] {
+		if chunk == "" {
+			continue
+		}
 		tmpName := name + "-" + chunk
 		if len(tmpName) > maxLen {
 			if len(name) < 20 {
