@@ -320,7 +320,7 @@ func (a *APIConfig) MarkVideoStatus(status shared.VideoStatus) error {
 	res, err := http.PostForm(endpoint, vals)
 	if err != nil {
 		if strings.Contains(err.Error(), "EOF") {
-			util.SendErrorToSlack("EOF error while trying to call %s. Waiting to retry", endpoint)
+			util.SendErrorToSlack("EOF error while trying to call %s for %s. Waiting to retry", endpoint, status.ClaimName)
 			time.Sleep(30 * time.Second)
 			return a.MarkVideoStatus(status)
 		}

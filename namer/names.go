@@ -72,7 +72,7 @@ func getClaimNameFromTitle(title string, attempt int) string {
 
 	name := chunks[0]
 	if len(name) > maxLen {
-		return name[:maxLen]
+		return truncateUnicode(name, maxLen)
 	}
 
 	for _, chunk := range chunks[1:] {
@@ -90,4 +90,19 @@ func getClaimNameFromTitle(title string, attempt int) string {
 	}
 
 	return name + suffix
+}
+
+func truncateUnicode(name string, limit int) string {
+	reNameBlacklist := regexp.MustCompile(`(&|>|<|\/|:|\n|\r)*`)
+	name = reNameBlacklist.ReplaceAllString(name, "")
+	result := name
+	chars := 0
+	for i := range name {
+		if chars >= limit {
+			result = name[:i]
+			break
+		}
+		chars++
+	}
+	return result
 }

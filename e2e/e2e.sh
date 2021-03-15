@@ -50,11 +50,12 @@ until curl --output /dev/null --silent --head --fail http://localhost:15400; do
 done
 echo "successfully started..."
 
-channelToSync="UCJIMS94jwjEmvnsNqkH_KUg"
-channelName=@СтопХам"$(date +%s)"
+channelToSync="UCGyoEsIRjmnmzrsB67DhrOA"
+channelName=@Alaminemoh11"$(date +%s)"
+latestVideoID="ejWF7Jjdgmc"
 
 #Data Setup for test
-./data_setup.sh "$channelName" "$channelToSync"
+./data_setup.sh "$channelName" "$channelToSync" "$latestVideoID"
 
 # Execute the sync test!
 ./../bin/ytsync --channelID "$channelToSync" --videos-limit 2 --concurrent-jobs 4 --quick #Force channel intended...just in case. This channel lines up with the api container
