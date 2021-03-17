@@ -72,7 +72,7 @@ func getClaimNameFromTitle(title string, attempt int) string {
 
 	name := chunks[0]
 	if len(name) > maxLen {
-		return truncateUnicode(name, maxLen)
+		return truncateUnicode(name, maxLen) + suffix
 	}
 
 	for _, chunk := range chunks[1:] {
