@@ -1,10 +1,12 @@
 package shared
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/lbryio/lbry.go/v2/extras/errors"
 )
 
 type Fee struct {
@@ -13,19 +15,34 @@ type Fee struct {
 	Currency string `json:"currency"`
 }
 type YoutubeChannel struct {
-	ChannelId          string `json:"channel_id"`
-	TotalVideos        uint   `json:"total_videos"`
-	TotalSubscribers   uint   `json:"total_subscribers"`
-	DesiredChannelName string `json:"desired_channel_name"`
-	Fee                *Fee   `json:"fee"`
-	ChannelClaimID     string `json:"channel_claim_id"`
-	TransferState      int    `json:"transfer_state"`
-	PublishAddress     string `json:"publish_address"`
-	PublicKey          string `json:"public_key"`
-	LengthLimit        int    `json:"length_limit"`
-	SizeLimit          int    `json:"size_limit"`
-	LastUploadedVideo  string `json:"last_uploaded_video"`
-	WipeDB             bool   `json:"wipe_db"`
+	ChannelId          string         `json:"channel_id"`
+	TotalVideos        uint           `json:"total_videos"`
+	TotalSubscribers   uint           `json:"total_subscribers"`
+	DesiredChannelName string         `json:"desired_channel_name"`
+	Fee                *Fee           `json:"fee"`
+	ChannelClaimID     string         `json:"channel_claim_id"`
+	TransferState      int            `json:"transfer_state"`
+	PublishAddress     PublishAddress `json:"publish_address"`
+	PublicKey          string         `json:"public_key"`
+	LengthLimit        int            `json:"length_limit"`
+	SizeLimit          int            `json:"size_limit"`
+	LastUploadedVideo  string         `json:"last_uploaded_video"`
+	WipeDB             bool           `json:"wipe_db"`
+}
+
+type PublishAddress struct {
+	Address string `json:"address"`
+	IsMine  bool   `json:"is_mine"`
+}
+
+func (p *PublishAddress) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return errors.Err(err)
+	}
+	p.Address = s
+	p.IsMine = false
+	return nil
 }
 
 var NeverRetryFailures = []string{

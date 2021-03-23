@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-var claimNameRegexp = regexp.MustCompile(`[=&#:$@%?;\\"/<>%{}|^~\x60[\]\s]`)
+var claimNameRegexp = regexp.MustCompile(`[=&#:$@%？?;、\\"/<>%{}|｜^~\x60[\]\s]`)
 
 type Namer struct {
 	mu    *sync.Mutex
@@ -82,7 +82,7 @@ func getClaimNameFromTitle(title string, attempt int) string {
 		tmpName := name + "-" + chunk
 		if len(tmpName) > maxLen {
 			if len(name) < 20 {
-				name = tmpName[:maxLen]
+				name = truncateUnicode(tmpName, maxLen-len(name))
 			}
 			break
 		}

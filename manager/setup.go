@@ -135,10 +135,11 @@ func (s *Sync) walletSetup() error {
 	} else if claimAddress == nil {
 		return errors.Err("could not get an address")
 	}
-	if s.DbChannelData.PublishAddress == "" || !s.shouldTransfer() {
-		s.DbChannelData.PublishAddress = string(claimAddress.Items[0].Address)
+	if s.DbChannelData.PublishAddress.Address == "" || !s.shouldTransfer() {
+		s.DbChannelData.PublishAddress.Address = string(claimAddress.Items[0].Address)
+		s.DbChannelData.PublishAddress.IsMine = true
 	}
-	if s.DbChannelData.PublishAddress == "" {
+	if s.DbChannelData.PublishAddress.Address == "" {
 		return errors.Err("found blank claim address")
 	}
 

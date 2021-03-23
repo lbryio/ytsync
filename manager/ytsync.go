@@ -260,7 +260,7 @@ func deleteSyncFolder(videoDirectory string) {
 }
 
 func (s *Sync) shouldTransfer() bool {
-	return s.DbChannelData.TransferState >= 1 && s.DbChannelData.PublishAddress != "" && !s.Manager.CliFlags.DisableTransfers && s.DbChannelData.TransferState != 3
+	return s.DbChannelData.TransferState >= 1 && s.DbChannelData.PublishAddress.Address != "" && !s.Manager.CliFlags.DisableTransfers && s.DbChannelData.TransferState != 3
 }
 
 func (s *Sync) setChannelTerminationStatus(e *error) {
@@ -417,7 +417,8 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			claimToAbandon = cl
 			videoIDs[videoID] = c
 		}
-		if claimToAbandon.Address != s.DbChannelData.PublishAddress && !s.syncedVideos[videoID].Transferred {
+		//it's likely that all we need is s.DbChannelData.PublishAddress.IsMine but better be safe than sorry I guess
+		if (claimToAbandon.Address != s.DbChannelData.PublishAddress.Address || s.DbChannelData.PublishAddress.IsMine) && !s.syncedVideos[videoID].Transferred {
 			log.Debugf("abandoning %+v", claimToAbandon)
 			_, err := s.daemon.StreamAbandon(claimToAbandon.Txid, claimToAbandon.Nout, nil, true)
 			if err != nil {
@@ -425,7 +426,7 @@ func (s *Sync) fixDupes(claims []jsonrpc.Claim) (bool, error) {
 			}
 			abandonedClaims = true
 		} else {
-			log.Debugf("lbrynet stream abandon --txid=%s --nout=%d", claimToAbandon.Txid, claimToAbandon.Nout)
+			log.Debugf("claim is not ours. Have the user run this: lbrynet stream abandon --txid=%s --nout=%d", claimToAbandon.Txid, claimToAbandon.Nout)
 		}
 	}
 	return abandonedClaims, nil
@@ -975,7 +976,7 @@ func (s *Sync) processVideo(v ytapi.Video) (err error) {
 		return err
 	}
 	sp := sources.SyncParams{
-		ClaimAddress:   s.DbChannelData.PublishAddress,
+		ClaimAddress:   s.DbChannelData.PublishAddress.Address,
 		Amount:         publishAmount,
 		ChannelID:      s.DbChannelData.ChannelClaimID,
 		MaxVideoSize:   s.DbChannelData.SizeLimit,

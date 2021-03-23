@@ -235,7 +235,7 @@ func transferVideos(s *Sync) error {
 			streamUpdateOptions := jsonrpc.StreamUpdateOptions{
 				StreamCreateOptions: &jsonrpc.StreamCreateOptions{
 					ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-						ClaimAddress: &s.DbChannelData.PublishAddress,
+						ClaimAddress: &s.DbChannelData.PublishAddress.Address,
 						FundingAccountIDs: []string{
 							account,
 						},
@@ -335,7 +335,7 @@ func transferChannel(s *Sync) error {
 		Bid: util.PtrToString(fmt.Sprintf("%.6f", channelClaimAmount-0.005)),
 		ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: jsonrpc.ClaimCreateOptions{
-				ClaimAddress: &s.DbChannelData.PublishAddress,
+				ClaimAddress: &s.DbChannelData.PublishAddress.Address,
 			},
 		},
 	}
