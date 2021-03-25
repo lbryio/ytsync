@@ -415,7 +415,9 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*Sync
 			FeeCurrency: jsonrpc.Currency(params.Fee.Currency),
 		}
 	}
-	info := whatlanggo.Detect(v.description)
+	urlsRegex := regexp.MustCompile(`(?m) ?(f|ht)(tp)(s?)(://)(.*)[.|/](.*)`)
+	descriptionSample := urlsRegex.ReplaceAllString(v.description, "")
+	info := whatlanggo.Detect(descriptionSample)
 	info2 := whatlanggo.Detect(v.title)
 	if info.IsReliable() && info.Lang.Iso6391() != "" {
 		language := info.Lang.Iso6391()
