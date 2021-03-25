@@ -415,9 +415,13 @@ func (v *YoutubeVideo) publish(daemon *jsonrpc.Client, params SyncParams) (*Sync
 			FeeCurrency: jsonrpc.Currency(params.Fee.Currency),
 		}
 	}
-	info := whatlanggo.Detect(v.getAbbrevDescription())
+	info := whatlanggo.Detect(v.description)
+	info2 := whatlanggo.Detect(v.title)
 	if info.IsReliable() && info.Lang.Iso6391() != "" {
 		language := info.Lang.Iso6391()
+		languages = []string{language}
+	} else if info2.IsReliable() && info2.Lang.Iso6391() != "" {
+		language := info2.Lang.Iso6391()
 		languages = []string{language}
 	}
 	options := jsonrpc.StreamCreateOptions{

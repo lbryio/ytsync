@@ -505,7 +505,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 			log.Debugf("%s: Published but is not in database (%s - %s)", videoID, chainInfo.ClaimName, chainInfo.ClaimID)
 		}
 		if transferStatusMismatch {
-			log.Debugf("%s: is marked as transferred %t on it's actually %t", videoID, sv.Transferred, transferred)
+			log.Debugf("%s: is marked as transferred %t but it's actually %t", videoID, sv.Transferred, transferred)
 		}
 
 		if !claimInDatabase || metadataDiffers || claimIDDiffers || claimNameDiffers || claimMarkedUnpublished || transferStatusMismatch {
