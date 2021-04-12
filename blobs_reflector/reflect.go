@@ -73,7 +73,7 @@ func reflectBlobs() error {
 			return errors.Err(err)
 		}
 	}
-	st := store.NewDBBackedStore(store.NewS3BlobStore(config.AwsID, config.AwsSecret, config.BucketRegion, config.BucketName), dbHandle)
+	st := store.NewDBBackedStore(store.NewS3Store(config.AwsID, config.AwsSecret, config.BucketRegion, config.BucketName), dbHandle, false)
 
 	uploadWorkers := 10
 	uploader := reflector.NewUploader(dbHandle, st, uploadWorkers, false, false)
