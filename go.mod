@@ -2,6 +2,9 @@ module github.com/lbryio/ytsync/v5
 
 replace github.com/btcsuite/btcd => github.com/lbryio/lbrycrd.go v0.0.0-20200203050410-e1076f12bf19
 
+//replace github.com/lbryio/lbry.go/v2 => /home/niko/go/src/github.com/lbryio/lbry.go/
+//replace github.com/lbryio/reflector.go => /home/niko/go/src/github.com/lbryio/reflector.go/
+
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/abadojack/whatlanggo v1.0.1
@@ -17,8 +20,8 @@ require (
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
-	github.com/lbryio/lbry.go/v2 v2.7.2-0.20210316000044-988178df5011
-	github.com/lbryio/reflector.go v1.1.3-0.20210412210550-ec3aae33ba8d
+	github.com/lbryio/lbry.go/v2 v2.7.2-0.20210412222918-ed51ece75c3d
+	github.com/lbryio/reflector.go v1.1.3-0.20210412225256-4392c9724262
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect

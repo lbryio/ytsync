@@ -595,7 +595,7 @@ func (s *Sync) getClaims(defaultOnly bool) ([]jsonrpc.Claim, error) {
 		}
 		account = &a
 	}
-	claims, err := s.daemon.StreamList(account, 1, 30000, false)
+	claims, err := s.daemon.StreamList(account, 1, 30000)
 	if err != nil {
 		return nil, errors.Prefix("cannot list claims", err)
 	}

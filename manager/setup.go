@@ -332,7 +332,7 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Err("no channel name set")
 	}
 
-	channels, err := s.daemon.ChannelList(nil, 1, 500, nil, false)
+	channels, err := s.daemon.ChannelList(nil, 1, 500, nil)
 	if err != nil {
 		return err
 	} else if channels == nil {

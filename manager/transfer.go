@@ -207,7 +207,7 @@ func transferVideos(s *Sync) error {
 	if err != nil {
 		return err
 	}
-	streams, err := s.daemon.StreamList(&account, 1, 30000, false)
+	streams, err := s.daemon.StreamList(&account, 1, 30000)
 	if err != nil {
 		return errors.Err(err)
 	}
@@ -315,7 +315,7 @@ func transferChannel(s *Sync) error {
 	if err != nil {
 		return err
 	}
-	channelClaims, err := s.daemon.ChannelList(&account, 1, 50, nil, false)
+	channelClaims, err := s.daemon.ChannelList(&account, 1, 50, nil)
 	if err != nil {
 		return errors.Err(err)
 	}
