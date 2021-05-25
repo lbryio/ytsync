@@ -277,7 +277,7 @@ func (v *YoutubeVideo) download() error {
 
 	for i := 0; i < len(qualities); i++ {
 		quality := qualities[i]
-		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][height<="+quality+"]+bestaudio[ext!=webm]")
+		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][vcodec!*=av01][height<="+quality+"]+bestaudio[ext!=webm][format_id!=258][format_id!=251][format_id!=256][format_id!=327]")
 		argsWithFilters = append(argsWithFilters, userAgent...)
 		cmd := exec.Command("youtube-dl", argsWithFilters...)
 		log.Printf("Running command youtube-dl %s", strings.Join(argsWithFilters, " "))
