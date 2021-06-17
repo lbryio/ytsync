@@ -63,10 +63,10 @@ type YtdlVideo struct {
 	Width       int         `json:"width"`
 	EndTime     interface{} `json:"end_time"`
 	WebpageURL  string      `json:"webpage_url"`
-	//Formats            []Format          `json:"formats"`
-	ChannelURL string      `json:"channel_url"`
-	Resolution interface{} `json:"resolution"`
-	Vcodec     string      `json:"vcodec"`
+	Formats     []Format    `json:"formats"`
+	ChannelURL  string      `json:"channel_url"`
+	Resolution  interface{} `json:"resolution"`
+	Vcodec      string      `json:"vcodec"`
 }
 
 type RequestedFormat struct {
@@ -103,31 +103,34 @@ type RequestedFormat struct {
 }
 
 type Format struct {
-	Asr             int         `json:"asr"`
-	Tbr             float64     `json:"tbr"`
-	Protocol        string      `json:"protocol"`
-	Format          string      `json:"format"`
-	FormatNote      string      `json:"format_note"`
-	Height          interface{} `json:"height"`
-	ManifestURL     string      `json:"manifest_url,omitempty"`
-	FormatID        string      `json:"format_id"`
-	Container       string      `json:"container,omitempty"`
-	Language        interface{} `json:"language,omitempty"`
-	HTTPHeaders     HTTPHeaders `json:"http_headers"`
-	URL             string      `json:"url"`
-	Vcodec          string      `json:"vcodec"`
-	Abr             int         `json:"abr,omitempty"`
-	Width           interface{} `json:"width"`
-	Ext             string      `json:"ext"`
-	FragmentBaseURL string      `json:"fragment_base_url,omitempty"`
-	Filesize        interface{} `json:"filesize"`
-	Fps             float64     `json:"fps"`
-	Fragments       []struct {
-		Path     string  `json:"path"`
-		Duration float64 `json:"duration,omitempty"`
-	} `json:"fragments,omitempty"`
-	Acodec    string      `json:"acodec"`
-	PlayerURL interface{} `json:"player_url,omitempty"`
+	Asr               int         `json:"asr"`
+	Filesize          int         `json:"filesize"`
+	FormatID          string      `json:"format_id"`
+	FormatNote        string      `json:"format_note"`
+	Fps               interface{} `json:"fps"`
+	Height            interface{} `json:"height"`
+	Quality           int         `json:"quality"`
+	Tbr               float64     `json:"tbr"`
+	URL               string      `json:"url"`
+	Width             interface{} `json:"width"`
+	Ext               string      `json:"ext"`
+	Vcodec            string      `json:"vcodec"`
+	Acodec            string      `json:"acodec"`
+	Abr               float64     `json:"abr,omitempty"`
+	DownloaderOptions struct {
+		HTTPChunkSize int `json:"http_chunk_size"`
+	} `json:"downloader_options,omitempty"`
+	Container   string `json:"container,omitempty"`
+	Format      string `json:"format"`
+	Protocol    string `json:"protocol"`
+	HTTPHeaders struct {
+		UserAgent      string `json:"User-Agent"`
+		AcceptCharset  string `json:"Accept-Charset"`
+		Accept         string `json:"Accept"`
+		AcceptEncoding string `json:"Accept-Encoding"`
+		AcceptLanguage string `json:"Accept-Language"`
+	} `json:"http_headers"`
+	Vbr float64 `json:"vbr,omitempty"`
 }
 
 type Thumbnail struct {

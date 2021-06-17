@@ -21,6 +21,7 @@ import (
 	"github.com/lbryio/ytsync/v5/timing"
 	logUtils "github.com/lbryio/ytsync/v5/util"
 	"github.com/lbryio/ytsync/v5/ytapi"
+	"github.com/vbauerster/mpb/v7"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
@@ -985,8 +986,13 @@ func (s *Sync) processVideo(v ytapi.Video) (err error) {
 		Fee:            s.DbChannelData.Fee,
 		DefaultAccount: da,
 	}
+	var pbWg sync.WaitGroup
+	// passed &wg will be accounted at p.Wait() call
+	p := mpb.New(mpb.WithWaitGroup(&pbWg))
 
-	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade, s.walletMux)
+	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade, s.walletMux, &pbWg, p)
+	// Waiting for passed &wg and for all bars to complete and flush
+	p.Wait()
 	if err != nil {
 		return err
 	}

@@ -32,6 +32,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0
+	github.com/vbauerster/mpb/v7 v7.0.2
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/ini.v1 v1.60.2 // indirect
 	gopkg.in/vansante/go-ffprobe.v2 v2.0.2

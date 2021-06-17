@@ -96,3 +96,4 @@ if [[ $status != "synced" || $videoStatus != "published" || $channelTransferStat
     else
       echo "SUCCESSSSSSSSSSSSS!"
 fi;
+docker-compose down

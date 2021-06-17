@@ -31,12 +31,14 @@ services:
       - BANDWIDTH_LIMIT=80000000000
       - SESSION_TIMEOUT=10000000000000000000000000
       - TCP_PORT=50001
+      - ELASTIC_HOST=es01
     ports:
       - "15300:50001"
     expose:
       - "50001"
     depends_on:
       - lbrycrd
+      - es01
     ulimits:
       nofile:
         soft: 90000
@@ -44,10 +46,30 @@ services:
     #command: lbry.wallet.server.coin.LBC
     command: lbry.wallet.server.coin.LBCRegTest
   #############
+  ## elasticsearch ##
+  #############
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.0
+    container_name: es01
+    environment:
+      - node.name=es01
+      - discovery.type=single-node
+      - indices.query.bool.max_clause_count=8196
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    expose:
+      - "9200"
+  #############
   ## Lbrynet ##
   #############
   lbrynet:
-    image: lbry/lbrynet:v0.90.1
+    image: lbry/lbrynet:v0.99.0
     restart: always
     ports:
       - "15100:5279"

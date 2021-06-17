@@ -15,6 +15,7 @@ import (
 
 	"github.com/lbryio/ytsync/v5/shared"
 	logUtils "github.com/lbryio/ytsync/v5/util"
+	"github.com/vbauerster/mpb/v7"
 
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
@@ -38,7 +39,7 @@ type Video interface {
 	IDAndNum() string
 	PlaylistPosition() int
 	PublishedAt() time.Time
-	Sync(*jsonrpc.Client, sources.SyncParams, *sdk.SyncedVideo, bool, *sync.RWMutex) (*sources.SyncSummary, error)
+	Sync(*jsonrpc.Client, sources.SyncParams, *sdk.SyncedVideo, bool, *sync.RWMutex, *sync.WaitGroup, *mpb.Progress) (*sources.SyncSummary, error)
 }
 
 type byPublishedAt []Video
@@ -129,7 +130,7 @@ func CountVideosInChannel(channelID string) (int, error) {
 
 	req, _ := http.NewRequest("GET", url, nil)
 
-	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36")
+	req.Header.Add("User-Agent", downloader.ChromeUA)
 	req.Header.Add("Accept", "*/*")
 	req.Header.Add("Host", "socialblade.com")
 
@@ -173,7 +174,7 @@ func ChannelInfo(channelID string) (*YoutubeStatsResponse, error) {
 
 	req, _ := http.NewRequest("GET", url, nil)
 
-	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36")
+	req.Header.Add("User-Agent", downloader.ChromeUA)
 	req.Header.Add("Accept", "*/*")
 
 	res, err := http.DefaultClient.Do(req)

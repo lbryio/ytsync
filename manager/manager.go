@@ -153,6 +153,10 @@ func (s *SyncManager) Start() error {
 					logUtils.SendInfoToSlack("A non fatal error was reported by the sync process.\n%s", errors.FullTrace(err))
 				}
 			}
+			err = logUtils.CleanupMetadata()
+			if err != nil {
+				log.Errorf("something went wrong while trying to clear out the video metadata directory: %s", errors.FullTrace(err))
+			}
 			err = blobs_reflector.ReflectAndClean()
 			if err != nil {
 				return errors.Prefix("@Nikooo777 something went wrong while reflecting blobs", err)

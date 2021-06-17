@@ -2,10 +2,12 @@ package sources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -14,8 +16,11 @@ import (
 	"time"
 
 	"github.com/abadojack/whatlanggo"
+	"github.com/lbryio/ytsync/v5/downloader"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 	"github.com/lbryio/ytsync/v5/shared"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
 	"gopkg.in/vansante/go-ffprobe.v2"
 
 	"github.com/lbryio/ytsync/v5/ip_manager"
@@ -56,6 +61,8 @@ type YoutubeVideo struct {
 	walletLock       *sync.RWMutex
 	stopGroup        *stop.Group
 	pool             *ip_manager.IPPool
+	progressBars     *mpb.Progress
+	progressBarWg    *sync.WaitGroup
 }
 
 var youtubeCategories = map[string]string{
@@ -183,6 +190,25 @@ func (v *YoutubeVideo) getAbbrevDescription() string {
 	}
 	return description + "\n..." + additionalDescription
 }
+func checkCookiesIntegrity() error {
+	fi, err := os.Stat("cookies.txt")
+	if err != nil {
+		return errors.Err(err)
+	}
+	if fi.Size() == 0 {
+		log.Errorf("cookies were cleared out. Attempting a restore from cookies-backup.txt")
+		input, err := ioutil.ReadFile("cookies-backup.txt")
+		if err != nil {
+			return errors.Err(err)
+		}
+
+		err = ioutil.WriteFile("cookies.txt", input, 0644)
+		if err != nil {
+			return errors.Err(err)
+		}
+	}
+	return nil
+}
 
 func (v *YoutubeVideo) download() error {
 	start := time.Now()
@@ -221,21 +247,39 @@ func (v *YoutubeVideo) download() error {
 		}
 	}
 
+	metadataPath := path.Join(logUtils.GetVideoMetadataDir(), v.id+".info.json")
+	_, err = os.Stat(metadataPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return errors.Err("metadata information for video %s is missing! Why?", v.id)
+		}
+		return errors.Err(err)
+	}
+
+	metadata, err := parseVideoMetadata(metadataPath)
+
+	err = checkCookiesIntegrity()
+	if err != nil {
+		return err
+	}
+
 	ytdlArgs := []string{
 		"--no-progress",
 		"-o" + strings.TrimSuffix(v.getFullPath(), ".mp4"),
 		"--merge-output-format",
 		"mp4",
-		"--rm-cache-dir",
 		"--postprocessor-args",
-		"-movflags faststart",
+		"ffmpeg:-movflags faststart",
 		"--abort-on-unavailable-fragment",
 		"--fragment-retries",
 		"1",
 		"--cookies",
 		"cookies.txt",
+		"--load-info-json",
+		metadataPath,
 	}
-	userAgent := []string{"--user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36"}
+
+	userAgent := []string{"--user-agent", downloader.ChromeUA}
 	if v.maxVideoSize > 0 {
 		ytdlArgs = append(ytdlArgs,
 			"--max-filesize",
@@ -272,15 +316,15 @@ func (v *YoutubeVideo) download() error {
 	ytdlArgs = append(ytdlArgs,
 		"--source-address",
 		sourceAddress,
-		"https://www.youtube.com/watch?v="+v.ID(),
+		v.ID(),
 	)
 
 	for i := 0; i < len(qualities); i++ {
 		quality := qualities[i]
 		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][vcodec!*=av01][height<="+quality+"]+bestaudio[ext!=webm][format_id!=258][format_id!=251][format_id!=256][format_id!=327]")
 		argsWithFilters = append(argsWithFilters, userAgent...)
-		cmd := exec.Command("youtube-dl", argsWithFilters...)
-		log.Printf("Running command youtube-dl %s", strings.Join(argsWithFilters, " "))
+		cmd := exec.Command("yt-dlp", argsWithFilters...)
+		log.Printf("Running command yt-dlp %s", strings.Join(argsWithFilters, " "))
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
@@ -294,10 +338,95 @@ func (v *YoutubeVideo) download() error {
 		if err := cmd.Start(); err != nil {
 			return errors.Err(err)
 		}
+		ticker := time.NewTicker(400 * time.Millisecond)
+		done := make(chan bool)
+		v.progressBarWg.Add(1)
+		go func() {
+			defer v.progressBarWg.Done()
+			//get size of the video before downloading
+			cmd := exec.Command("yt-dlp", append(argsWithFilters, "-s")...)
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				log.Errorf("error while getting final file size: %s", errors.FullTrace(err))
+				return
+			}
+
+			if err := cmd.Start(); err != nil {
+				log.Errorf("error while getting final file size: %s", errors.FullTrace(err))
+				return
+			}
+			outLog, _ := ioutil.ReadAll(stdout)
+			err = cmd.Wait()
+			output := string(outLog)
+			parts := strings.Split(output, ": ")
+			if len(parts) != 3 {
+				log.Errorf("couldn't parse audio and video parts from the output (%s)", output)
+				return
+			}
+			formats := strings.Split(parts[2], "+")
+			if len(formats) != 2 {
+				log.Errorf("couldn't parse formats from the output (%s)", output)
+				return
+			}
+			log.Debugf("'%s'", output)
+			videoFormat := formats[0]
+			audioFormat := strings.Replace(formats[1], "\n", "", -1)
+
+			videoSize := 0
+			audioSize := 0
+			for _, f := range metadata.Formats {
+				if f.FormatID == videoFormat {
+					videoSize = f.Filesize
+				}
+				if f.FormatID == audioFormat {
+					audioSize = f.Filesize
+				}
+			}
+			if audioSize+videoSize == 0 {
+				videoSize = 50 * 1024 * 1024
+			}
+			log.Debugf("(%s) - videoSize: %d (%s), audiosize: %d (%s)", v.id, videoSize, videoFormat, audioSize, audioFormat)
+			bar := v.progressBars.AddBar(int64(videoSize+audioSize),
+				mpb.PrependDecorators(
+					decor.CountersKibiByte("% .2f / % .2f "),
+					// simple name decorator
+					decor.Name(fmt.Sprintf("id: %s src-ip: (%s)", v.id, sourceAddress)),
+					// decor.DSyncWidth bit enables column width synchronization
+					decor.Percentage(decor.WCSyncSpace),
+				),
+				mpb.AppendDecorators(
+					decor.EwmaETA(decor.ET_STYLE_GO, 90),
+					decor.Name(" ] "),
+					decor.EwmaSpeed(decor.UnitKiB, "% .2f ", 60),
+				),
+			)
+
+			for {
+				select {
+				case <-done:
+					bar.Completed()
+					bar.Abort(true)
+					return
+				case <-ticker.C:
+					size, err := logUtils.DirSize(v.videoDir())
+					if err != nil {
+						log.Errorf("error while getting size of download directory: %s", errors.FullTrace(err))
+						return
+					}
+					bar.SetCurrent(size)
+					bar.DecoratorEwmaUpdate(400 * time.Millisecond)
+				}
+			}
+		}()
 
 		errorLog, _ := ioutil.ReadAll(stderr)
 		outLog, _ := ioutil.ReadAll(stdout)
 		err = cmd.Wait()
+
+		//stop the progress bar
+		ticker.Stop()
+		done <- true
+
 		if err != nil {
 			if strings.Contains(err.Error(), "exit status 1") {
 				if strings.Contains(string(errorLog), "HTTP Error 429") || strings.Contains(string(errorLog), "returned non-zero exit status 8") {
@@ -309,7 +438,7 @@ func (v *YoutubeVideo) download() error {
 					continue //this bypasses the yt throttling IP redistribution... TODO: don't
 				} else if strings.Contains(string(errorLog), "YouTube said: Unable to extract video data") && !strings.Contains(userAgent[1], "Googlebot") {
 					i-- //do not lower quality when trying a different user agent
-					userAgent = []string{"--user-agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+					userAgent = []string{downloader.GoogleBotUA}
 					log.Infof("trying different user agent for video %s", v.ID())
 					continue
 				}
@@ -350,9 +479,113 @@ func (v *YoutubeVideo) download() error {
 	return nil
 }
 
-func (v *YoutubeVideo) videoDir() string {
-	return v.dir + "/" + v.id
+type ytMetadata struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Formats []struct {
+		Asr               int         `json:"asr"`
+		Filesize          int         `json:"filesize"`
+		FormatID          string      `json:"format_id"`
+		FormatNote        string      `json:"format_note"`
+		Fps               interface{} `json:"fps"`
+		Height            interface{} `json:"height"`
+		Quality           int         `json:"quality"`
+		Tbr               float64     `json:"tbr"`
+		URL               string      `json:"url"`
+		Width             interface{} `json:"width"`
+		Ext               string      `json:"ext"`
+		Vcodec            string      `json:"vcodec"`
+		Acodec            string      `json:"acodec"`
+		Abr               float64     `json:"abr,omitempty"`
+		DownloaderOptions struct {
+			HTTPChunkSize int `json:"http_chunk_size"`
+		} `json:"downloader_options,omitempty"`
+		Container   string `json:"container,omitempty"`
+		Format      string `json:"format"`
+		Protocol    string `json:"protocol"`
+		HTTPHeaders struct {
+			UserAgent      string `json:"User-Agent"`
+			AcceptCharset  string `json:"Accept-Charset"`
+			Accept         string `json:"Accept"`
+			AcceptEncoding string `json:"Accept-Encoding"`
+			AcceptLanguage string `json:"Accept-Language"`
+		} `json:"http_headers"`
+		Vbr float64 `json:"vbr,omitempty"`
+	} `json:"formats"`
+	Thumbnails []struct {
+		Height     int    `json:"height"`
+		URL        string `json:"url"`
+		Width      int    `json:"width"`
+		Resolution string `json:"resolution"`
+		ID         string `json:"id"`
+	} `json:"thumbnails"`
+	Description        string        `json:"description"`
+	UploadDate         string        `json:"upload_date"`
+	Uploader           string        `json:"uploader"`
+	UploaderID         string        `json:"uploader_id"`
+	UploaderURL        string        `json:"uploader_url"`
+	ChannelID          string        `json:"channel_id"`
+	ChannelURL         string        `json:"channel_url"`
+	Duration           int           `json:"duration"`
+	ViewCount          int           `json:"view_count"`
+	AverageRating      float64       `json:"average_rating"`
+	AgeLimit           int           `json:"age_limit"`
+	WebpageURL         string        `json:"webpage_url"`
+	Categories         []string      `json:"categories"`
+	Tags               []interface{} `json:"tags"`
+	IsLive             interface{}   `json:"is_live"`
+	LikeCount          int           `json:"like_count"`
+	DislikeCount       int           `json:"dislike_count"`
+	Channel            string        `json:"channel"`
+	Extractor          string        `json:"extractor"`
+	WebpageURLBasename string        `json:"webpage_url_basename"`
+	ExtractorKey       string        `json:"extractor_key"`
+	Playlist           interface{}   `json:"playlist"`
+	PlaylistIndex      interface{}   `json:"playlist_index"`
+	Thumbnail          string        `json:"thumbnail"`
+	DisplayID          string        `json:"display_id"`
+	Format             string        `json:"format"`
+	FormatID           string        `json:"format_id"`
+	Width              int           `json:"width"`
+	Height             int           `json:"height"`
+	Resolution         interface{}   `json:"resolution"`
+	Fps                int           `json:"fps"`
+	Vcodec             string        `json:"vcodec"`
+	Vbr                float64       `json:"vbr"`
+	StretchedRatio     interface{}   `json:"stretched_ratio"`
+	Acodec             string        `json:"acodec"`
+	Abr                float64       `json:"abr"`
+	Ext                string        `json:"ext"`
+	Fulltitle          string        `json:"fulltitle"`
+	Filename           string        `json:"_filename"`
 }
+
+func parseVideoMetadata(metadataPath string) (*ytMetadata, error) {
+	f, err := os.Open(metadataPath)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	// defer the closing of our jsonFile so that we can parse it later on
+	defer f.Close()
+	// read our opened jsonFile as a byte array.
+	byteValue, _ := ioutil.ReadAll(f)
+
+	// we initialize our Users array
+	var m ytMetadata
+
+	// we unmarshal our byteArray which contains our
+	// jsonFile's content into 'users' which we defined above
+	err = json.Unmarshal(byteValue, &m)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	return &m, nil
+}
+
+func (v *YoutubeVideo) videoDir() string {
+	return path.Join(v.dir, v.id)
+}
+
 func (v *YoutubeVideo) getDownloadedPath() (string, error) {
 	files, err := ioutil.ReadDir(v.videoDir())
 	log.Infoln(v.videoDir())
@@ -367,7 +600,7 @@ func (v *YoutubeVideo) getDownloadedPath() (string, error) {
 			continue
 		}
 		if strings.Contains(v.getFullPath(), strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))) {
-			return v.videoDir() + "/" + f.Name(), nil
+			return path.Join(v.videoDir(), f.Name()), nil
 		}
 	}
 	return "", errors.Err("could not find any downloaded videos")
@@ -466,11 +699,13 @@ type SyncParams struct {
 	DefaultAccount string
 }
 
-func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool, walletLock *sync.RWMutex) (*SyncSummary, error) {
+func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo, reprocess bool, walletLock *sync.RWMutex, pbWg *sync.WaitGroup, pb *mpb.Progress) (*SyncSummary, error) {
 	v.maxVideoSize = int64(params.MaxVideoSize)
 	v.maxVideoLength = params.MaxVideoLength
 	v.lbryChannelID = params.ChannelID
 	v.walletLock = walletLock
+	v.progressBars = pb
+	v.progressBarWg = pbWg
 	if reprocess && existingVideoData != nil && existingVideoData.Published {
 		summary, err := v.reprocess(daemon, params, existingVideoData)
 		return summary, errors.Prefix("upgrade failed", err)

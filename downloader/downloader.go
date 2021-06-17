@@ -8,7 +8,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/sdk"
+	util2 "github.com/lbryio/ytsync/v5/util"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/stop"
@@ -25,7 +28,7 @@ import (
 )
 
 func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
-	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName, "--get-id", "--flat-playlist", "--cookies", "cookies.txt"}
+	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName + "/videos", "--get-id", "--flat-playlist", "--cookies", "cookies.txt"}
 	ids, err := run(channelName, args, stopChan, pool, true)
 	if err != nil {
 		return nil, errors.Err(err)
@@ -44,13 +47,31 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, 
 const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
 func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
-	args := []string{"--skip-download", "--print-json", "https://www.youtube.com/watch?v=" + videoID, "--cookies", "cookies.txt"}
-	results, err := run(videoID, args, stopChan, pool, false)
+	args := []string{
+		"--skip-download",
+		"--write-info-json",
+		videoID,
+		"--cookies",
+		"cookies.txt",
+		"-o",
+		path.Join(util2.GetVideoMetadataDir(), videoID),
+	}
+	_, err := run(videoID, args, stopChan, pool, false)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
+
+	f, err := os.Open(path.Join(util2.GetVideoMetadataDir(), videoID+".info.json"))
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	// defer the closing of our jsonFile so that we can parse it later on
+	defer f.Close()
+	// read our opened jsonFile as a byte array.
+	byteValue, _ := ioutil.ReadAll(f)
+
 	var video *ytdl.YtdlVideo
-	err = json.Unmarshal([]byte(results[0]), &video)
+	err = json.Unmarshal(byteValue, &video)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -126,7 +147,7 @@ func triggerScrape(videoID string, ip *net.TCPAddr) error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36")
+	req.Header.Set("User-Agent", ChromeUA)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -196,7 +217,7 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 	if err != nil {
 		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36")
+	req.Header.Set("User-Agent", ChromeUA)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -251,8 +272,8 @@ func getClient(ip *net.TCPAddr) *http.Client {
 }
 
 const (
-	googleBotUA             = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-	chromeUA                = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36"
+	GoogleBotUA             = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+	ChromeUA                = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"
 	maxAttempts             = 3
 	extractionError         = "YouTube said: Unable to extract video data"
 	throttledError          = "HTTP Error 429"
@@ -270,9 +291,9 @@ func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool,
 		}
 		argsForCommand := append(args, "--source-address", sourceAddress)
 		argsForCommand = append(argsForCommand, useragent...)
-		binary := "youtube-dl"
+		binary := "yt-dlp"
 		if dlc {
-			binary = "youtube-dlc"
+			binary = "yt-dlp"
 		}
 		cmd := exec.Command(binary, argsForCommand...)
 
@@ -299,13 +320,13 @@ func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool,
 
 func nextUA(current []string) []string {
 	if len(current) == 0 {
-		return []string{"--user-agent", googleBotUA}
+		return []string{"--user-agent", GoogleBotUA}
 	}
-	return []string{"--user-agent", chromeUA}
+	return []string{"--user-agent", ChromeUA}
 }
 
 func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
-	logrus.Infof("running youtube-dl(c) cmd: %s", strings.Join(cmd.Args, " "))
+	logrus.Infof("running yt-dlp cmd: %s", strings.Join(cmd.Args, " "))
 	var err error
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -341,7 +362,7 @@ func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
 		return nil, errors.Err("interrupted by user")
 	case err := <-done:
 		if err != nil {
-			return nil, errors.Prefix("youtube-dl(c) "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
+			return nil, errors.Prefix("yt-dlp "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
 		}
 		return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 	}

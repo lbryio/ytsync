@@ -261,6 +261,27 @@ func CleanupLbrynet() error {
 	return nil
 }
 
+var metadataDirInitialized = false
+
+func GetVideoMetadataDir() string {
+	dir := "./videos_metadata"
+	if !metadataDirInitialized {
+		metadataDirInitialized = true
+		_ = os.MkdirAll(dir, 0755)
+	}
+	return dir
+}
+
+func CleanupMetadata() error {
+	dir := GetVideoMetadataDir()
+	err := os.RemoveAll(dir)
+	if err != nil {
+		return errors.Err(err)
+	}
+	metadataDirInitialized = false
+	return nil
+}
+
 func SleepUntilQuotaReset() {
 	PST, _ := time.LoadLocation("America/Los_Angeles")
 	t := time.Now().In(PST)
@@ -383,4 +404,18 @@ func GetBlockchainDirectoryName() string {
 		ledger = "lbc_regtest"
 	}
 	return ledger
+}
+
+func DirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
 }
