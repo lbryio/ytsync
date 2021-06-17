@@ -55,6 +55,9 @@ type Sync struct {
 	queue            chan ytapi.Video
 	defaultAccountID string
 	hardVideoFailure hardVideoFailure
+
+	progressBarWg *sync.WaitGroup
+	progressBar   *mpb.Progress
 }
 
 type hardVideoFailure struct {
@@ -177,7 +180,12 @@ func (s *Sync) FullCycle() (e error) {
 		return err
 	}
 
+	s.progressBarWg = &sync.WaitGroup{}
+	s.progressBar = mpb.New(mpb.WithWaitGroup(s.progressBarWg))
+
 	err = s.doSync()
+	// Waiting for passed &wg and for all bars to complete and flush
+	s.progressBar.Wait()
 	if err != nil {
 		return err
 	}
@@ -814,6 +822,7 @@ func (s *Sync) startWorker(workerNum int) {
 			default:
 			}
 			tryCount++
+
 			err := s.processVideo(v)
 			if err != nil {
 				logUtils.SendErrorToSlack("error processing video %s: %s", v.ID(), err.Error())
@@ -986,13 +995,8 @@ func (s *Sync) processVideo(v ytapi.Video) (err error) {
 		Fee:            s.DbChannelData.Fee,
 		DefaultAccount: da,
 	}
-	var pbWg sync.WaitGroup
-	// passed &wg will be accounted at p.Wait() call
-	p := mpb.New(mpb.WithWaitGroup(&pbWg))
 
-	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade, s.walletMux, &pbWg, p)
-	// Waiting for passed &wg and for all bars to complete and flush
-	p.Wait()
+	summary, err := v.Sync(s.daemon, sp, &sv, videoRequiresUpgrade, s.walletMux, s.progressBarWg, s.progressBar)
 	if err != nil {
 		return err
 	}

@@ -316,7 +316,7 @@ func (v *YoutubeVideo) download() error {
 	ytdlArgs = append(ytdlArgs,
 		"--source-address",
 		sourceAddress,
-		v.ID(),
+		fmt.Sprintf("https://www.youtube.com/watch?v=%s", v.id),
 	)
 
 	for i := 0; i < len(qualities); i++ {
@@ -382,9 +382,6 @@ func (v *YoutubeVideo) download() error {
 					audioSize = f.Filesize
 				}
 			}
-			if audioSize+videoSize == 0 {
-				videoSize = 50 * 1024 * 1024
-			}
 			log.Debugf("(%s) - videoSize: %d (%s), audiosize: %d (%s)", v.id, videoSize, videoFormat, audioSize, audioFormat)
 			bar := v.progressBars.AddBar(int64(videoSize+audioSize),
 				mpb.PrependDecorators(
@@ -414,6 +411,9 @@ func (v *YoutubeVideo) download() error {
 						return
 					}
 					bar.SetCurrent(size)
+					if size > int64(videoSize+audioSize) {
+						bar.SetTotal(size+2048, false)
+					}
 					bar.DecoratorEwmaUpdate(400 * time.Millisecond)
 				}
 			}

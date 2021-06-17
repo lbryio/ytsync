@@ -50,7 +50,7 @@ func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Ch
 	args := []string{
 		"--skip-download",
 		"--write-info-json",
-		videoID,
+		fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoID),
 		"--cookies",
 		"cookies.txt",
 		"-o",
