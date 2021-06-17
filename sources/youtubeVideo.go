@@ -374,14 +374,17 @@ func (v *YoutubeVideo) download() error {
 
 			videoSize := 0
 			audioSize := 0
-			for _, f := range metadata.Formats {
-				if f.FormatID == videoFormat {
-					videoSize = f.Filesize
-				}
-				if f.FormatID == audioFormat {
-					audioSize = f.Filesize
+			if metadata != nil {
+				for _, f := range metadata.Formats {
+					if f.FormatID == videoFormat {
+						videoSize = f.Filesize
+					}
+					if f.FormatID == audioFormat {
+						audioSize = f.Filesize
+					}
 				}
 			}
+
 			log.Debugf("(%s) - videoSize: %d (%s), audiosize: %d (%s)", v.id, videoSize, videoFormat, audioSize, audioFormat)
 			bar := v.progressBars.AddBar(int64(videoSize+audioSize),
 				mpb.PrependDecorators(
@@ -402,12 +405,13 @@ func (v *YoutubeVideo) download() error {
 				),
 				mpb.BarRemoveOnComplete(),
 			)
-
+			defer func() {
+				bar.Completed()
+				bar.Abort(true)
+			}()
 			for {
 				select {
 				case <-done:
-					bar.Completed()
-					bar.Abort(true)
 					return
 				case <-ticker.C:
 					size, err := logUtils.DirSize(v.videoDir())

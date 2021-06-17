@@ -755,6 +755,7 @@ func (s *Sync) startWorker(workerNum int) {
 		"Missing inputs",
 	}
 	errorsNoRetry := []string{
+		"Requested format is not available",
 		"non 200 status code received",
 		"This video contains content from",
 		"dont know which claim to update",
