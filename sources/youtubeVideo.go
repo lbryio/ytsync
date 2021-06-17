@@ -395,7 +395,12 @@ func (v *YoutubeVideo) download() error {
 					decor.EwmaETA(decor.ET_STYLE_GO, 90),
 					decor.Name(" ] "),
 					decor.EwmaSpeed(decor.UnitKiB, "% .2f ", 60),
+					decor.OnComplete(
+						// ETA decorator with ewma age of 60
+						decor.EwmaETA(decor.ET_STYLE_GO, 60), "done",
+					),
 				),
+				mpb.BarRemoveOnComplete(),
 			)
 
 			for {
@@ -737,7 +742,7 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 		break
 	}
 
-	log.Debugln("Downloaded " + v.id)
+	//log.Debugln("Downloaded " + v.id)
 	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFn()
 
