@@ -132,7 +132,6 @@ func (s *Sync) FullCycle() (e error) {
 		log.Println("Got interrupt signal, shutting down (if publishing, will shut down after current publish)")
 		s.grp.Stop()
 		time.Sleep(5 * time.Second)
-		debug.PrintStack() // so we can figure out what's not stopping
 	}()
 	err := s.setStatusSyncing()
 	if err != nil {

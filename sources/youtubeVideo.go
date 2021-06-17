@@ -339,7 +339,7 @@ func (v *YoutubeVideo) download() error {
 			return errors.Err(err)
 		}
 		ticker := time.NewTicker(400 * time.Millisecond)
-		done := make(chan bool)
+		done := make(chan bool, 1)
 		v.progressBarWg.Add(1)
 		go func() {
 			defer v.progressBarWg.Done()
