@@ -18,6 +18,7 @@ import (
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/sdk"
+	"github.com/lbryio/ytsync/v5/shared"
 	util2 "github.com/lbryio/ytsync/v5/util"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
@@ -29,7 +30,7 @@ import (
 
 func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	args := []string{"--skip-download", "https://www.youtube.com/channel/" + channelName + "/videos", "--get-id", "--flat-playlist", "--cookies", "cookies.txt"}
-	ids, err := run(channelName, args, stopChan, pool, true)
+	ids, err := run(channelName, args, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -56,7 +57,7 @@ func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Ch
 		"-o",
 		path.Join(util2.GetVideoMetadataDir(), videoID),
 	}
-	_, err := run(videoID, args, stopChan, pool, false)
+	_, err := run(videoID, args, stopChan, pool)
 	if err != nil {
 		return nil, errors.Err(err)
 	}
@@ -279,9 +280,11 @@ const (
 	throttledError          = "HTTP Error 429"
 	AlternateThrottledError = "returned non-zero exit status 8"
 	youtubeDlError          = "exit status 1"
+	videoPremiereError      = "Premieres in"
+	liveEventError          = "This live event will begin in"
 )
 
-func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool, dlc bool) ([]string, error) {
+func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool) ([]string, error) {
 	var useragent []string
 	var lastError error
 	for attempts := 0; attempts < maxAttempts; attempts++ {
@@ -292,9 +295,6 @@ func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool,
 		argsForCommand := append(args, "--source-address", sourceAddress)
 		argsForCommand = append(argsForCommand, useragent...)
 		binary := "yt-dlp"
-		if dlc {
-			binary = "yt-dlp"
-		}
 		cmd := exec.Command(binary, argsForCommand...)
 
 		res, err := runCmd(cmd, stopChan)
@@ -304,6 +304,9 @@ func run(use string, args []string, stopChan stop.Chan, pool *ip_manager.IPPool,
 		}
 		lastError = err
 		if strings.Contains(err.Error(), youtubeDlError) {
+			if util.SubstringInSlice(err.Error(), shared.ErrorsNoRetry) {
+				break
+			}
 			if strings.Contains(err.Error(), extractionError) {
 				logrus.Warnf("known extraction error: %s", errors.FullTrace(err))
 				useragent = nextUA(useragent)

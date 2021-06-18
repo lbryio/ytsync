@@ -743,56 +743,7 @@ func (s *Sync) doSync() error {
 func (s *Sync) startWorker(workerNum int) {
 	var v ytapi.Video
 	var more bool
-	fatalErrors := []string{
-		":5279: read: connection reset by peer",
-		"no space left on device",
-		"NotEnoughFunds",
-		"Cannot publish using channel",
-		"cannot concatenate 'str' and 'NoneType' objects",
-		"more than 90% of the space has been used.",
-		"Couldn't find private key for id",
-		"You already have a stream claim published under the name",
-		"Missing inputs",
-	}
-	errorsNoRetry := []string{
-		"Requested format is not available",
-		"non 200 status code received",
-		"This video contains content from",
-		"dont know which claim to update",
-		"uploader has not made this video available in your country",
-		"download error: AccessDenied: Access Denied",
-		"Playback on other websites has been disabled by the video owner",
-		"Error in daemon: Cannot publish empty file",
-		"Error extracting sts from embedded url response",
-		"Unable to extract signature tokens",
-		"Client.Timeout exceeded while awaiting headers",
-		"the video is too big to sync, skipping for now",
-		"video is too long to process",
-		"video is too short to process",
-		"no compatible format available for this video",
-		"Watch this video on YouTube.",
-		"have blocked it on copyright grounds",
-		"the video must be republished as we can't get the right size",
-		"HTTP Error 403",
-		"giving up after 0 fragment retries",
-		"Sorry about that",
-		"This video is not available",
-		"requested format not available",
-		"interrupted by user",
-		"Sign in to confirm your age",
-		"This video is unavailable",
-		"video is a live stream and hasn't completed yet",
-	}
-	walletErrors := []string{
-		"Not enough funds to cover this transaction",
-		"failed: Not enough funds",
-		"Error in daemon: Insufficient funds, please deposit additional LBC",
-		//"Missing inputs",
-	}
-	blockchainErrors := []string{
-		"txn-mempool-conflict",
-		"too-long-mempool-chain",
-	}
+
 	for {
 		select {
 		case <-s.grp.Ch():
@@ -826,14 +777,14 @@ func (s *Sync) startWorker(workerNum int) {
 			err := s.processVideo(v)
 			if err != nil {
 				logUtils.SendErrorToSlack("error processing video %s: %s", v.ID(), err.Error())
-				shouldRetry := s.Manager.CliFlags.MaxTries > 1 && !util.SubstringInSlice(err.Error(), errorsNoRetry) && tryCount < s.Manager.CliFlags.MaxTries
+				shouldRetry := s.Manager.CliFlags.MaxTries > 1 && !util.SubstringInSlice(err.Error(), shared.ErrorsNoRetry) && tryCount < s.Manager.CliFlags.MaxTries
 				if strings.Contains(strings.ToLower(err.Error()), "interrupted by user") {
 					s.grp.Stop()
-				} else if util.SubstringInSlice(err.Error(), fatalErrors) {
+				} else if util.SubstringInSlice(err.Error(), shared.FatalErrors) {
 					s.hardVideoFailure.flagFailure(err.Error())
 					s.grp.Stop()
 				} else if shouldRetry {
-					if util.SubstringInSlice(err.Error(), blockchainErrors) {
+					if util.SubstringInSlice(err.Error(), shared.BlockchainErrors) {
 						log.Println("waiting for a block before retrying")
 						err := s.waitForNewBlock()
 						if err != nil {
@@ -841,7 +792,7 @@ func (s *Sync) startWorker(workerNum int) {
 							logUtils.SendErrorToSlack("something went wrong while waiting for a block: %s", errors.FullTrace(err))
 							break
 						}
-					} else if util.SubstringInSlice(err.Error(), walletErrors) {
+					} else if util.SubstringInSlice(err.Error(), shared.WalletErrors) {
 						log.Println("checking funds and UTXOs before retrying...")
 						err := s.walletSetup()
 						if err != nil {

@@ -45,6 +45,62 @@ func (p *PublishAddress) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+var FatalErrors = []string{
+	":5279: read: connection reset by peer",
+	"no space left on device",
+	"NotEnoughFunds",
+	"Cannot publish using channel",
+	"cannot concatenate 'str' and 'NoneType' objects",
+	"more than 90% of the space has been used.",
+	"Couldn't find private key for id",
+	"You already have a stream claim published under the name",
+	"Missing inputs",
+}
+var ErrorsNoRetry = []string{
+	"Requested format is not available",
+	"non 200 status code received",
+	"This video contains content from",
+	"dont know which claim to update",
+	"uploader has not made this video available in your country",
+	"download error: AccessDenied: Access Denied",
+	"Playback on other websites has been disabled by the video owner",
+	"Error in daemon: Cannot publish empty file",
+	"Error extracting sts from embedded url response",
+	"Unable to extract signature tokens",
+	"Client.Timeout exceeded while awaiting headers",
+	"the video is too big to sync, skipping for now",
+	"video is too long to process",
+	"video is too short to process",
+	"no compatible format available for this video",
+	"Watch this video on YouTube.",
+	"have blocked it on copyright grounds",
+	"the video must be republished as we can't get the right size",
+	"HTTP Error 403",
+	"giving up after 0 fragment retries",
+	"Sorry about that",
+	"This video is not available",
+	"requested format not available",
+	"interrupted by user",
+	"Sign in to confirm your age",
+	"This video is unavailable",
+	"video is a live stream and hasn't completed yet",
+	"Premieres in",
+	"Private video",
+	"This live event will begin in",
+	"This video has been removed by the uploader",
+	"Premiere will begin shortly",
+	"cannot unmarshal number 0.0",
+}
+var WalletErrors = []string{
+	"Not enough funds to cover this transaction",
+	"failed: Not enough funds",
+	"Error in daemon: Insufficient funds, please deposit additional LBC",
+	//"Missing inputs",
+}
+var BlockchainErrors = []string{
+	"txn-mempool-conflict",
+	"too-long-mempool-chain",
+}
 var NeverRetryFailures = []string{
 	"Error extracting sts from embedded url response",
 	"Unable to extract signature tokens",
@@ -57,6 +113,9 @@ var NeverRetryFailures = []string{
 	"have blocked it on copyright grounds",
 	"giving up after 0 fragment retries",
 	"Sign in to confirm your age",
+	"Playback on other websites has been disabled by the video owner",
+	"uploader has not made this video available in your country",
+	"This video has been removed by the uploader",
 }
 
 type SyncFlags struct {
