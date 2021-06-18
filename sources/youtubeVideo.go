@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/abadojack/whatlanggo"
@@ -236,14 +237,14 @@ func (v *YoutubeVideo) download() error {
 		"1080",
 		"720",
 		"480",
-		"320",
+		"360",
 	}
 	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
-	if dur.Hours() > 2 { //for videos longer than 2 hours only sync up to 720p
+	if dur.Hours() > 1 { //for videos longer than 1 hour only sync up to 720p
 		qualities = []string{
 			"720",
 			"480",
-			"320",
+			"360",
 		}
 	}
 
@@ -338,95 +339,14 @@ func (v *YoutubeVideo) download() error {
 		if err := cmd.Start(); err != nil {
 			return errors.Err(err)
 		}
+
+		dlStopGrp := stop.New()
+
 		ticker := time.NewTicker(400 * time.Millisecond)
-		done := make(chan bool, 1)
-		v.progressBarWg.Add(1)
-		go func() {
-			defer v.progressBarWg.Done()
-			//get size of the video before downloading
-			cmd := exec.Command("yt-dlp", append(argsWithFilters, "-s")...)
-			stdout, err := cmd.StdoutPipe()
-			if err != nil {
-				log.Errorf("error while getting final file size: %s", errors.FullTrace(err))
-				return
-			}
+		go v.trackProgressBar(argsWithFilters, ticker, metadata, dlStopGrp, sourceAddress)
 
-			if err := cmd.Start(); err != nil {
-				log.Errorf("error while getting final file size: %s", errors.FullTrace(err))
-				return
-			}
-			outLog, _ := ioutil.ReadAll(stdout)
-			err = cmd.Wait()
-			output := string(outLog)
-			parts := strings.Split(output, ": ")
-			if len(parts) != 3 {
-				log.Errorf("couldn't parse audio and video parts from the output (%s)", output)
-				return
-			}
-			formats := strings.Split(parts[2], "+")
-			if len(formats) != 2 {
-				log.Errorf("couldn't parse formats from the output (%s)", output)
-				return
-			}
-			log.Debugf("'%s'", output)
-			videoFormat := formats[0]
-			audioFormat := strings.Replace(formats[1], "\n", "", -1)
-
-			videoSize := 0
-			audioSize := 0
-			if metadata != nil {
-				for _, f := range metadata.Formats {
-					if f.FormatID == videoFormat {
-						videoSize = f.Filesize
-					}
-					if f.FormatID == audioFormat {
-						audioSize = f.Filesize
-					}
-				}
-			}
-
-			log.Debugf("(%s) - videoSize: %d (%s), audiosize: %d (%s)", v.id, videoSize, videoFormat, audioSize, audioFormat)
-			bar := v.progressBars.AddBar(int64(videoSize+audioSize),
-				mpb.PrependDecorators(
-					decor.CountersKibiByte("% .2f / % .2f "),
-					// simple name decorator
-					decor.Name(fmt.Sprintf("id: %s src-ip: (%s)", v.id, sourceAddress)),
-					// decor.DSyncWidth bit enables column width synchronization
-					decor.Percentage(decor.WCSyncSpace),
-				),
-				mpb.AppendDecorators(
-					decor.EwmaETA(decor.ET_STYLE_GO, 90),
-					decor.Name(" ] "),
-					decor.EwmaSpeed(decor.UnitKiB, "% .2f ", 60),
-					decor.OnComplete(
-						// ETA decorator with ewma age of 60
-						decor.EwmaETA(decor.ET_STYLE_GO, 60), "done",
-					),
-				),
-				mpb.BarRemoveOnComplete(),
-			)
-			defer func() {
-				bar.Completed()
-				bar.Abort(true)
-			}()
-			for {
-				select {
-				case <-done:
-					return
-				case <-ticker.C:
-					size, err := logUtils.DirSize(v.videoDir())
-					if err != nil {
-						log.Errorf("error while getting size of download directory: %s", errors.FullTrace(err))
-						return
-					}
-					bar.SetCurrent(size)
-					if size > int64(videoSize+audioSize) {
-						bar.SetTotal(size+2048, false)
-					}
-					bar.DecoratorEwmaUpdate(400 * time.Millisecond)
-				}
-			}
-		}()
+		//ticker2 := time.NewTicker(10 * time.Second)
+		//v.monitorSlowDownload(ticker, dlStopGrp, sourceAddress, cmd)
 
 		errorLog, _ := ioutil.ReadAll(stderr)
 		outLog, _ := ioutil.ReadAll(stdout)
@@ -434,7 +354,7 @@ func (v *YoutubeVideo) download() error {
 
 		//stop the progress bar
 		ticker.Stop()
-		done <- true
+		dlStopGrp.Stop()
 
 		if err != nil {
 			if strings.Contains(err.Error(), "exit status 1") {
@@ -486,6 +406,126 @@ func (v *YoutubeVideo) download() error {
 		break
 	}
 	return nil
+}
+func (v *YoutubeVideo) monitorSlowDownload(ticker *time.Ticker, stop *stop.Group, address string, cmd *exec.Cmd) {
+	count := 0
+	lastSize := int64(0)
+	for {
+		select {
+		case <-stop.Ch():
+			return
+		case <-ticker.C:
+			size, err := logUtils.DirSize(v.videoDir())
+			if err != nil {
+				log.Errorf("error while getting size of download directory: %s", errors.FullTrace(err))
+				continue
+			}
+			delta := size - lastSize
+			avgSpeed := delta / 10
+			if avgSpeed < 200*1024 { //200 KB/s
+				count++
+			} else {
+				count--
+			}
+			if count > 3 {
+				err := cmd.Process.Signal(syscall.SIGKILL)
+				if err != nil {
+					log.Errorf("failure in killing slow download: %s", errors.Err(err))
+					return
+				}
+			}
+		}
+	}
+}
+
+func (v *YoutubeVideo) trackProgressBar(argsWithFilters []string, ticker *time.Ticker, metadata *ytMetadata, done *stop.Group, sourceAddress string) {
+	v.progressBarWg.Add(1)
+	go func() {
+		defer v.progressBarWg.Done()
+		//get size of the video before downloading
+		cmd := exec.Command("yt-dlp", append(argsWithFilters, "-s")...)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			log.Errorf("error while getting final file size: %s", errors.FullTrace(err))
+			return
+		}
+
+		if err := cmd.Start(); err != nil {
+			log.Errorf("error while getting final file size: %s", errors.FullTrace(err))
+			return
+		}
+		outLog, _ := ioutil.ReadAll(stdout)
+		err = cmd.Wait()
+		output := string(outLog)
+		parts := strings.Split(output, ": ")
+		if len(parts) != 3 {
+			log.Errorf("couldn't parse audio and video parts from the output (%s)", output)
+			return
+		}
+		formats := strings.Split(parts[2], "+")
+		if len(formats) != 2 {
+			log.Errorf("couldn't parse formats from the output (%s)", output)
+			return
+		}
+		log.Debugf("'%s'", output)
+		videoFormat := formats[0]
+		audioFormat := strings.Replace(formats[1], "\n", "", -1)
+
+		videoSize := 0
+		audioSize := 0
+		if metadata != nil {
+			for _, f := range metadata.Formats {
+				if f.FormatID == videoFormat {
+					videoSize = f.Filesize
+				}
+				if f.FormatID == audioFormat {
+					audioSize = f.Filesize
+				}
+			}
+		}
+
+		log.Debugf("(%s) - videoSize: %d (%s), audiosize: %d (%s)", v.id, videoSize, videoFormat, audioSize, audioFormat)
+		bar := v.progressBars.AddBar(int64(videoSize+audioSize),
+			mpb.PrependDecorators(
+				decor.CountersKibiByte("% .2f / % .2f "),
+				// simple name decorator
+				decor.Name(fmt.Sprintf("id: %s src-ip: (%s)", v.id, sourceAddress)),
+				// decor.DSyncWidth bit enables column width synchronization
+				decor.Percentage(decor.WCSyncSpace),
+			),
+			mpb.AppendDecorators(
+				decor.EwmaETA(decor.ET_STYLE_GO, 90),
+				decor.Name(" ] "),
+				decor.EwmaSpeed(decor.UnitKiB, "% .2f ", 60),
+				decor.OnComplete(
+					// ETA decorator with ewma age of 60
+					decor.EwmaETA(decor.ET_STYLE_GO, 60), "done",
+				),
+			),
+			mpb.BarRemoveOnComplete(),
+		)
+		defer func() {
+			bar.Completed()
+			bar.Abort(true)
+		}()
+		for {
+			select {
+			case <-done.Ch():
+				return
+			case <-ticker.C:
+				size, err := logUtils.DirSize(v.videoDir())
+				if err != nil {
+					log.Errorf("error while getting size of download directory: %s", errors.FullTrace(err))
+					return
+				}
+				bar.SetCurrent(size)
+				if size > int64(videoSize+audioSize) {
+					bar.SetTotal(size+2048, false)
+				}
+				bar.DecoratorEwmaUpdate(400 * time.Millisecond)
+			}
+		}
+	}()
 }
 
 type ytMetadata struct {
