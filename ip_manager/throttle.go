@@ -2,7 +2,6 @@ package ip_manager
 
 import (
 	"net"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -46,8 +45,7 @@ func GetIPPool(stopGrp *stop.Group) (*IPPool, error) {
 	var pool []throttledIP
 	for _, address := range addrs {
 		if ipnet, ok := address.(*net.IPNet); ok && ipnet.IP.IsGlobalUnicast() {
-			ipv6Disabled := os.Getenv("DISABLE_IPV6") != ""
-			if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) && !ipv6Disabled {
+			if ipnet.IP.To16() != nil && govalidator.IsIPv6(ipnet.IP.String()) {
 				pool = append(pool, throttledIP{
 					IP:      ipnet.IP.String(),
 					LastUse: time.Now().Add(-5 * time.Minute),

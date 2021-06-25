@@ -279,15 +279,7 @@ func (v *YoutubeVideo) download() error {
 		"--load-info-json",
 		metadataPath,
 	}
-	ipv6Disabled := os.Getenv("DISABLE_IPV6") != ""
-	if ipv6Disabled {
-		ytdlArgs = append(ytdlArgs,
-			"--external-downloader",
-			"aria2c",
-			"--external-downloader-args",
-			"aria2c:-j 16 -x 16 -s 16 -k 1M",
-		)
-	}
+
 	userAgent := []string{"--user-agent", downloader.ChromeUA}
 	if v.maxVideoSize > 0 {
 		ytdlArgs = append(ytdlArgs,
