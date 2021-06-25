@@ -90,6 +90,7 @@ var ErrorsNoRetry = []string{
 	"This video has been removed by the uploader",
 	"Premiere will begin shortly",
 	"cannot unmarshal number 0.0",
+	"default youtube thumbnail found",
 }
 var WalletErrors = []string{
 	"Not enough funds to cover this transaction",

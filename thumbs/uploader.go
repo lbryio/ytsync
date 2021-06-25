@@ -117,13 +117,11 @@ func MirrorThumbnail(url string, name string, s3Config aws.Config) (string, erro
 }
 
 func GetBestThumbnail(thumbnails []ytdl.Thumbnail) *ytdl.Thumbnail {
-	var bestWidth *ytdl.Thumbnail
+	var bestWidth ytdl.Thumbnail
 	for _, thumbnail := range thumbnails {
-		if bestWidth == nil {
-			bestWidth = &thumbnail
-		} else if bestWidth.Width < thumbnail.Width {
-			bestWidth = &thumbnail
+		if bestWidth.Width < thumbnail.Width {
+			bestWidth = thumbnail
 		}
 	}
-	return bestWidth
+	return &bestWidth
 }

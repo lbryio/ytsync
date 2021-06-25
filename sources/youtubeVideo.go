@@ -683,6 +683,9 @@ func (v *YoutubeVideo) delete(reason string) error {
 
 func (v *YoutubeVideo) triggerThumbnailSave() (err error) {
 	thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Thumbnails)
+	if thumbnail.Width == 0 {
+		return errors.Err("default youtube thumbnail found")
+	}
 	v.thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.URL, v.ID(), v.awsConfig)
 	return err
 }
