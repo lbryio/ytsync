@@ -517,9 +517,14 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 		}
 
 		if !claimInDatabase || metadataDiffers || claimIDDiffers || claimNameDiffers || claimMarkedUnpublished || transferStatusMismatch {
-			claimSize, err := chainInfo.Claim.GetStreamSizeByMagic()
-			if err != nil {
-				claimSize = 0
+			claimSize := uint64(0)
+			if chainInfo.Claim.Value.GetStream().Source != nil {
+				claimSize, err = chainInfo.Claim.GetStreamSizeByMagic()
+				if err != nil {
+					claimSize = 0
+				}
+			} else {
+				util.SendToSlack("[%s] video with claimID %s has no source?! panic prevented...", s.DbChannelData.ChannelId, chainInfo.ClaimID)
 			}
 			fixed++
 			log.Debugf("updating %s in the database", videoID)
