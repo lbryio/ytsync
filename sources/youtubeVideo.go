@@ -276,6 +276,10 @@ func (v *YoutubeVideo) download() error {
 		"1",
 		"--cookies",
 		"cookies.txt",
+		"--extractor-args",
+		"youtube:player_client=android",
+		//"--concurrent-fragments",
+		//"2",
 		"--load-info-json",
 		metadataPath,
 	}
@@ -319,11 +323,15 @@ func (v *YoutubeVideo) download() error {
 		sourceAddress,
 		fmt.Sprintf("https://www.youtube.com/watch?v=%s", v.id),
 	)
-
+	//speedThrottleRetries := 3
 	for i := 0; i < len(qualities); i++ {
 		quality := qualities[i]
 		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][vcodec!*=av01][height<="+quality+"]+bestaudio[ext!=webm][format_id!=258][format_id!=251][format_id!=256][format_id!=327]")
 		argsWithFilters = append(argsWithFilters, userAgent...)
+		//if speedThrottleRetries > 0 {
+		//	speedThrottleRetries--
+		//	argsWithFilters = append(argsWithFilters, "--throttled-rate", "180K")
+		//}
 		cmd := exec.Command("yt-dlp", argsWithFilters...)
 		log.Printf("Running command yt-dlp %s", strings.Join(argsWithFilters, " "))
 
@@ -370,6 +378,10 @@ func (v *YoutubeVideo) download() error {
 					userAgent = []string{downloader.GoogleBotUA}
 					log.Infof("trying different user agent for video %s", v.ID())
 					continue
+					//} else if strings.Contains(string(errorLog), "yt_dlp.utils.ThrottledDownload") {
+					//	log.Infof("throttled download speed for video %s. Retrying", v.ID())
+					//	i-- //do not lower quality when we're retrying a throttled download
+					//	continue
 				}
 				return errors.Err(string(errorLog))
 			}
