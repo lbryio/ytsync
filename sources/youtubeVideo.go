@@ -216,7 +216,7 @@ func (v *YoutubeVideo) download() error {
 	defer func(start time.Time) {
 		timing.TimedComponent("download").Add(time.Since(start))
 	}(start)
-	if v.youtubeInfo.IsLive != nil {
+	if v.youtubeInfo.IsLive == true {
 		return errors.Err("video is a live stream and hasn't completed yet")
 	}
 	videoPath := v.getFullPath()
