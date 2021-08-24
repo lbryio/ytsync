@@ -20,7 +20,7 @@ require (
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
-	github.com/lbryio/lbry.go/v2 v2.7.2-0.20210412222918-ed51ece75c3d
+	github.com/lbryio/lbry.go/v2 v2.7.2-0.20210824154606-3e18b74da08b
 	github.com/lbryio/reflector.go v1.1.3-0.20210412225256-4392c9724262
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b

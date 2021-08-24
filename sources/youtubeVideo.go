@@ -897,9 +897,8 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 					return nil, errors.Err(err)
 				}
 				return v.downloadAndPublish(daemon, params)
-
 			}
-			return nil, errors.Err("the video must be republished as we can't get the right size but it doesn't exist on youtube anymore")
+			return nil, errors.Prefix("the video must be republished as we can't get the right size and it doesn't exist on youtube anymore", err)
 		}
 	}
 	v.size = util.PtrToInt64(int64(videoSize))
