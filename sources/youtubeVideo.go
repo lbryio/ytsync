@@ -216,9 +216,7 @@ func (v *YoutubeVideo) download() error {
 	defer func(start time.Time) {
 		timing.TimedComponent("download").Add(time.Since(start))
 	}(start)
-	if v.youtubeInfo.IsLive == true {
-		return errors.Err("video is a live stream and hasn't completed yet")
-	}
+
 	videoPath := v.getFullPath()
 
 	err := os.Mkdir(v.videoDir(), 0777)
@@ -783,6 +781,9 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
 	minDuration := 7 * time.Second
 
+	if v.youtubeInfo.IsLive == true {
+		return nil, errors.Err("video is a live stream and hasn't completed yet")
+	}
 	if dur > v.maxVideoLength {
 		logUtils.SendErrorToSlack("%s is %s long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
 		return nil, errors.Err("video is too long to process")
@@ -801,7 +802,6 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 		break
 	}
 
-	//log.Debugln("Downloaded " + v.id)
 	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFn()
 
