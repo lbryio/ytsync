@@ -58,9 +58,12 @@ func (s *SyncManager) Start() error {
 		}
 	}
 
-	var lastChannelProcessed string
-	var secondLastChannelProcessed string
-	syncCount := 0
+	var (
+		lastChannelProcessed       string
+		secondLastChannelProcessed string
+		syncCount                  int
+	)
+
 	for {
 		s.channelsToSync = make([]Sync, 0, 10) // reset sync queue
 		err := s.checkUsedSpace()
@@ -108,10 +111,12 @@ func (s *SyncManager) Start() error {
 				log.Infof("Drained the \"%s\" queue", q)
 			}
 		}
+
 		if len(s.channelsToSync) == 0 {
 			log.Infoln("No channels to sync. Pausing 5 minutes!")
 			time.Sleep(5 * time.Minute)
 		}
+
 		for _, sync := range s.channelsToSync {
 			if lastChannelProcessed == sync.DbChannelData.ChannelId && secondLastChannelProcessed == lastChannelProcessed {
 				util.SendToSlack("We just killed a sync for %s to stop looping! (%s)", sync.DbChannelData.DesiredChannelName, sync.DbChannelData.ChannelId)
@@ -174,6 +179,7 @@ func (s *SyncManager) Start() error {
 			break
 		}
 	}
+
 	return nil
 }
 
