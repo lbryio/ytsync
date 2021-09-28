@@ -88,7 +88,7 @@ Contributions to this project are welcome, encouraged, and compensated. For more
 
 ## Security
 
-We take security seriously. Please contact [security@lbry.io](mailto:security@lbry.io) regarding any security issues. Our PGP key is [here](https://keybase.io/lbry/key.asc) if you need it.
+We take security seriously. Please contact [security@lbry.io](mailto:security@lbry.io) regarding any security issues. Our PGP key is [here](https://lbry.com/faq/pgp-key) if you need it.
 
 ## Contact
 
