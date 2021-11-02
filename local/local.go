@@ -5,12 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"time"
 	"os"
-	"os/exec"
 	"path"
 	"regexp"
-	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -20,9 +17,6 @@ import (
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 	"github.com/lbryio/ytsync/v5/namer"
 	"github.com/lbryio/ytsync/v5/tags_manager"
-
-	"github.com/lbryio/lbry.go/v2/extras/jsonrpc"
-	"github.com/lbryio/lbry.go/v2/extras/util"
 )
 
 type SyncContext struct {
@@ -80,122 +74,45 @@ func localCmd(cmd *cobra.Command, args []string) {
 	fmt.Println(syncContext.LbrynetAddr)
 
 	videoID := args[0]
-	fmt.Println(videoID)
 
-	lbrynet := jsonrpc.NewClient(syncContext.LbrynetAddr)
-	lbrynet.SetRPCTimeout(5 * time.Minute)
+	log.Debugf("Running sync for YouTube video ID %s", videoID)
 
-	status, err := lbrynet.Status()
+	var publisher VideoPublisher
+	publisher, err = NewLocalSDKPublisher(syncContext.LbrynetAddr, syncContext.ChannelID, syncContext.PublishBid)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Error setting up publisher: %v", err)
 		return
 	}
 
-	if !status.IsRunning {
-		log.Error("SDK is not running")
+	var videoSource VideoSource
+	videoSource, err = NewYtdlVideoSource(syncContext.TempDir)
+	if err != nil {
+		log.Errorf("Error setting up video source: %v", err)
 		return
 	}
 
-	// Should check to see if the SDK owns the channel
-
-	// Should check to see if wallet is unlocked
-	// but jsonrpc.Client doesn't have WalletStatus method
-	// so skip for now
-
-	// Should check to see if streams are configured to be reflected and warn if not
-	// but jsonrpc.Client doesn't have SettingsGet method to see if streams are reflected
-	// so use File.UploadingToReflector as a proxy for now
-
-
-	videoBasePath := path.Join(syncContext.TempDir, videoID)
-
-	videoMetadata, videoMetadataPath, err := getVideoMetadata(videoBasePath, videoID)
+	sourceVideo, err := videoSource.GetVideo(videoID)
 	if err != nil {
-		log.Errorf("Error getting video metadata: %v", err)
+		log.Errorf("Error getting source video: %v", err)
 		return
 	}
 
-	err = downloadVideo(videoBasePath, videoMetadataPath)
+	processedVideo, err := processVideoForPublishing(*sourceVideo, syncContext.ChannelID)
 	if err != nil {
-		log.Errorf("Error downloading video: %v", err)
+		log.Errorf("Error processing source video for publishing: %v", err)
 		return
 	}
 
-	tags, err := tags_manager.SanitizeTags(videoMetadata.Tags, syncContext.ChannelID)
+	done, err := publisher.Publish(*processedVideo)
 	if err != nil {
-		log.Errorf("Error sanitizing tags: %v", err)
+		log.Errorf("Error publishing video: %v", err)
 		return
 	}
 
-	urlsRegex := regexp.MustCompile(`(?m) ?(f|ht)(tp)(s?)(://)(.*)[.|/](.*)`)
-	descriptionSample := urlsRegex.ReplaceAllString(videoMetadata.Description, "")
-	info := whatlanggo.Detect(descriptionSample)
-	info2 := whatlanggo.Detect(videoMetadata.Title)
-	var languages []string = nil
-	if info.IsReliable() && info.Lang.Iso6391() != "" {
-		language := info.Lang.Iso6391()
-		languages = []string{language}
-	} else if info2.IsReliable() && info2.Lang.Iso6391() != "" {
-		language := info2.Lang.Iso6391()
-		languages = []string{language}
-	}
-	// Thumbnail and ReleaseTime need to be properly determined
-	streamCreateOptions := jsonrpc.StreamCreateOptions {
-		ClaimCreateOptions: jsonrpc.ClaimCreateOptions {
-			Title:        &videoMetadata.Title,
-			Description:  util.PtrToString(getAbbrevDescription(videoMetadata)),
-			Languages:    languages,
-			//ThumbnailURL: &v.thumbnailURL,
-			Tags:         tags,
-		},
-		ReleaseTime: util.PtrToInt64(time.Now().Unix()),
-		ChannelID:   &syncContext.ChannelID,
-		License:     util.PtrToString("Copyrighted (contact publisher)"),
-	}
-
-	videoPath, err := getVideoDownloadedPath(syncContext.TempDir, videoID)
+	err = <-done
 	if err != nil {
-		log.Errorf("Error determining downloaded video path: %v", err)
+		log.Errorf("Error while wating for stream to reflect: %v", err)
 	}
-
-	fmt.Println("%s", *streamCreateOptions.ClaimCreateOptions.Title)
-	fmt.Println("%s", *streamCreateOptions.ClaimCreateOptions.Description)
-	fmt.Println("%v", streamCreateOptions.ClaimCreateOptions.Languages)
-	fmt.Println("%v", streamCreateOptions.ClaimCreateOptions.Tags)
-
-	claimName := namer.NewNamer().GetNextName(videoMetadata.Title)
-	log.Infof("Publishing stream as %s", claimName)
-
-	txSummary, err := lbrynet.StreamCreate(claimName, videoPath, syncContext.PublishBid, streamCreateOptions)
-	if err != nil {
-		log.Errorf("Error creating stream: %v", err)
-		return
-	}
-
-	for {
-		fileListResponse, fileIndex, err := findFileByTxid(lbrynet, txSummary.Txid)
-		if err != nil {
-			log.Errorf("Error finding file by txid: %v", err)
-			return
-		}
-		if fileListResponse == nil {
-			log.Errorf("Could not find file in list with correct txid")
-			return
-		}
-
-		fileStatus := fileListResponse.Items[fileIndex]
-		if fileStatus.IsFullyReflected {
-			log.Info("Stream is fully reflected")
-			break
-		}
-		if !fileStatus.UploadingToReflector {
-			log.Warn("Stream is not being uploaded to a reflector. Check your lbrynet settings if this is a mistake.")
-			break
-		}
-		log.Infof("Stream reflector progress: %d%%", fileStatus.ReflectorProgress)
-		time.Sleep(5 * time.Second)
-	}
-
 	log.Info("Done")
 }
 
@@ -239,88 +156,6 @@ func loadVideoMetadata(path string) (*ytdl.YtdlVideo, error) {
 	return videoMetadata, nil
 }
 
-func downloadVideoMetadata(basePath, videoID string) error {
-	ytdlArgs := []string{
-		"--skip-download",
-		"--write-info-json",
-		"--force-overwrites",
-		fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoID),
-		"--cookies",
-		"cookies.txt",
-		"-o",
-		basePath,
-	}
-	ytdlCmd := exec.Command("yt-dlp", ytdlArgs...)
-	output, err := runCmd(ytdlCmd)
-	log.Debug(output)
-	return err
-}
-
-func downloadVideo(basePath, metadataPath string) error {
-	ytdlArgs := []string{
-		"--no-progress",
-		"-o",
-		basePath,
-		"--merge-output-format",
-		"mp4",
-		"--postprocessor-args",
-		"ffmpeg:-movflags faststart",
-		"--abort-on-unavailable-fragment",
-		"--fragment-retries",
-		"1",
-		"--cookies",
-		"cookies.txt",
-		"--extractor-args",
-		"youtube:player_client=android",
-		"--load-info-json",
-		metadataPath,
-		"-fbestvideo[ext=mp4][vcodec!*=av01][height<=720]+bestaudio[ext!=webm][format_id!=258][format_id!=251][format_id!=256][format_id!=327]",
-	}
-
-	ytdlCmd := exec.Command("yt-dlp", ytdlArgs...)
-	output, err := runCmd(ytdlCmd)
-	log.Debug(output)
-	return err
-}
-
-func runCmd(cmd *exec.Cmd) ([]string, error) {
-	log.Infof("running cmd: %s", strings.Join(cmd.Args, " "))
-	var err error
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	err = cmd.Start()
-	if err != nil {
-		return nil, err
-	}
-	outLog, err := ioutil.ReadAll(stdout)
-	if err != nil {
-		return nil, err
-	}
-	errorLog, err := ioutil.ReadAll(stderr)
-	if err != nil {
-		return nil, err
-	}
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-	}()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			log.Error(string(errorLog))
-			return nil, err
-		}
-		return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
-	}
-}
-
 func getVideoDownloadedPath(videoDir, videoID string) (string, error) {
 	files, err := ioutil.ReadDir(videoDir)
 	if err != nil {
@@ -339,31 +174,100 @@ func getVideoDownloadedPath(videoDir, videoID string) (string, error) {
 
 }
 
-func getAbbrevDescription(v *ytdl.YtdlVideo) string {
+func getAbbrevDescription(v SourceVideo) string {
+	if v.Description == nil {
+		return v.SourceURL
+	}
+
 	maxLength := 2800
-	description := strings.TrimSpace(v.Description)
-	additionalDescription := "\nhttps://www.youtube.com/watch?v=" + v.ID
+	description := strings.TrimSpace(*v.Description)
+	additionalDescription := "\n" + v.SourceURL
 	if len(description) > maxLength {
 		description = description[:maxLength]
 	}
 	return description + "\n..." + additionalDescription
 }
 
-// if jsonrpc.Client.FileList is extended to match the actual jsonrpc schema, this can be removed
-func findFileByTxid(client *jsonrpc.Client, txid string) (*jsonrpc.FileListResponse, int, error) {
-	response, err := client.FileList(0, 20)
-	for {
-		if err != nil {
-			log.Errorf("Error getting file list page: %v", err)
-			return nil, 0, err
-		}
-		index := sort.Search(len(response.Items), func (i int) bool { return response.Items[i].Txid == txid })
-		if index < len(response.Items) {
-			return response, index, nil
-		}
-		if response.Page >= response.TotalPages {
-			return nil, 0, nil
-		}
-		response, err = client.FileList(response.Page + 1, 20)
+type SourceVideo struct {
+	ID string
+	Title *string
+	Description *string
+	SourceURL string
+	Languages []string
+	Tags []string
+	ReleaseTime *int64
+	ThumbnailURL *string
+	FullLocalPath string
+}
+
+type PublishableVideo struct {
+	ID string
+	ClaimName string
+	Title string
+	Description string
+	SourceURL string
+	Languages []string
+	Tags []string
+	ReleaseTime int64
+	ThumbnailURL string
+	FullLocalPath string
+}
+
+func processVideoForPublishing(source SourceVideo, channelID string) (*PublishableVideo, error) {
+	tags, err := tags_manager.SanitizeTags(source.Tags, channelID)
+	if err != nil {
+		log.Errorf("Error sanitizing tags: %v", err)
+		return nil, err
 	}
+
+	descriptionSample := ""
+	if source.Description != nil {
+		urlsRegex := regexp.MustCompile(`(?m) ?(f|ht)(tp)(s?)(://)(.*)[.|/](.*)`)
+		descriptionSample = urlsRegex.ReplaceAllString(*source.Description, "")
+	}
+	info := whatlanggo.Detect(descriptionSample)
+
+	title := ""
+	if source.Title != nil {
+		title = *source.Title
+	}
+	info2 := whatlanggo.Detect(title)
+	var languages []string = nil
+	if info.IsReliable() && info.Lang.Iso6391() != "" {
+		language := info.Lang.Iso6391()
+		languages = []string{language}
+	} else if info2.IsReliable() && info2.Lang.Iso6391() != "" {
+		language := info2.Lang.Iso6391()
+		languages = []string{language}
+	}
+
+	claimName := namer.NewNamer().GetNextName(title)
+
+	thumbnailURL := ""
+	if source.ThumbnailURL != nil {
+		thumbnailURL = *source.ThumbnailURL
+	}
+
+	processed := PublishableVideo {
+		ClaimName: claimName,
+		Title: title,
+		Description:  getAbbrevDescription(source),
+		Languages: languages,
+		Tags: tags,
+		ReleaseTime: *source.ReleaseTime,
+		ThumbnailURL: thumbnailURL,
+		FullLocalPath: source.FullLocalPath,
+	}
+
+	log.Debugf("Video prepared for publication: %v", processed)
+
+	return &processed, nil
+}
+
+type VideoSource interface {
+	GetVideo(id string) (*SourceVideo, error)
+}
+
+type VideoPublisher interface {
+	Publish(video PublishableVideo) (chan error, error)
 }
