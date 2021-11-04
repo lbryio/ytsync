@@ -1,20 +1,17 @@
 package local
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/abadojack/whatlanggo"
 
-	"github.com/lbryio/ytsync/v5/downloader/ytdl"
+	"github.com/lbryio/lbry.go/v2/extras/util"
 	"github.com/lbryio/ytsync/v5/namer"
 	"github.com/lbryio/ytsync/v5/tags_manager"
 )
@@ -24,6 +21,7 @@ type SyncContext struct {
 	LbrynetAddr     string
 	ChannelID       string
 	PublishBid      float64
+	YouTubeSourceConfig *YouTubeSourceConfig
 }
 
 func (c *SyncContext) Validate() error {
@@ -42,6 +40,10 @@ func (c *SyncContext) Validate() error {
 	return nil
 }
 
+type YouTubeSourceConfig struct {
+	YouTubeAPIKey string
+}
+
 var syncContext SyncContext
 
 func AddCommand(rootCmd *cobra.Command) {
@@ -55,6 +57,10 @@ func AddCommand(rootCmd *cobra.Command) {
 	cmd.Flags().Float64Var(&syncContext.PublishBid, "publish-bid", 0.01, "Bid amount for the stream claim")
 	cmd.Flags().StringVar(&syncContext.LbrynetAddr, "lbrynet-address", getEnvDefault("LBRYNET_ADDRESS", ""), "JSONRPC address of the local LBRYNet daemon")
 	cmd.Flags().StringVar(&syncContext.ChannelID, "channel-id", "", "LBRY channel ID to publish to")
+
+	// For now, assume source is always YouTube
+	syncContext.YouTubeSourceConfig = &YouTubeSourceConfig{}
+	cmd.Flags().StringVar(&syncContext.YouTubeSourceConfig.YouTubeAPIKey, "youtube-api-key", getEnvDefault("YOUTUBE_API_KEY", ""), "YouTube API Key")
 	rootCmd.AddCommand(cmd)
 }
 
@@ -71,11 +77,9 @@ func localCmd(cmd *cobra.Command, args []string) {
 		log.Error(err)
 		return
 	}
-	fmt.Println(syncContext.LbrynetAddr)
-
 	videoID := args[0]
 
-	log.Debugf("Running sync for YouTube video ID %s", videoID)
+	log.Debugf("Running sync for video ID %s", videoID)
 
 	var publisher VideoPublisher
 	publisher, err = NewLocalSDKPublisher(syncContext.LbrynetAddr, syncContext.ChannelID, syncContext.PublishBid)
@@ -85,10 +89,12 @@ func localCmd(cmd *cobra.Command, args []string) {
 	}
 
 	var videoSource VideoSource
-	videoSource, err = NewYtdlVideoSource(syncContext.TempDir)
-	if err != nil {
-		log.Errorf("Error setting up video source: %v", err)
-		return
+	if syncContext.YouTubeSourceConfig != nil {
+		videoSource, err = NewYtdlVideoSource(syncContext.TempDir, syncContext.YouTubeSourceConfig)
+		if err != nil {
+			log.Errorf("Error setting up video source: %v", err)
+			return
+		}
 	}
 
 	sourceVideo, err := videoSource.GetVideo(videoID)
@@ -114,78 +120,6 @@ func localCmd(cmd *cobra.Command, args []string) {
 		log.Errorf("Error while wating for stream to reflect: %v", err)
 	}
 	log.Info("Done")
-}
-
-func getVideoMetadata(basePath, videoID string) (*ytdl.YtdlVideo, string, error) {
-	metadataPath := basePath + ".info.json"
-
-	_, err := os.Stat(metadataPath)
-	if err != nil && !os.IsNotExist(err) {
-		log.Errorf("Error determining if video metadata already exists: %v", err)
-		return nil, "", err
-	} else if err == nil {
-		log.Debugf("Video metadata file %s already exists. Attempting to load existing file.", metadataPath)
-		videoMetadata, err := loadVideoMetadata(metadataPath)
-		if err != nil {
-			log.Debugf("Error loading pre-existing video metadata: %v. Deleting file and attempting re-download.", err)
-		} else {
-			return videoMetadata, metadataPath, nil
-		}
-	}
-
-	if err := downloadVideoMetadata(basePath, videoID); err != nil {
-		return nil, "", err
-	}
-
-	videoMetadata, err := loadVideoMetadata(metadataPath)
-	return videoMetadata, metadataPath, err
-}
-
-func loadVideoMetadata(path string) (*ytdl.YtdlVideo, error) {
-	metadataBytes, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var videoMetadata *ytdl.YtdlVideo
-	err = json.Unmarshal(metadataBytes, &videoMetadata)
-	if err != nil {
-		return nil, err
-	}
-
-	return videoMetadata, nil
-}
-
-func getVideoDownloadedPath(videoDir, videoID string) (string, error) {
-	files, err := ioutil.ReadDir(videoDir)
-	if err != nil {
-		return "", err
-	}
-
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if path.Ext(f.Name()) == ".mp4" && strings.Contains(f.Name(), videoID) {
-			return path.Join(videoDir, f.Name()), nil
-		}
-	}
-	return "", errors.New("could not find any downloaded videos")
-
-}
-
-func getAbbrevDescription(v SourceVideo) string {
-	if v.Description == nil {
-		return v.SourceURL
-	}
-
-	maxLength := 2800
-	description := strings.TrimSpace(*v.Description)
-	additionalDescription := "\n" + v.SourceURL
-	if len(description) > maxLength {
-		description = description[:maxLength]
-	}
-	return description + "\n..." + additionalDescription
 }
 
 type SourceVideo struct {
@@ -243,9 +177,14 @@ func processVideoForPublishing(source SourceVideo, channelID string) (*Publishab
 
 	claimName := namer.NewNamer().GetNextName(title)
 
-	thumbnailURL := ""
-	if source.ThumbnailURL != nil {
-		thumbnailURL = *source.ThumbnailURL
+	thumbnailURL := source.ThumbnailURL
+	if thumbnailURL == nil {
+		thumbnailURL = util.PtrToString("")
+	}
+
+	releaseTime := source.ReleaseTime
+	if releaseTime == nil {
+		releaseTime = util.PtrToInt64(time.Now().Unix())
 	}
 
 	processed := PublishableVideo {
@@ -254,14 +193,28 @@ func processVideoForPublishing(source SourceVideo, channelID string) (*Publishab
 		Description:  getAbbrevDescription(source),
 		Languages: languages,
 		Tags: tags,
-		ReleaseTime: *source.ReleaseTime,
-		ThumbnailURL: thumbnailURL,
+		ReleaseTime: *releaseTime,
+		ThumbnailURL: *thumbnailURL,
 		FullLocalPath: source.FullLocalPath,
 	}
 
 	log.Debugf("Video prepared for publication: %v", processed)
 
 	return &processed, nil
+}
+
+func getAbbrevDescription(v SourceVideo) string {
+	if v.Description == nil {
+		return v.SourceURL
+	}
+
+	maxLength := 2800
+	description := strings.TrimSpace(*v.Description)
+	additionalDescription := "\n" + v.SourceURL
+	if len(description) > maxLength {
+		description = description[:maxLength]
+	}
+	return description + "\n..." + additionalDescription
 }
 
 type VideoSource interface {
