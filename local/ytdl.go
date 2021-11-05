@@ -49,6 +49,7 @@ func (y *Ytdl) GetVideoMetadata(videoID string) (*ytdl.YtdlVideo, error) {
 	return metadata, nil
 }
 
+
 func (y *Ytdl) GetVideoMetadataFile(videoID string) (string, error) {
 	basePath := path.Join(y.DownloadDir, videoID)
 	metadataPath := basePath + ".info.json"
@@ -99,6 +100,42 @@ func (y *Ytdl) GetVideoFile(videoID string) (string, error) {
 	}
 
 	return *videoPath, nil
+}
+
+func (y *Ytdl) DeleteVideoFiles(videoID string) error {
+	files, err := ioutil.ReadDir(y.DownloadDir)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		if strings.Contains(f.Name(), videoID) {
+			videoPath := path.Join(y.DownloadDir, f.Name())
+			err = os.Remove(videoPath)
+			if err != nil {
+				log.Errorf("Error while deleting file %s: %v", y.DownloadDir, err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func deleteFile(path string) error {
+	_, err := os.Stat(path)
+	if err != nil && !os.IsNotExist(err) {
+		log.Errorf("Error determining if file %s exists: %v", path, err)
+		return err
+	} else if err != nil {
+		log.Debugf("File %s does not exist. Skipping deletion.", path)
+		return nil
+	}
+
+	return os.Remove(path)
 }
 
 func findDownloadedVideo(videoDir, videoID string) (*string, error) {

@@ -70,3 +70,7 @@ func (s *YtdlVideoSource) GetVideo(id string) (*SourceVideo, error) {
 
 	return &sourceVideo, nil
 }
+
+func (s *YtdlVideoSource) DeleteLocalCache(id string) error {
+	return s.downloader.DeleteVideoFiles(id)
+}
