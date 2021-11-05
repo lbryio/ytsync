@@ -17,6 +17,7 @@ import (
 )
 
 type SyncContext struct {
+	DryRun          bool
 	TempDir         string
 	LbrynetAddr     string
 	ChannelID       string
@@ -53,6 +54,7 @@ func AddCommand(rootCmd *cobra.Command) {
 		Run:   localCmd,
 		Args:  cobra.ExactArgs(1),
 	}
+	cmd.Flags().BoolVar(&syncContext.DryRun, "dry-run", false, "Display information about the stream publishing, but do not publish the stream")
 	cmd.Flags().StringVar(&syncContext.TempDir, "temp-dir", getEnvDefault("TEMP_DIR", ""), "directory to use for temporary files")
 	cmd.Flags().Float64Var(&syncContext.PublishBid, "publish-bid", 0.01, "Bid amount for the stream claim")
 	cmd.Flags().StringVar(&syncContext.LbrynetAddr, "lbrynet-address", getEnvDefault("LBRYNET_ADDRESS", ""), "JSONRPC address of the local LBRYNet daemon")
@@ -109,15 +111,22 @@ func localCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	done, err := publisher.Publish(*processedVideo)
-	if err != nil {
-		log.Errorf("Error publishing video: %v", err)
-		return
-	}
+	if syncContext.DryRun {
+		log.Infoln("This is a dry run. Nothing will be published.")
+		log.Infof("The local file %s would be published to channel ID %s as %s.", processedVideo.FullLocalPath, syncContext.ChannelID, processedVideo.ClaimName)
+		log.Debugf("Object to be published: %v", processedVideo)
 
-	err = <-done
-	if err != nil {
-		log.Errorf("Error while wating for stream to reflect: %v", err)
+	} else {
+		done, err := publisher.Publish(*processedVideo)
+		if err != nil {
+			log.Errorf("Error publishing video: %v", err)
+			return
+		}
+
+		err = <-done
+		if err != nil {
+			log.Errorf("Error while wating for stream to reflect: %v", err)
+		}
 	}
 	log.Info("Done")
 }
