@@ -48,7 +48,7 @@ func NewLocalSDKPublisher(sdkAddr, channelID string, publishBid float64) (*Local
 	return &publisher, nil
 }
 
-func (p *LocalSDKPublisher) Publish(video PublishableVideo) (chan error, error) {
+func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) (chan error, error) {
 	streamCreateOptions := jsonrpc.StreamCreateOptions {
 		ClaimCreateOptions: jsonrpc.ClaimCreateOptions {
 			Title:        &video.Title,
@@ -65,6 +65,10 @@ func (p *LocalSDKPublisher) Publish(video PublishableVideo) (chan error, error) 
 	txSummary, err := p.lbrynet.StreamCreate(video.ClaimName, video.FullLocalPath, p.publishBid, streamCreateOptions)
 	if err != nil {
 		return nil, err
+	}
+
+	if !reflectStream {
+		return nil, nil
 	}
 
 	done := make(chan error, 1)
@@ -88,8 +92,9 @@ func (p *LocalSDKPublisher) Publish(video PublishableVideo) (chan error, error) 
 				break
 			}
 			if !fileStatus.UploadingToReflector {
-				log.Warn("Stream is not being uploaded to a reflector. Check your lbrynet settings if this is a mistake.")
-				break
+				log.Error("Stream is not being uploaded to a reflector. Check your lbrynet settings if this is a mistake.")
+				done <- errors.New("Stream is not being reflected (check lbrynet settings).")
+				return
 			}
 			log.Infof("Stream reflector progress: %d%%", fileStatus.ReflectorProgress)
 			time.Sleep(5 * time.Second)

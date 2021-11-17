@@ -17,12 +17,13 @@ import (
 )
 
 type SyncContext struct {
-	DryRun          bool
-	KeepCache       bool
-	TempDir         string
-	LbrynetAddr     string
-	ChannelID       string
-	PublishBid      float64
+	DryRun              bool
+	KeepCache           bool
+	ReflectStreams      bool
+	TempDir             string
+	LbrynetAddr         string
+	ChannelID           string
+	PublishBid          float64
 	YouTubeSourceConfig *YouTubeSourceConfig
 }
 
@@ -57,6 +58,7 @@ func AddCommand(rootCmd *cobra.Command) {
 	}
 	cmd.Flags().BoolVar(&syncContext.DryRun, "dry-run", false, "Display information about the stream publishing, but do not publish the stream")
 	cmd.Flags().BoolVar(&syncContext.KeepCache, "keep-cache", false, "Don't delete local files after publishing.")
+	cmd.Flags().BoolVar(&syncContext.ReflectStreams, "reflect-streams", true, "Require published streams to be reflected.")
 	cmd.Flags().StringVar(&syncContext.TempDir, "temp-dir", getEnvDefault("TEMP_DIR", ""), "directory to use for temporary files")
 	cmd.Flags().Float64Var(&syncContext.PublishBid, "publish-bid", 0.01, "Bid amount for the stream claim")
 	cmd.Flags().StringVar(&syncContext.LbrynetAddr, "lbrynet-address", getEnvDefault("LBRYNET_ADDRESS", ""), "JSONRPC address of the local LBRYNet daemon")
@@ -119,15 +121,19 @@ func localCmd(cmd *cobra.Command, args []string) {
 		log.Debugf("Object to be published: %v", processedVideo)
 
 	} else {
-		done, err := publisher.Publish(*processedVideo)
+		doneReflectingCh, err := publisher.Publish(*processedVideo, syncContext.ReflectStreams)
 		if err != nil {
 			log.Errorf("Error publishing video: %v", err)
 			return
 		}
 
-		err = <-done
-		if err != nil {
-			log.Errorf("Error while wating for stream to reflect: %v", err)
+		if syncContext.ReflectStreams {
+			err = <-doneReflectingCh
+			if err != nil {
+				log.Errorf("Error while wating for stream to reflect: %v", err)
+			}
+		} else {
+			log.Debugln("Not waiting for stream to reflect.")
 		}
 	}
 
@@ -227,13 +233,14 @@ func getAbbrevDescription(v SourceVideo) string {
 		return v.SourceURL
 	}
 
-	maxLength := 2800
+	additionalDescription := "\n...\n" + v.SourceURL
+	maxLength := 2800 - len(additionalDescription)
+
 	description := strings.TrimSpace(*v.Description)
-	additionalDescription := "\n" + v.SourceURL
 	if len(description) > maxLength {
 		description = description[:maxLength]
 	}
-	return description + "\n..." + additionalDescription
+	return description + additionalDescription
 }
 
 type VideoSource interface {
@@ -242,5 +249,5 @@ type VideoSource interface {
 }
 
 type VideoPublisher interface {
-	Publish(video PublishableVideo) (chan error, error)
+	Publish(video PublishableVideo, reflectStream bool) (chan error, error)
 }
