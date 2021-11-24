@@ -1,0 +1,35 @@
+{
+  "slack_token": "",
+  "slack_channel": "ytsync-dev",
+  "internal_apis_endpoint": "http://localhost:15400",
+  "internal_apis_auth_token": "ytsyntoken",
+  "lbrycrd_string": "tcp://lbry:lbry@localhost:15200",
+  "wallet_s3_config": {
+    "id": "",
+    "secret": "",
+    "region": "us-east-1",
+    "bucket": "ytsync-wallets",
+    "endpoint": ""
+  },
+  "blockchaindb_s3_config": {
+    "id": "",
+    "secret": "",
+    "region": "us-east-1",
+    "bucket": "blockchaindbs",
+    "endpoint": ""
+  },
+  "thumbnails_s3_config": {
+    "id": "",
+    "secret": "",
+    "region": "us-east-1",
+    "bucket": "thumbnails.lbry.com",
+    "endpoint": ""
+  },
+  "aws_thumbnails_s3_config": {
+    "id": "",
+    "secret": "",
+    "region": "us-east-1",
+    "bucket": "thumbnails.lbry.com",
+    "endpoint": ""
+  }
+}
