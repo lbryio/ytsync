@@ -4,3 +4,7 @@ e2e/supporty/supporty
 .env
 blobsfiles
 ytsync_docker
+
+e2e/config.json
+
+e2e/cookies.txt

@@ -14,7 +14,7 @@ func SendErrorToSlack(format string, a ...interface{}) {
 		message = fmt.Sprintf(format, a...)
 	}
 	log.Errorln(message)
-	err := util.SendToSlack(":sos: " + message)
+	err := util.SendToSlack(":sos: ```" + message + "```")
 	if err != nil {
 		log.Errorln(err)
 	}

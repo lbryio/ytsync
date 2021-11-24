@@ -84,9 +84,9 @@ func (s *Sync) downloadWallet() error {
 }
 
 func (s *Sync) downloadBlockchainDB() error {
-	//if util.IsRegTest() {
-	//	return nil // tests fail if we re-use the same blockchain DB
-	//}
+	if util.IsRegTest() {
+		return nil // tests fail if we re-use the same blockchain DB
+	}
 	defaultBDBPath, defaultTempBDBPath, key, err := s.getBlockchainDBPaths()
 	if err != nil {
 		return errors.Err(err)
