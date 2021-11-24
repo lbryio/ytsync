@@ -7,14 +7,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/lbryio/lbry.go/v2/extras/errors"
-	"github.com/lbryio/lbry.go/v2/extras/util"
+	"github.com/lbryio/ytsync/v5/configs"
 	"github.com/lbryio/ytsync/v5/manager"
 	"github.com/lbryio/ytsync/v5/sdk"
 	"github.com/lbryio/ytsync/v5/shared"
 	ytUtils "github.com/lbryio/ytsync/v5/util"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/lbryio/lbry.go/v2/extras/errors"
+	"github.com/lbryio/lbry.go/v2/extras/util"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -69,10 +71,14 @@ func main() {
 }
 
 func ytSync(cmd *cobra.Command, args []string) {
+	err := configs.Init("./config.json")
+	if err != nil {
+		log.Fatalf("could not parse configuration file: %s", errors.FullTrace(err))
+	}
 	var hostname string
-	slackToken := os.Getenv("SLACK_TOKEN")
-	if slackToken == "" {
-		log.Error("A slack token was not present in env vars! Slack messages disabled!")
+
+	if configs.Configuration.SlackToken == "" {
+		log.Error("A slack token was not present in the config! Slack messages disabled!")
 	} else {
 		var err error
 		hostname, err = os.Hostname()
@@ -84,7 +90,7 @@ func ytSync(cmd *cobra.Command, args []string) {
 			hostname = hostname[0:30]
 		}
 
-		util.InitSlack(os.Getenv("SLACK_TOKEN"), os.Getenv("SLACK_CHANNEL"), hostname)
+		util.InitSlack(configs.Configuration.SlackToken, configs.Configuration.SlackChannel, hostname)
 	}
 
 	if cliFlags.Status != "" && !util.InSlice(cliFlags.Status, shared.SyncStatuses) {
@@ -103,68 +109,41 @@ func ytSync(cmd *cobra.Command, args []string) {
 	}
 	cliFlags.MaxVideoLength = time.Duration(maxVideoLength) * time.Hour
 
-	apiURL := os.Getenv("LBRY_WEB_API")
-	apiToken := os.Getenv("LBRY_API_TOKEN")
-	youtubeAPIKey := os.Getenv("YOUTUBE_API_KEY")
-	lbrycrdDsn := os.Getenv("LBRYCRD_STRING")
-	awsS3ID := os.Getenv("AWS_S3_ID")
-	awsS3Secret := os.Getenv("AWS_S3_SECRET")
-	awsS3Region := os.Getenv("AWS_S3_REGION")
-	awsS3Bucket := os.Getenv("AWS_S3_BUCKET")
-	if apiURL == "" {
-		log.Errorln("An API URL was not defined. Please set the environment variable LBRY_WEB_API")
+	if configs.Configuration.InternalApisEndpoint == "" {
+		log.Errorln("An Internal APIs Endpoint was not defined")
 		return
 	}
-	if apiToken == "" {
-		log.Errorln("An API Token was not defined. Please set the environment variable LBRY_API_TOKEN")
+	if configs.Configuration.InternalApisAuthToken == "" {
+		log.Errorln("An Internal APIs auth token was not defined")
 		return
 	}
-	if youtubeAPIKey == "" {
-		log.Errorln("A Youtube API key was not defined. Please set the environment variable YOUTUBE_API_KEY")
+	if configs.Configuration.WalletS3Config.ID == "" || configs.Configuration.WalletS3Config.Region == "" || configs.Configuration.WalletS3Config.Bucket == "" || configs.Configuration.WalletS3Config.Secret == "" || configs.Configuration.WalletS3Config.Endpoint == "" {
+		log.Errorln("Wallet S3 configuration is incomplete")
 		return
 	}
-	if awsS3ID == "" {
-		log.Errorln("AWS S3 ID credentials were not defined. Please set the environment variable AWS_S3_ID")
+	if configs.Configuration.BlockchaindbS3Config.ID == "" || configs.Configuration.BlockchaindbS3Config.Region == "" || configs.Configuration.BlockchaindbS3Config.Bucket == "" || configs.Configuration.BlockchaindbS3Config.Secret == "" || configs.Configuration.BlockchaindbS3Config.Endpoint == "" {
+		log.Errorln("Blockchain DBs S3 configuration is incomplete")
 		return
 	}
-	if awsS3Secret == "" {
-		log.Errorln("AWS S3 Secret credentials were not defined. Please set the environment variable AWS_S3_SECRET")
-		return
-	}
-	if awsS3Region == "" {
-		log.Errorln("AWS S3 Region was not defined. Please set the environment variable AWS_S3_REGION")
-		return
-	}
-	if awsS3Bucket == "" {
-		log.Errorln("AWS S3 Bucket was not defined. Please set the environment variable AWS_S3_BUCKET")
-		return
-	}
-	if lbrycrdDsn == "" {
-		log.Infoln("Using default (local) lbrycrd instance. Set LBRYCRD_STRING if you want to use something else")
+	if configs.Configuration.LbrycrdString == "" {
+		log.Infoln("Using default (local) lbrycrd instance. Set lbrycrd_string if you want to use something else")
 	}
 
 	blobsDir := ytUtils.GetBlobsDir()
 
 	apiConfig := &sdk.APIConfig{
-		YoutubeAPIKey: youtubeAPIKey,
-		ApiURL:        apiURL,
-		ApiToken:      apiToken,
-		HostName:      hostname,
+		ApiURL:   configs.Configuration.InternalApisEndpoint,
+		ApiToken: configs.Configuration.InternalApisAuthToken,
+		HostName: hostname,
 	}
-	awsConfig := &shared.AwsConfigs{
-		AwsS3ID:     awsS3ID,
-		AwsS3Secret: awsS3Secret,
-		AwsS3Region: awsS3Region,
-		AwsS3Bucket: awsS3Bucket,
-	}
+
 	sm := manager.NewSyncManager(
 		cliFlags,
 		blobsDir,
-		lbrycrdDsn,
-		awsConfig,
+		configs.Configuration.LbrycrdString,
 		apiConfig,
 	)
-	err := sm.Start()
+	err = sm.Start()
 	if err != nil {
 		ytUtils.SendErrorToSlack(errors.FullTrace(err))
 	}

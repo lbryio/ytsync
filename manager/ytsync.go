@@ -358,9 +358,9 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 			err = s.uploadBlockchainDB()
 			if err != nil {
 				if *e == nil {
-					e = &err
+					*e = err
 				} else {
-					*e = errors.Prefix("failure uploading wallet", *e)
+					*e = errors.Prefix(fmt.Sprintf("failure uploading blockchain DB: %s + original error", errors.FullTrace(err)), *e)
 				}
 			}
 		}
@@ -863,7 +863,6 @@ func (s *Sync) enqueueYoutubeVideos() error {
 
 	videos, err := ytapi.GetVideosToSync(s.Manager.ApiConfig, s.DbChannelData.ChannelId, s.syncedVideos, s.Manager.CliFlags.QuickSync, s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers), ytapi.VideoParams{
 		VideoDir: s.videoDirectory,
-		S3Config: *s.Manager.AwsConfigs.GetS3AWSConfig(),
 		Stopper:  s.grp,
 		IPPool:   ipPool,
 	}, s.DbChannelData.LastUploadedVideo)

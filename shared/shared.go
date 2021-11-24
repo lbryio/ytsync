@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 )
 
@@ -213,17 +211,3 @@ const (
 	TransferStateComplete
 	TransferStateManual
 )
-
-type AwsConfigs struct {
-	AwsS3ID     string
-	AwsS3Secret string
-	AwsS3Region string
-	AwsS3Bucket string
-}
-
-func (a *AwsConfigs) GetS3AWSConfig() *aws.Config {
-	return &aws.Config{
-		Credentials: credentials.NewStaticCredentials(a.AwsS3ID, a.AwsS3Secret, ""),
-		Region:      &a.AwsS3Region,
-	}
-}

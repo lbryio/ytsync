@@ -29,12 +29,7 @@ func TestGetVideoInformation(t *testing.T) {
 }
 
 func Test_getUploadTime(t *testing.T) {
-	configs := sdk.APIConfig{
-		YoutubeAPIKey: "",
-		ApiURL:        "https://api.lbry.com",
-		ApiToken:      "Ht4NETrL5oWKyAaZkuSV68BKhtXkiLh5",
-		HostName:      "test",
-	}
+	configs := sdk.APIConfig{}
 	got, err := getUploadTime(&configs, "kDGOHNpRjzc", nil, "20060102")
 	assert.NoError(t, err)
 	t.Log(got)

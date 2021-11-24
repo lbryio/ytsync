@@ -11,6 +11,7 @@ import (
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/lbrycrd"
+	"github.com/lbryio/ytsync/v5/configs"
 	"github.com/lbryio/ytsync/v5/timing"
 
 	"github.com/docker/docker/api/types"
@@ -185,9 +186,9 @@ func CleanForStartup() error {
 		return errors.Err(err)
 	}
 
-	lbrycrd, err := GetLbrycrdClient(os.Getenv("LBRYCRD_STRING"))
+	lbrycrd, err := GetLbrycrdClient(configs.Configuration.LbrycrdString)
 	if err != nil {
-		return errors.Prefix("error getting lbrycrd client: ", err)
+		return errors.Prefix("error getting lbrycrd client", err)
 	}
 	height, err := lbrycrd.GetBlockCount()
 	if err != nil {

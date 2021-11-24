@@ -37,7 +37,6 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 )
@@ -55,7 +54,6 @@ type YoutubeVideo struct {
 	youtubeInfo      *ytdl.YtdlVideo
 	youtubeChannelID string
 	tags             []string
-	awsConfig        aws.Config
 	thumbnailURL     string
 	lbryChannelID    string
 	mocked           bool
@@ -101,7 +99,7 @@ var youtubeCategories = map[string]string{
 	"44": "trailers",
 }
 
-func NewYoutubeVideo(directory string, videoData *ytdl.YtdlVideo, playlistPosition int64, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) (*YoutubeVideo, error) {
+func NewYoutubeVideo(directory string, videoData *ytdl.YtdlVideo, playlistPosition int64, stopGroup *stop.Group, pool *ip_manager.IPPool) (*YoutubeVideo, error) {
 	// youtube-dl returns times in local timezone sometimes. this could break in the future
 	// maybe we can file a PR to choose the timezone we want from youtube-dl
 	return &YoutubeVideo{
@@ -112,19 +110,18 @@ func NewYoutubeVideo(directory string, videoData *ytdl.YtdlVideo, playlistPositi
 		publishedAt:      videoData.UploadDateForReal,
 		dir:              directory,
 		youtubeInfo:      videoData,
-		awsConfig:        awsConfig,
 		mocked:           false,
 		youtubeChannelID: videoData.ChannelID,
 		stopGroup:        stopGroup,
 		pool:             pool,
 	}, nil
 }
-func NewMockedVideo(directory string, videoID string, youtubeChannelID string, awsConfig aws.Config, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
+
+func NewMockedVideo(directory string, videoID string, youtubeChannelID string, stopGroup *stop.Group, pool *ip_manager.IPPool) *YoutubeVideo {
 	return &YoutubeVideo{
 		id:               videoID,
 		playlistPosition: 0,
 		dir:              directory,
-		awsConfig:        awsConfig,
 		mocked:           true,
 		youtubeChannelID: youtubeChannelID,
 		stopGroup:        stopGroup,
@@ -688,7 +685,7 @@ func (v *YoutubeVideo) triggerThumbnailSave() (err error) {
 	if thumbnail.Width == 0 {
 		return errors.Err("default youtube thumbnail found")
 	}
-	v.thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.URL, v.ID(), v.awsConfig)
+	v.thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.URL, v.ID())
 	return err
 }
 
@@ -880,7 +877,7 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 			return nil, errors.Err("could not find thumbnail for mocked video")
 		}
 		thumbnail := thumbs.GetBestThumbnail(v.youtubeInfo.Thumbnails)
-		thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.URL, v.ID(), v.awsConfig)
+		thumbnailURL, err = thumbs.MirrorThumbnail(thumbnail.URL, v.ID())
 	} else {
 		thumbnailURL = thumbs.ThumbnailEndpoint + v.ID()
 	}

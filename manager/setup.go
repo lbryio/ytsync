@@ -311,12 +311,12 @@ func (s *Sync) waitForNewBlock() error {
 func (s *Sync) GenerateRegtestBlock() error {
 	lbrycrd, err := logUtils.GetLbrycrdClient(s.Manager.LbrycrdDsn)
 	if err != nil {
-		return errors.Prefix("error getting lbrycrd client: ", err)
+		return errors.Prefix("error getting lbrycrd client", err)
 	}
 
 	txs, err := lbrycrd.Generate(1)
 	if err != nil {
-		return errors.Prefix("error generating new block: ", err)
+		return errors.Prefix("error generating new block", err)
 	}
 
 	for _, tx := range txs {
@@ -407,7 +407,7 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 
 	thumbnail := channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Avatar.Thumbnails)-1].URL
-	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail, s.DbChannelData.ChannelId, *s.Manager.AwsConfigs.GetS3AWSConfig())
+	thumbnailURL, err := thumbs.MirrorThumbnail(thumbnail, s.DbChannelData.ChannelId)
 	if err != nil {
 		return err
 	}
@@ -416,7 +416,6 @@ func (s *Sync) ensureChannelOwnership() error {
 	if channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails != nil {
 		bURL, err := thumbs.MirrorThumbnail(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails[len(channelInfo.Header.C4TabbedHeaderRenderer.Banner.Thumbnails)-1].URL,
 			"banner-"+s.DbChannelData.ChannelId,
-			*s.Manager.AwsConfigs.GetS3AWSConfig(),
 		)
 		if err != nil {
 			return err

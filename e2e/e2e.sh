@@ -14,11 +14,8 @@ export LOCAL_TMP_DIR="/var/tmp:/var/tmp"
 touch -a .env && set -o allexport; source ./.env; set +o allexport
 echo "LOCAL_TMP_DIR=$LOCAL_TMP_DIR"
 # Compose settings - docker only
-export SLACK_CHANNEL="ytsync-travis"
-export LBRY_API_TOKEN="ytsyntoken"
-export LBRY_WEB_API="http://localhost:15400"
 export LBRYNET_ADDRESS="http://localhost:15100"
-export LBRYCRD_STRING="tcp://lbry:lbry@localhost:15200"
+export LBRYCRD_STRING="tcp://lbry:lbry@localhost:15200" #required for supporty
 export LBRYNET_USE_DOCKER=true
 export REFLECT_BLOBS=false
 export CLEAN_ON_STARTUP=true
@@ -50,9 +47,9 @@ until curl --output /dev/null --silent --head --fail http://localhost:15400; do
 done
 echo "successfully started..."
 
-channelToSync="UCGyoEsIRjmnmzrsB67DhrOA"
-channelName=@Alaminemoh11"$(date +%s)"
-latestVideoID="ejWF7Jjdgmc"
+channelToSync="UCMn-zv1SE-2y6vyewscfFqw"
+channelName=@whatever"$(date +%s)"
+latestVideoID="yPJgjiMbmX0"
 
 #Data Setup for test
 ./data_setup.sh "$channelName" "$channelToSync" "$latestVideoID"

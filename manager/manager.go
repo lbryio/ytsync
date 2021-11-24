@@ -24,18 +24,16 @@ type SyncManager struct {
 	CliFlags   shared.SyncFlags
 	ApiConfig  *sdk.APIConfig
 	LbrycrdDsn string
-	AwsConfigs *shared.AwsConfigs
 
 	blobsDir       string
 	channelsToSync []Sync
 }
 
-func NewSyncManager(cliFlags shared.SyncFlags, blobsDir, lbrycrdDsn string, awsConfigs *shared.AwsConfigs, apiConfig *sdk.APIConfig) *SyncManager {
+func NewSyncManager(cliFlags shared.SyncFlags, blobsDir, lbrycrdDsn string, apiConfig *sdk.APIConfig) *SyncManager {
 	return &SyncManager{
 		CliFlags:   cliFlags,
 		blobsDir:   blobsDir,
 		LbrycrdDsn: lbrycrdDsn,
-		AwsConfigs: awsConfigs,
 		ApiConfig:  apiConfig,
 	}
 }

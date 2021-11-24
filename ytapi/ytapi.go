@@ -29,7 +29,6 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
 
-	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -50,7 +49,6 @@ func (a byPublishedAt) Less(i, j int) bool { return a[i].PublishedAt().Before(a[
 
 type VideoParams struct {
 	VideoDir string
-	S3Config aws.Config
 	Stopper  *stop.Group
 	IPPool   *ip_manager.IPPool
 }
@@ -103,7 +101,7 @@ func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[s
 
 	for _, item := range vids {
 		positionInList := playlistMap[item.ID]
-		videoToAdd, err := sources.NewYoutubeVideo(videoParams.VideoDir, item, positionInList, videoParams.S3Config, videoParams.Stopper, videoParams.IPPool)
+		videoToAdd, err := sources.NewYoutubeVideo(videoParams.VideoDir, item, positionInList, videoParams.Stopper, videoParams.IPPool)
 		if err != nil {
 			return nil, errors.Err(err)
 		}
@@ -115,7 +113,7 @@ func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[s
 			continue
 		}
 		if _, ok := playlistMap[k]; !ok {
-			videos = append(videos, sources.NewMockedVideo(videoParams.VideoDir, k, channelID, videoParams.S3Config, videoParams.Stopper, videoParams.IPPool))
+			videos = append(videos, sources.NewMockedVideo(videoParams.VideoDir, k, channelID, videoParams.Stopper, videoParams.IPPool))
 		}
 	}
 

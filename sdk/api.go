@@ -25,10 +25,9 @@ const (
 )
 
 type APIConfig struct {
-	YoutubeAPIKey string
-	ApiURL        string
-	ApiToken      string
-	HostName      string
+	ApiURL   string
+	ApiToken string
+	HostName string
 }
 
 func (a *APIConfig) FetchChannels(status string, cliFlags *shared.SyncFlags) ([]shared.YoutubeChannel, error) {

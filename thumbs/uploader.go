@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/lbryio/ytsync/v5/configs"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
@@ -83,11 +84,11 @@ func (u *thumbnailUploader) deleteTmpFile() {
 		log.Infof("failed to delete local thumbnail file: %s", err.Error())
 	}
 }
-func MirrorThumbnail(url string, name string, s3Config aws.Config) (string, error) {
+func MirrorThumbnail(url string, name string) (string, error) {
 	tu := thumbnailUploader{
 		originalUrl: url,
 		name:        name,
-		s3Config:    s3Config,
+		s3Config:    *configs.Configuration.AWSThumbnailsS3Config.GetS3AWSConfig(),
 	}
 	err := tu.downloadThumbnail()
 	if err != nil {
@@ -100,14 +101,12 @@ func MirrorThumbnail(url string, name string, s3Config aws.Config) (string, erro
 		return "", err
 	}
 
-	ownS3Config := s3Config.Copy(&aws.Config{Endpoint: aws.String("s3.lbry.tech")})
-
+	//this is our own S3 storage
 	tu2 := thumbnailUploader{
 		originalUrl: url,
 		name:        name,
-		s3Config:    *ownS3Config,
+		s3Config:    *configs.Configuration.ThumbnailsS3Config.GetS3AWSConfig(),
 	}
-	//own S3
 	err = tu2.uploadThumbnail()
 	if err != nil {
 		return "", err

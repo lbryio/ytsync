@@ -3,6 +3,12 @@ package manager
 import (
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/lbryio/ytsync/v5/configs"
+	"github.com/lbryio/ytsync/v5/util"
+
+	"github.com/lbryio/lbry.go/v2/extras/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -10,24 +16,21 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/lbryio/lbry.go/v2/extras/errors"
-
-	logUtils "github.com/lbryio/ytsync/v5/util"
 )
 
-func (s *Sync) getS3Downloader() (*s3manager.Downloader, error) {
-	s3Session, err := session.NewSession(s.Manager.AwsConfigs.GetS3AWSConfig())
+func (s *Sync) getS3Downloader(config *aws.Config) (*s3manager.Downloader, error) {
+	s3Session, err := session.NewSession(config)
 	if err != nil {
-		return nil, errors.Prefix("error starting session: ", err)
+		return nil, errors.Prefix("error starting session", err)
 	}
 	downloader := s3manager.NewDownloader(s3Session)
 	return downloader, nil
 }
-func (s *Sync) getS3Uploader() (*s3manager.Uploader, error) {
-	s3Session, err := session.NewSession(s.Manager.AwsConfigs.GetS3AWSConfig())
+
+func (s *Sync) getS3Uploader(config *aws.Config) (*s3manager.Uploader, error) {
+	s3Session, err := session.NewSession(config)
 	if err != nil {
-		return nil, errors.Prefix("error starting session: ", err)
+		return nil, errors.Prefix("error starting session", err)
 	}
 	uploader := s3manager.NewUploader(s3Session)
 	return uploader, nil
@@ -38,18 +41,18 @@ func (s *Sync) downloadWallet() error {
 	if err != nil {
 		return errors.Err(err)
 	}
-	downloader, err := s.getS3Downloader()
+	downloader, err := s.getS3Downloader(configs.Configuration.WalletS3Config.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}
 	out, err := os.Create(defaultTempWalletDir)
 	if err != nil {
-		return errors.Prefix("error creating temp wallet: ", err)
+		return errors.Prefix("error creating temp wallet", err)
 	}
 	defer out.Close()
 
 	bytesWritten, err := downloader.Download(out, &s3.GetObjectInput{
-		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
+		Bucket: aws.String(configs.Configuration.WalletS3Config.Bucket),
 		Key:    key,
 	})
 	if err != nil {
@@ -74,21 +77,21 @@ func (s *Sync) downloadWallet() error {
 
 	err = os.Rename(defaultTempWalletDir, defaultWalletDir)
 	if err != nil {
-		return errors.Prefix("error replacing temp wallet for default wallet: ", err)
+		return errors.Prefix("error replacing temp wallet for default wallet", err)
 	}
 
 	return nil
 }
 
 func (s *Sync) downloadBlockchainDB() error {
-	if logUtils.IsRegTest() {
-		return nil // tests fail if we re-use the same blockchain DB
-	}
-	defaultBDBDir, defaultTempBDBDir, key, err := s.getBlockchainDBPaths()
+	//if util.IsRegTest() {
+	//	return nil // tests fail if we re-use the same blockchain DB
+	//}
+	defaultBDBPath, defaultTempBDBPath, key, err := s.getBlockchainDBPaths()
 	if err != nil {
 		return errors.Err(err)
 	}
-	files, err := filepath.Glob(defaultBDBDir + "*")
+	files, err := filepath.Glob(defaultBDBPath + "*")
 	if err != nil {
 		return errors.Err(err)
 	}
@@ -101,18 +104,18 @@ func (s *Sync) downloadBlockchainDB() error {
 	if s.DbChannelData.WipeDB {
 		return nil
 	}
-	downloader, err := s.getS3Downloader()
+	downloader, err := s.getS3Downloader(configs.Configuration.BlockchaindbS3Config.GetS3AWSConfig())
 	if err != nil {
 		return errors.Err(err)
 	}
-	out, err := os.Create(defaultTempBDBDir)
+	out, err := os.Create(defaultTempBDBPath)
 	if err != nil {
-		return errors.Prefix("error creating temp wallet: ", err)
+		return errors.Prefix("error creating temp blockchain DB file", err)
 	}
 	defer out.Close()
 
 	bytesWritten, err := downloader.Download(out, &s3.GetObjectInput{
-		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
+		Bucket: aws.String(configs.Configuration.BlockchaindbS3Config.Bucket),
 		Key:    key,
 	})
 	if err != nil {
@@ -135,11 +138,13 @@ func (s *Sync) downloadBlockchainDB() error {
 		return errors.Err("zero bytes written")
 	}
 
-	err = os.Rename(defaultTempBDBDir, defaultBDBDir)
+	blockchainDbDir := strings.Replace(defaultBDBPath, "blockchain.db", "", -1)
+	err = util.Untar(defaultTempBDBPath, blockchainDbDir)
 	if err != nil {
-		return errors.Prefix("error replacing temp blockchain.db for default blockchain.db: ", err)
+		return errors.Prefix("error extracting blockchain.db files", err)
 	}
-	log.Printf("blockchain.db downloaded to %s", defaultBDBDir)
+
+	log.Printf("blockchain.db data downloaded and extracted to %s", blockchainDbDir)
 	return nil
 }
 
@@ -147,7 +152,7 @@ func (s *Sync) getWalletPaths() (defaultWallet, tempWallet string, key *string, 
 	defaultWallet = os.Getenv("HOME") + "/.lbryum/wallets/default_wallet"
 	tempWallet = os.Getenv("HOME") + "/.lbryum/wallets/tmp_wallet"
 	key = aws.String("/wallets/" + s.DbChannelData.ChannelId)
-	if logUtils.IsRegTest() {
+	if util.IsRegTest() {
 		defaultWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/default_wallet"
 		tempWallet = os.Getenv("HOME") + "/.lbryum_regtest/wallets/tmp_wallet"
 		key = aws.String("/regtest/" + s.DbChannelData.ChannelId)
@@ -168,27 +173,27 @@ func (s *Sync) getWalletPaths() (defaultWallet, tempWallet string, key *string, 
 func (s *Sync) getBlockchainDBPaths() (defaultDB, tempDB string, key *string, err error) {
 	lbryumDir := os.Getenv("LBRYUM_DIR")
 	if lbryumDir == "" {
-		if logUtils.IsRegTest() {
+		if util.IsRegTest() {
 			lbryumDir = os.Getenv("HOME") + "/.lbryum_regtest"
 		} else {
 			lbryumDir = os.Getenv("HOME") + "/.lbryum"
 		}
 	}
 	defaultDB = lbryumDir + "/lbc_mainnet/blockchain.db"
-	tempDB = lbryumDir + "/lbc_mainnet/tmp_blockchain.db"
-	key = aws.String("/blockchain_dbs/" + s.DbChannelData.ChannelId)
-	if logUtils.IsRegTest() {
+	tempDB = lbryumDir + "/lbc_mainnet/tmp_blockchain.tar"
+	key = aws.String("/blockchain_dbs/" + s.DbChannelData.ChannelId + ".tar")
+	if util.IsRegTest() {
 		defaultDB = lbryumDir + "/lbc_regtest/blockchain.db"
-		tempDB = lbryumDir + "/lbc_regtest/tmp_blockchain.db"
-		key = aws.String("/regtest_dbs/" + s.DbChannelData.ChannelId)
+		tempDB = lbryumDir + "/lbc_regtest/tmp_blockchain.tar"
+		key = aws.String("/regtest_dbs/" + s.DbChannelData.ChannelId + ".tar")
 	}
 	return
 }
 
 func (s *Sync) uploadWallet() error {
-	defaultWalletDir := logUtils.GetDefaultWalletPath()
+	defaultWalletDir := util.GetDefaultWalletPath()
 	key := aws.String("/wallets/" + s.DbChannelData.ChannelId)
-	if logUtils.IsRegTest() {
+	if util.IsRegTest() {
 		key = aws.String("/regtest/" + s.DbChannelData.ChannelId)
 	}
 
@@ -196,7 +201,7 @@ func (s *Sync) uploadWallet() error {
 		return errors.Err("default_wallet does not exist")
 	}
 
-	uploader, err := s.getS3Uploader()
+	uploader, err := s.getS3Uploader(configs.Configuration.WalletS3Config.GetS3AWSConfig())
 	if err != nil {
 		return err
 	}
@@ -208,7 +213,7 @@ func (s *Sync) uploadWallet() error {
 	defer file.Close()
 
 	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
+		Bucket: aws.String(configs.Configuration.WalletS3Config.Bucket),
 		Key:    key,
 		Body:   file,
 	})
@@ -229,26 +234,35 @@ func (s *Sync) uploadBlockchainDB() error {
 	if _, err := os.Stat(defaultBDBDir); os.IsNotExist(err) {
 		return errors.Err("blockchain.db does not exist")
 	}
-
-	uploader, err := s.getS3Uploader()
+	files, err := filepath.Glob(defaultBDBDir + "*")
+	if err != nil {
+		return errors.Err(err)
+	}
+	tarPath := strings.Replace(defaultBDBDir, "blockchain.db", "", -1) + s.DbChannelData.ChannelId + ".tar"
+	err = util.CreateTarball(tarPath, files)
 	if err != nil {
 		return err
 	}
 
-	file, err := os.Open(defaultBDBDir)
+	uploader, err := s.getS3Uploader(configs.Configuration.BlockchaindbS3Config.GetS3AWSConfig())
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Open(tarPath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(s.Manager.AwsConfigs.AwsS3Bucket),
+		Bucket: aws.String(configs.Configuration.BlockchaindbS3Config.Bucket),
 		Key:    key,
 		Body:   file,
 	})
 	if err != nil {
 		return err
 	}
-	log.Println("blockchain.db uploaded to S3")
+	log.Println("blockchain.db files uploaded to S3")
 	return os.Remove(defaultBDBDir)
 }
