@@ -143,7 +143,10 @@ func (s *Sync) downloadBlockchainDB() error {
 	if err != nil {
 		return errors.Prefix("error extracting blockchain.db files", err)
 	}
-
+	err = os.Remove(defaultTempBDBPath)
+	if err != nil {
+		return errors.Err(err)
+	}
 	log.Printf("blockchain.db data downloaded and extracted to %s", blockchainDbDir)
 	return nil
 }
@@ -264,5 +267,9 @@ func (s *Sync) uploadBlockchainDB() error {
 		return err
 	}
 	log.Println("blockchain.db files uploaded to S3")
+	err = os.Remove(tarPath)
+	if err != nil {
+		return errors.Err(err)
+	}
 	return os.Remove(defaultBDBDir)
 }
