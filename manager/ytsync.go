@@ -350,7 +350,7 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 			err := s.uploadWallet()
 			if err != nil {
 				if *e == nil {
-					e = &err
+					*e = err
 				} else {
 					*e = errors.Prefix("failure uploading wallet", *e)
 				}
