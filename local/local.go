@@ -21,6 +21,7 @@ type SyncContext struct {
 	KeepCache           bool
 	ReflectStreams      bool
 	TempDir             string
+	SyncDbPath          string
 	LbrynetAddr         string
 	ChannelID           string
 	PublishBid          float64
@@ -30,6 +31,9 @@ type SyncContext struct {
 func (c *SyncContext) Validate() error {
 	if c.TempDir == "" {
 		return errors.New("No TempDir provided")
+	}
+	if c.SyncDbPath == "" {
+		return errors.New("No sync DB path provided")
 	}
 	if c.LbrynetAddr == "" {
 		return errors.New("No Lbrynet address provided")
@@ -60,6 +64,7 @@ func AddCommand(rootCmd *cobra.Command) {
 	cmd.Flags().BoolVar(&syncContext.KeepCache, "keep-cache", false, "Don't delete local files after publishing.")
 	cmd.Flags().BoolVar(&syncContext.ReflectStreams, "reflect-streams", true, "Require published streams to be reflected.")
 	cmd.Flags().StringVar(&syncContext.TempDir, "temp-dir", getEnvDefault("TEMP_DIR", ""), "directory to use for temporary files")
+	cmd.Flags().StringVar(&syncContext.SyncDbPath, "sync-db-path", getEnvDefault("SYNC_DB_PATH", ""), "Path to the local sync DB")
 	cmd.Flags().Float64Var(&syncContext.PublishBid, "publish-bid", 0.01, "Bid amount for the stream claim")
 	cmd.Flags().StringVar(&syncContext.LbrynetAddr, "lbrynet-address", getEnvDefault("LBRYNET_ADDRESS", ""), "JSONRPC address of the local LBRYNet daemon")
 	cmd.Flags().StringVar(&syncContext.ChannelID, "channel-id", "", "LBRY channel ID to publish to")
@@ -87,6 +92,24 @@ func localCmd(cmd *cobra.Command, args []string) {
 
 	log.Debugf("Running sync for video ID %s", videoID)
 
+	syncDB, err := NewSyncDb(syncContext.SyncDbPath)
+	if err != nil {
+		log.Errorf("Error creating sync DB: %v", err)
+		return
+	}
+	defer syncDB.Close()
+
+	isSynced, claimID, err := syncDB.IsVideoPublished("YouTube", videoID)
+	if err != nil {
+		log.Errorf("Error checking if video is already synced: %v", err)
+		return
+	}
+
+	if isSynced {
+		log.Infof("Video %s is already published as %s.", videoID, claimID)
+		return
+	}
+
 	var publisher VideoPublisher
 	publisher, err = NewLocalSDKPublisher(syncContext.LbrynetAddr, syncContext.ChannelID, syncContext.PublishBid)
 	if err != nil {
@@ -109,6 +132,12 @@ func localCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	err = syncDB.SaveVideoData(*sourceVideo)
+	if err != nil {
+		log.Errorf("Error saving video data: %v", err)
+		return
+	}
+
 	processedVideo, err := processVideoForPublishing(*sourceVideo, syncContext.ChannelID)
 	if err != nil {
 		log.Errorf("Error processing source video for publishing: %v", err)
@@ -121,9 +150,16 @@ func localCmd(cmd *cobra.Command, args []string) {
 		log.Debugf("Object to be published: %v", processedVideo)
 
 	} else {
-		doneReflectingCh, err := publisher.Publish(*processedVideo, syncContext.ReflectStreams)
+		claimID, doneReflectingCh, err := publisher.Publish(*processedVideo, syncContext.ReflectStreams)
 		if err != nil {
 			log.Errorf("Error publishing video: %v", err)
+			return
+		}
+		err = syncDB.SaveVideoPublication(*processedVideo, claimID)
+		if err != nil {
+			// Sync DB is corrupted after getting here
+			// and will allow double publication.
+			log.Errorf("Error saving video publication to sync DB: %v", err)
 			return
 		}
 
@@ -149,6 +185,7 @@ func localCmd(cmd *cobra.Command, args []string) {
 
 type SourceVideo struct {
 	ID string
+	Source string
 	Title *string
 	Description *string
 	SourceURL string
@@ -161,6 +198,7 @@ type SourceVideo struct {
 
 type PublishableVideo struct {
 	ID string
+	Source string
 	ClaimName string
 	Title string
 	Description string
@@ -213,6 +251,8 @@ func processVideoForPublishing(source SourceVideo, channelID string) (*Publishab
 	}
 
 	processed := PublishableVideo {
+		ID: source.ID,
+		Source: source.Source,
 		ClaimName: claimName,
 		Title: title,
 		Description:  getAbbrevDescription(source),
@@ -249,5 +289,5 @@ type VideoSource interface {
 }
 
 type VideoPublisher interface {
-	Publish(video PublishableVideo, reflectStream bool) (chan error, error)
+	Publish(video PublishableVideo, reflectStream bool) (string, chan error, error)
 }

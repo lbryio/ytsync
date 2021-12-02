@@ -49,6 +49,7 @@ func (s *YtdlVideoSource) GetVideo(id string) (*SourceVideo, error) {
 
 	sourceVideo := SourceVideo {
 		ID: id,
+		Source: "YouTube",
 		Title: &metadata.Title,
 		Description: &metadata.Description,
 		SourceURL: "\nhttps://www.youtube.com/watch?v=" + id,

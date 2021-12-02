@@ -48,7 +48,7 @@ func NewLocalSDKPublisher(sdkAddr, channelID string, publishBid float64) (*Local
 	return &publisher, nil
 }
 
-func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) (chan error, error) {
+func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) (string, chan error, error) {
 	streamCreateOptions := jsonrpc.StreamCreateOptions {
 		ClaimCreateOptions: jsonrpc.ClaimCreateOptions {
 			Title:        &video.Title,
@@ -64,11 +64,22 @@ func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) 
 
 	txSummary, err := p.lbrynet.StreamCreate(video.ClaimName, video.FullLocalPath, p.publishBid, streamCreateOptions)
 	if err != nil {
-		return nil, err
+		return "", nil, err
+	}
+
+	var claimID *string
+	for _, output := range txSummary.Outputs {
+		if output.Type == "claim" {
+			claimID = &output.ClaimID
+			break
+		}
+	}
+	if claimID == nil {
+		return "", nil, errors.New("Publish transaction did not have a claim output.")
 	}
 
 	if !reflectStream {
-		return nil, nil
+		return "", nil, nil
 	}
 
 	done := make(chan error, 1)
@@ -102,7 +113,7 @@ func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) 
 		done <- nil
 	}()
 
-	return done, nil
+	return *claimID, done, nil
 }
 
 // if jsonrpc.Client.FileList is extended to match the actual jsonrpc schema, this can be removed
