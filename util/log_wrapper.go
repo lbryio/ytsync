@@ -14,7 +14,9 @@ func SendErrorToSlack(format string, a ...interface{}) {
 		message = fmt.Sprintf(format, a...)
 	}
 	log.Errorln(message)
+	log.SetLevel(log.InfoLevel) //I don't want to change the underlying lib so this will do...
 	err := util.SendToSlack(":sos: ```" + message + "```")
+	log.SetLevel(log.DebugLevel)
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -27,7 +29,9 @@ func SendInfoToSlack(format string, a ...interface{}) {
 		message = fmt.Sprintf(format, a...)
 	}
 	log.Infoln(message)
+	log.SetLevel(log.InfoLevel) //I don't want to change the underlying lib so this will do...
 	err := util.SendToSlack(":information_source: " + message)
+	log.SetLevel(log.DebugLevel)
 	if err != nil {
 		log.Errorln(err)
 	}

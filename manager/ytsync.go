@@ -286,6 +286,8 @@ func (s *Sync) setChannelTerminationStatus(e *error) {
 			"interrupted during daemon startup",
 			"interrupted by user",
 			"use --skip-space-check to ignore",
+			"failure uploading blockchain DB",
+			"default_wallet already exists",
 		}
 		dbWipeConditions := []string{
 			"Missing inputs",
@@ -349,10 +351,15 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 		} else {
 			err := s.uploadWallet()
 			if err != nil {
+				time.Sleep(10 * time.Second)
+				logUtils.SendErrorToSlack("there was a problem uploading the wallet to S3, waiting 10 seconds and retrying: %s", err.Error())
+				err = s.uploadWallet()
+			}
+			if err != nil {
 				if *e == nil {
 					*e = err
 				} else {
-					*e = errors.Prefix("failure uploading wallet", *e)
+					*e = errors.Prefix(fmt.Sprintf("failure uploading wallet: %s + original error", errors.FullTrace(err)), *e)
 				}
 			}
 			err = s.uploadBlockchainDB()
