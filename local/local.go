@@ -24,6 +24,7 @@ type SyncContext struct {
 	SyncDbPath          string
 	LbrynetAddr         string
 	ChannelID           string
+	VideoID             string
 	PublishBid          float64
 	YouTubeSourceConfig *YouTubeSourceConfig
 }
@@ -44,11 +45,22 @@ func (c *SyncContext) Validate() error {
 	if c.PublishBid <= 0.0 {
 		return errors.New("Publish bid is not greater than zero")
 	}
+
+	if c.YouTubeSourceConfig.ChannelID != "" {
+		// Validate for YouTube source
+		// For now, an API key is required
+		if c.YouTubeSourceConfig.APIKey == "" {
+			return errors.New("YouTube source was selected, but no YouTube API key was provided.")
+		}
+	} else {
+		return errors.New("No video source provided")
+	}
 	return nil
 }
 
 type YouTubeSourceConfig struct {
-	YouTubeAPIKey string
+	ChannelID string
+	APIKey string
 }
 
 var syncContext SyncContext
@@ -58,7 +70,7 @@ func AddCommand(rootCmd *cobra.Command) {
 		Use:   "local",
 		Short: "run a personal ytsync",
 		Run:   localCmd,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(0),
 	}
 	cmd.Flags().BoolVar(&syncContext.DryRun, "dry-run", false, "Display information about the stream publishing, but do not publish the stream")
 	cmd.Flags().BoolVar(&syncContext.KeepCache, "keep-cache", false, "Don't delete local files after publishing.")
@@ -68,10 +80,11 @@ func AddCommand(rootCmd *cobra.Command) {
 	cmd.Flags().Float64Var(&syncContext.PublishBid, "publish-bid", 0.01, "Bid amount for the stream claim")
 	cmd.Flags().StringVar(&syncContext.LbrynetAddr, "lbrynet-address", getEnvDefault("LBRYNET_ADDRESS", ""), "JSONRPC address of the local LBRYNet daemon")
 	cmd.Flags().StringVar(&syncContext.ChannelID, "channel-id", "", "LBRY channel ID to publish to")
+	cmd.Flags().StringVar(&syncContext.VideoID, "video-id", "", "ID of video to sync. This will attempt to sync only this one video.")
 
-	// For now, assume source is always YouTube
 	syncContext.YouTubeSourceConfig = &YouTubeSourceConfig{}
-	cmd.Flags().StringVar(&syncContext.YouTubeSourceConfig.YouTubeAPIKey, "youtube-api-key", getEnvDefault("YOUTUBE_API_KEY", ""), "YouTube API Key")
+	cmd.Flags().StringVar(&syncContext.YouTubeSourceConfig.APIKey, "youtube-api-key", getEnvDefault("YOUTUBE_API_KEY", ""), "YouTube API Key")
+	cmd.Flags().StringVar(&syncContext.YouTubeSourceConfig.ChannelID, "youtube-channel", "", "YouTube Channel ID")
 	rootCmd.AddCommand(cmd)
 }
 
@@ -88,7 +101,11 @@ func localCmd(cmd *cobra.Command, args []string) {
 		log.Error(err)
 		return
 	}
-	videoID := args[0]
+	videoID := syncContext.VideoID
+	if videoID == "" {
+		log.Errorf("Only single video mode is supported currently. Please provided a video ID.")
+		return
+	}
 
 	log.Debugf("Running sync for video ID %s", videoID)
 
@@ -126,22 +143,31 @@ func localCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	err = syncVideo(syncContext, syncDB, videoSource, publisher, videoID)
+	if err != nil {
+		log.Errorf("Error syncing %s: %v", videoID, err)
+		return
+	}
+	log.Info("Done")
+}
+
+func syncVideo(syncContext SyncContext, syncDB *SyncDb, videoSource VideoSource, publisher VideoPublisher, videoID string) error {
 	sourceVideo, err := videoSource.GetVideo(videoID)
 	if err != nil {
 		log.Errorf("Error getting source video: %v", err)
-		return
+		return err
 	}
 
 	err = syncDB.SaveVideoData(*sourceVideo)
 	if err != nil {
 		log.Errorf("Error saving video data: %v", err)
-		return
+		return err
 	}
 
 	processedVideo, err := processVideoForPublishing(*sourceVideo, syncContext.ChannelID)
 	if err != nil {
 		log.Errorf("Error processing source video for publishing: %v", err)
-		return
+		return err
 	}
 
 	if syncContext.DryRun {
@@ -153,20 +179,21 @@ func localCmd(cmd *cobra.Command, args []string) {
 		claimID, doneReflectingCh, err := publisher.Publish(*processedVideo, syncContext.ReflectStreams)
 		if err != nil {
 			log.Errorf("Error publishing video: %v", err)
-			return
+			return err
 		}
 		err = syncDB.SaveVideoPublication(*processedVideo, claimID)
 		if err != nil {
 			// Sync DB is corrupted after getting here
 			// and will allow double publication.
 			log.Errorf("Error saving video publication to sync DB: %v", err)
-			return
+			return err
 		}
 
 		if syncContext.ReflectStreams {
 			err = <-doneReflectingCh
 			if err != nil {
 				log.Errorf("Error while wating for stream to reflect: %v", err)
+				return err
 			}
 		} else {
 			log.Debugln("Not waiting for stream to reflect.")
@@ -178,9 +205,11 @@ func localCmd(cmd *cobra.Command, args []string) {
 		err = videoSource.DeleteLocalCache(videoID)
 		if err != nil {
 			log.Errorf("Error deleting local files for video %s: %v", videoID, err)
+			return err
 		}
 	}
-	log.Info("Done")
+
+	return nil
 }
 
 type SourceVideo struct {

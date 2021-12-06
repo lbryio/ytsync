@@ -21,8 +21,8 @@ func NewYtdlVideoSource(downloadDir string, config *YouTubeSourceConfig) (*YtdlV
 		downloader: *ytdl,
 	}
 
-	if config.YouTubeAPIKey != "" {
-		ytapiEnricher := NewYouTubeAPIVideoEnricher(config.YouTubeAPIKey)
+	if config.APIKey != "" {
+		ytapiEnricher := NewYouTubeAPIVideoEnricher(config.APIKey)
 		source.enrichers = append(source.enrichers, ytapiEnricher)
 	}
 
