@@ -89,6 +89,7 @@ var ErrorsNoRetry = []string{
 	"Premiere will begin shortly",
 	"cannot unmarshal number 0.0",
 	"default youtube thumbnail found",
+	"livestream is likely bugged",
 }
 var WalletErrors = []string{
 	"Not enough funds to cover this transaction",

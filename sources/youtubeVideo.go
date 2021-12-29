@@ -789,6 +789,10 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 		logUtils.SendErrorToSlack("%s is %s long and the minimum is %s", v.id, dur.String(), minDuration.String())
 		return nil, errors.Err("video is too short to process")
 	}
+	buggedLivestream := v.youtubeInfo.WasLive && time.Unix(v.youtubeInfo.ReleaseTimestamp, 0).After(time.Now().AddDate(0, 0, -1)) && int(dur.Seconds())%7200 == 0
+	if buggedLivestream {
+		return nil, errors.Err("livestream is likely bugged as it was published less than 24 hours ago and has a length of %s", dur.String())
+	}
 	for {
 		err = v.download()
 		if err != nil && strings.Contains(err.Error(), "HTTP Error 429") {

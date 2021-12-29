@@ -1,105 +1,114 @@
 package ytdl
 
-import (
-	"time"
-)
+import "time"
 
 type YtdlVideo struct {
-	UploadDate         string      `json:"upload_date"`
-	UploadDateForReal  time.Time   // you need to manually set this since the value in the API doesn't include the time
-	Extractor          string      `json:"extractor"`
-	Series             interface{} `json:"series"`
-	Format             string      `json:"format"`
-	Vbr                interface{} `json:"vbr"`
-	Chapters           interface{} `json:"chapters"`
-	Height             int         `json:"height"`
-	LikeCount          interface{} `json:"like_count"`
-	Duration           int         `json:"duration"`
-	Fulltitle          string      `json:"fulltitle"`
-	PlaylistIndex      interface{} `json:"playlist_index"`
-	Album              interface{} `json:"album"`
-	ViewCount          int         `json:"view_count"`
-	Playlist           interface{} `json:"playlist"`
-	Title              string      `json:"title"`
-	Filename           string      `json:"_filename"`
-	Creator            interface{} `json:"creator"`
-	Ext                string      `json:"ext"`
-	ID                 string      `json:"id"`
-	DislikeCount       interface{} `json:"dislike_count"`
-	AverageRating      float64     `json:"average_rating"`
-	Abr                float64     `json:"abr"`
-	UploaderURL        string      `json:"uploader_url"`
-	Categories         []string    `json:"categories"`
-	Fps                float64     `json:"fps"`
-	StretchedRatio     interface{} `json:"stretched_ratio"`
-	SeasonNumber       interface{} `json:"season_number"`
-	Annotations        interface{} `json:"annotations"`
-	WebpageURLBasename string      `json:"webpage_url_basename"`
-	Acodec             string      `json:"acodec"`
-	DisplayID          string      `json:"display_id"`
-	//RequestedFormats   []RequestedFormat `json:"requested_formats"`
-	//AutomaticCaptions  struct{}          `json:"automatic_captions"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Formats []struct {
+		FormatId   string `json:"format_id"`
+		FormatNote string `json:"format_note"`
+		Ext        string `json:"ext"`
+		Protocol   string `json:"protocol"`
+		Acodec     string `json:"acodec"`
+		Vcodec     string `json:"vcodec"`
+		Url        string `json:"url"`
+		Width      int    `json:"width,omitempty"`
+		Height     int    `json:"height,omitempty"`
+		Fragments  []struct {
+			Path     string  `json:"path"`
+			Duration float64 `json:"duration"`
+		} `json:"fragments,omitempty"`
+		AudioExt    string `json:"audio_ext"`
+		VideoExt    string `json:"video_ext"`
+		Format      string `json:"format"`
+		Resolution  string `json:"resolution"`
+		HttpHeaders struct {
+			UserAgent      string `json:"User-Agent"`
+			Accept         string `json:"Accept"`
+			AcceptEncoding string `json:"Accept-Encoding"`
+			AcceptLanguage string `json:"Accept-Language"`
+		} `json:"http_headers"`
+		Asr                int     `json:"asr,omitempty"`
+		Filesize           int64   `json:"filesize,omitempty"`
+		SourcePreference   int     `json:"source_preference,omitempty"`
+		Quality            int     `json:"quality,omitempty"`
+		Tbr                float64 `json:"tbr,omitempty"`
+		Language           string  `json:"language,omitempty"`
+		LanguagePreference int     `json:"language_preference,omitempty"`
+		Abr                float64 `json:"abr,omitempty"`
+		DownloaderOptions  struct {
+			HttpChunkSize int `json:"http_chunk_size"`
+		} `json:"downloader_options,omitempty"`
+		Container      string  `json:"container,omitempty"`
+		Fps            int     `json:"fps,omitempty"`
+		DynamicRange   string  `json:"dynamic_range,omitempty"`
+		Vbr            float64 `json:"vbr,omitempty"`
+		FilesizeApprox float64 `json:"filesize_approx,omitempty"`
+	} `json:"formats"`
+	Thumbnails         []Thumbnail `json:"thumbnails"`
+	Thumbnail          string      `json:"thumbnail"`
 	Description        string      `json:"description"`
-	Tags               []string    `json:"tags"`
-	Track              interface{} `json:"track"`
-	RequestedSubtitles interface{} `json:"requested_subtitles"`
-	StartTime          interface{} `json:"start_time"`
+	UploadDate         string      `json:"upload_date"`
+	UploadDateForReal  time.Time   `json:"upload_date_for_real"`
 	Uploader           string      `json:"uploader"`
+	UploaderId         string      `json:"uploader_id"`
+	UploaderUrl        string      `json:"uploader_url"`
+	ChannelID          string      `json:"channel_id"`
+	ChannelUrl         string      `json:"channel_url"`
+	Duration           int         `json:"duration"`
+	ViewCount          int         `json:"view_count"`
+	AgeLimit           int         `json:"age_limit"`
+	WebpageUrl         string      `json:"webpage_url"`
+	Categories         []string    `json:"categories"`
+	Tags               []string    `json:"tags"`
+	PlayableInEmbed    bool        `json:"playable_in_embed"`
+	IsLive             bool        `json:"is_live"`
+	WasLive            bool        `json:"was_live"`
+	LiveStatus         string      `json:"live_status"`
+	ReleaseTimestamp   int64       `json:"release_timestamp"`
+	LikeCount          int         `json:"like_count"`
+	Channel            string      `json:"channel"`
+	Availability       string      `json:"availability"`
+	WebpageUrlBasename string      `json:"webpage_url_basename"`
+	WebpageUrlDomain   string      `json:"webpage_url_domain"`
+	Extractor          string      `json:"extractor"`
 	ExtractorKey       string      `json:"extractor_key"`
-	FormatID           string      `json:"format_id"`
-	EpisodeNumber      interface{} `json:"episode_number"`
-	UploaderID         string      `json:"uploader_id"`
-	//Subtitles          struct{}          `json:"subtitles"`
-	ReleaseYear interface{} `json:"release_year"`
-	Thumbnails  []Thumbnail `json:"thumbnails"`
-	License     interface{} `json:"license"`
-	Artist      interface{} `json:"artist"`
-	AgeLimit    int         `json:"age_limit"`
-	ReleaseDate interface{} `json:"release_date"`
-	AltTitle    interface{} `json:"alt_title"`
-	Thumbnail   string      `json:"thumbnail"`
-	ChannelID   string      `json:"channel_id"`
-	IsLive      interface{} `json:"is_live"`
-	Width       int         `json:"width"`
-	EndTime     interface{} `json:"end_time"`
-	WebpageURL  string      `json:"webpage_url"`
-	Formats     []Format    `json:"formats"`
-	ChannelURL  string      `json:"channel_url"`
-	Resolution  interface{} `json:"resolution"`
-	Vcodec      string      `json:"vcodec"`
-}
-
-type RequestedFormat struct {
-	Asr             interface{} `json:"asr"`
-	Tbr             float64     `json:"tbr"`
-	Container       string      `json:"container"`
-	Language        interface{} `json:"language"`
-	Format          string      `json:"format"`
-	URL             string      `json:"url"`
-	Vcodec          string      `json:"vcodec"`
-	FormatNote      string      `json:"format_note"`
-	Height          int         `json:"height"`
-	Width           int         `json:"width"`
-	Ext             string      `json:"ext"`
-	FragmentBaseURL string      `json:"fragment_base_url"`
-	Filesize        interface{} `json:"filesize"`
-	Fps             float64     `json:"fps"`
-	ManifestURL     string      `json:"manifest_url"`
-	Protocol        string      `json:"protocol"`
-	FormatID        string      `json:"format_id"`
-	HTTPHeaders     struct {
-		AcceptCharset  string `json:"Accept-Charset"`
-		AcceptLanguage string `json:"Accept-Language"`
-		AcceptEncoding string `json:"Accept-Encoding"`
-		Accept         string `json:"Accept"`
+	DisplayId          string      `json:"display_id"`
+	DurationString     string      `json:"duration_string"`
+	ReleaseDate        string      `json:"release_date"`
+	Asr                int         `json:"asr"`
+	FormatId           string      `json:"format_id"`
+	FormatNote         string      `json:"format_note"`
+	SourcePreference   int         `json:"source_preference"`
+	Fps                int         `json:"fps"`
+	Height             int         `json:"height"`
+	Quality            int         `json:"quality"`
+	Tbr                float64     `json:"tbr"`
+	Url                string      `json:"url"`
+	Width              int         `json:"width"`
+	Language           string      `json:"language"`
+	LanguagePreference int         `json:"language_preference"`
+	Ext                string      `json:"ext"`
+	Vcodec             string      `json:"vcodec"`
+	Acodec             string      `json:"acodec"`
+	DynamicRange       string      `json:"dynamic_range"`
+	Protocol           string      `json:"protocol"`
+	VideoExt           string      `json:"video_ext"`
+	AudioExt           string      `json:"audio_ext"`
+	Vbr                float64     `json:"vbr"`
+	Abr                int         `json:"abr"`
+	Format             string      `json:"format"`
+	Resolution         string      `json:"resolution"`
+	FilesizeApprox     float64     `json:"filesize_approx"`
+	HttpHeaders        struct {
 		UserAgent      string `json:"User-Agent"`
+		Accept         string `json:"Accept"`
+		AcceptEncoding string `json:"Accept-Encoding"`
+		AcceptLanguage string `json:"Accept-Language"`
 	} `json:"http_headers"`
-	Fragments []struct {
-		Path     string  `json:"path"`
-		Duration float64 `json:"duration,omitempty"`
-	} `json:"fragments"`
-	Acodec string `json:"acodec"`
-	Abr    int    `json:"abr,omitempty"`
+	Fulltitle string `json:"fulltitle"`
+	Epoch     int    `json:"epoch"`
 }
 
 type Format struct {
@@ -135,10 +144,11 @@ type Format struct {
 
 type Thumbnail struct {
 	URL        string `json:"url"`
-	Width      int    `json:"width"`
-	Resolution string `json:"resolution"`
+	Preference int    `json:"preference"`
 	ID         string `json:"id"`
 	Height     int    `json:"height"`
+	Width      int    `json:"width"`
+	Resolution string `json:"resolution"`
 }
 
 type HTTPHeaders struct {
