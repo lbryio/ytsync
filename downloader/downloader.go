@@ -50,7 +50,7 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, 
 
 const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
-func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
+func GetVideoInformation(videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
 	args := []string{
 		"--skip-download",
 		"--write-info-json",
@@ -78,50 +78,6 @@ func GetVideoInformation(config *sdk.APIConfig, videoID string, stopChan stop.Ch
 	err = json.Unmarshal(byteValue, &video)
 	if err != nil {
 		return nil, errors.Err(err)
-	}
-
-	// now get an accurate time
-	const maxTries = 5
-	tries := 0
-GetTime:
-	tries++
-	t, err := getUploadTime(config, videoID, ip, video.UploadDate)
-	if err != nil {
-		//slack(":warning: Upload time error: %v", err)
-		if tries <= maxTries && (errors.Is(err, errNotScraped) || errors.Is(err, errUploadTimeEmpty) || errors.Is(err, errStatusParse) || errors.Is(err, errConnectionIssue)) {
-			err := triggerScrape(videoID, ip)
-			if err == nil {
-				time.Sleep(2 * time.Second) // let them scrape it
-				goto GetTime
-			} else {
-				//slack("triggering scrape returned error: %v", err)
-			}
-		} else if !errors.Is(err, errNotScraped) && !errors.Is(err, errUploadTimeEmpty) {
-			//slack(":warning: Error while trying to get accurate upload time for %s: %v", videoID, err)
-			if t == "" {
-				return nil, errors.Err(err)
-			} else {
-				t = "" //TODO: get rid of the other piece below?
-			}
-		}
-		// do fallback below
-	}
-	//slack("After all that, upload time for %s is %s", videoID, t)
-
-	if t != "" {
-		parsed, err := time.Parse("2006-01-02, 15:04:05 (MST)", t) // this will probably be UTC, but Go's timezone parsing is fucked up. it ignores the timezone in the date
-		if err != nil {
-			return nil, errors.Err(err)
-		}
-		//slack(":exclamation: Got an accurate time for %s", videoID)
-		video.UploadDateForReal = parsed
-	} else { //TODO: this is the piece that isn't needed!
-		slack(":warning: Could not get accurate time for %s. Falling back to time from upload ytdl: %s.", videoID, video.UploadDate)
-		// fall back to UploadDate from youtube-dl
-		video.UploadDateForReal, err = time.Parse("20060102", video.UploadDate)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return video, nil
@@ -213,45 +169,7 @@ func getUploadTime(config *sdk.APIConfig, videoID string, ip *net.TCPAddr, uploa
 		}
 	}
 
-	if time.Now().AddDate(0, 0, -3).After(ytdlUploadDate) {
-		return ytdlUploadDate.Format(releaseTimeFormat), nil
-	}
-	client := getClient(ip)
-	req, err := http.NewRequest(http.MethodGet, "https://caa.iti.gr/get_verificationV3?url=https://www.youtube.com/watch?v="+videoID, nil)
-	if err != nil {
-		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
-	}
-	req.Header.Set("User-Agent", ChromeUA)
-
-	res, err := client.Do(req)
-	if err != nil {
-		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
-	}
-	defer res.Body.Close()
-
-	var uploadTime struct {
-		Time    string `json:"video_upload_time"`
-		Message string `json:"message"`
-		Status  string `json:"status"`
-	}
-	err = json.NewDecoder(res.Body).Decode(&uploadTime)
-	if err != nil {
-		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err(err)
-	}
-
-	if uploadTime.Status == "ERROR1" {
-		return ytdlUploadDate.Format(releaseTimeFormat), errNotScraped
-	}
-
-	if uploadTime.Status == "" && strings.HasPrefix(uploadTime.Message, "CANNOT_RETRIEVE_REPORT_FOR_VIDEO_") {
-		return ytdlUploadDate.Format(releaseTimeFormat), errors.Err("cannot retrieve report for video")
-	}
-
-	if uploadTime.Time == "" {
-		return ytdlUploadDate.Format(releaseTimeFormat), errUploadTimeEmpty
-	}
-
-	return uploadTime.Time, nil
+	return ytdlUploadDate.Format(releaseTimeFormat), nil
 }
 
 func getClient(ip *net.TCPAddr) *http.Client {

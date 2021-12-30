@@ -13,6 +13,7 @@ import (
 
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 	"github.com/lbryio/lbry.go/v2/extras/null"
+	"github.com/lbryio/ytsync/v5/configs"
 	"github.com/lbryio/ytsync/v5/shared"
 
 	"github.com/lbryio/ytsync/v5/util"
@@ -28,6 +29,19 @@ type APIConfig struct {
 	ApiURL   string
 	ApiToken string
 	HostName string
+}
+
+var instance *APIConfig
+
+func GetAPIsConfigs() *APIConfig {
+	if instance == nil {
+		instance = &APIConfig{
+			ApiURL:   configs.Configuration.InternalApisEndpoint,
+			ApiToken: configs.Configuration.InternalApisAuthToken,
+			HostName: configs.Configuration.GetHostname(),
+		}
+	}
+	return instance
 }
 
 func (a *APIConfig) FetchChannels(status string, cliFlags *shared.SyncFlags) ([]shared.YoutubeChannel, error) {

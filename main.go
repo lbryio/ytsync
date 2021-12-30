@@ -9,7 +9,6 @@ import (
 
 	"github.com/lbryio/ytsync/v5/configs"
 	"github.com/lbryio/ytsync/v5/manager"
-	"github.com/lbryio/ytsync/v5/sdk"
 	"github.com/lbryio/ytsync/v5/shared"
 	ytUtils "github.com/lbryio/ytsync/v5/util"
 
@@ -75,22 +74,11 @@ func ytSync(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("could not parse configuration file: %s", errors.FullTrace(err))
 	}
-	var hostname string
 
 	if configs.Configuration.SlackToken == "" {
 		log.Error("A slack token was not present in the config! Slack messages disabled!")
 	} else {
-		var err error
-		hostname, err = os.Hostname()
-		if err != nil {
-			log.Error("could not detect system hostname")
-			hostname = "ytsync-unknown"
-		}
-		if len(hostname) > 30 {
-			hostname = hostname[0:30]
-		}
-
-		util.InitSlack(configs.Configuration.SlackToken, configs.Configuration.SlackChannel, hostname)
+		util.InitSlack(configs.Configuration.SlackToken, configs.Configuration.SlackChannel, configs.Configuration.GetHostname())
 	}
 
 	if cliFlags.Status != "" && !util.InSlice(cliFlags.Status, shared.SyncStatuses) {
@@ -131,17 +119,9 @@ func ytSync(cmd *cobra.Command, args []string) {
 
 	blobsDir := ytUtils.GetBlobsDir()
 
-	apiConfig := &sdk.APIConfig{
-		ApiURL:   configs.Configuration.InternalApisEndpoint,
-		ApiToken: configs.Configuration.InternalApisAuthToken,
-		HostName: hostname,
-	}
-
 	sm := manager.NewSyncManager(
 		cliFlags,
 		blobsDir,
-		configs.Configuration.LbrycrdString,
-		apiConfig,
 	)
 	err = sm.Start()
 	if err != nil {

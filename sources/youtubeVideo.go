@@ -107,7 +107,7 @@ func NewYoutubeVideo(directory string, videoData *ytdl.YtdlVideo, playlistPositi
 		title:            videoData.Title,
 		description:      videoData.Description,
 		playlistPosition: playlistPosition,
-		publishedAt:      videoData.UploadDateForReal,
+		publishedAt:      videoData.GetUploadTime(),
 		dir:              directory,
 		youtubeInfo:      videoData,
 		mocked:           false,

@@ -55,7 +55,7 @@ type VideoParams struct {
 
 var mostRecentlyFailedChannel string // TODO: fix this hack!
 
-func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams, lastUploadedVideo string) ([]Video, error) {
+func GetVideosToSync(channelID string, syncedVideos map[string]sdk.SyncedVideo, quickSync bool, maxVideos int, videoParams VideoParams, lastUploadedVideo string) ([]Video, error) {
 	var videos []Video
 	if quickSync && maxVideos > 50 {
 		maxVideos = 50
@@ -94,7 +94,7 @@ func GetVideosToSync(config *sdk.APIConfig, channelID string, syncedVideos map[s
 		mostRecentlyFailedChannel = channelID
 	}
 
-	vids, err := getVideos(config, channelID, videoIDs, videoParams.Stopper.Ch(), videoParams.IPPool)
+	vids, err := getVideos(channelID, videoIDs, videoParams.Stopper.Ch(), videoParams.IPPool)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,8 @@ func ChannelInfo(channelID string) (*YoutubeStatsResponse, error) {
 	return &decodedResponse, nil
 }
 
-func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
+func getVideos(channelID string, videoIDs []string, stopChan stop.Chan, ipPool *ip_manager.IPPool) ([]*ytdl.YtdlVideo, error) {
+	config := sdk.GetAPIsConfigs()
 	var videos []*ytdl.YtdlVideo
 	for _, videoID := range videoIDs {
 		if len(videoID) < 5 {
@@ -215,11 +216,6 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 		default:
 		}
 
-		//ip, err := ipPool.GetIP(videoID)
-		//if err != nil {
-		//	return nil, err
-		//}
-		//video, err := downloader.GetVideoInformation(videoID, &net.TCPAddr{IP: net.ParseIP(ip)})
 		state, err := config.VideoState(videoID)
 		if err != nil {
 			return nil, errors.Err(err)
@@ -227,7 +223,7 @@ func getVideos(config *sdk.APIConfig, channelID string, videoIDs []string, stopC
 		if state == "published" {
 			continue
 		}
-		video, err := downloader.GetVideoInformation(config, videoID, stopChan, nil, ipPool)
+		video, err := downloader.GetVideoInformation(videoID, stopChan, nil, ipPool)
 		if err != nil {
 			errSDK := config.MarkVideoStatus(shared.VideoStatus{
 				ChannelID:     channelID,

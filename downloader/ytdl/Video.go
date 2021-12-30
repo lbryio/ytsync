@@ -1,6 +1,12 @@
 package ytdl
 
-import "time"
+import (
+	"math"
+	"time"
+
+	"github.com/lbryio/ytsync/v5/sdk"
+	"github.com/sirupsen/logrus"
+)
 
 type YtdlVideo struct {
 	ID      string `json:"id"`
@@ -50,7 +56,7 @@ type YtdlVideo struct {
 	Thumbnail          string      `json:"thumbnail"`
 	Description        string      `json:"description"`
 	UploadDate         string      `json:"upload_date"`
-	UploadDateForReal  time.Time   `json:"upload_date_for_real"`
+	uploadDateForReal  *time.Time  `json:"upload_date_for_real"`
 	Uploader           string      `json:"uploader"`
 	UploaderId         string      `json:"uploader_id"`
 	UploaderUrl        string      `json:"uploader_url"`
@@ -157,4 +163,38 @@ type HTTPHeaders struct {
 	AcceptEncoding string `json:"Accept-Encoding"`
 	Accept         string `json:"Accept"`
 	UserAgent      string `json:"User-Agent"`
+}
+
+func (v *YtdlVideo) GetUploadTime() time.Time {
+	if v.uploadDateForReal != nil {
+		return *v.uploadDateForReal
+	}
+
+	release, err := sdk.GetAPIsConfigs().GetReleasedDate(v.ID)
+	if err != nil {
+		logrus.Error(err)
+	}
+	ytdlUploadDate, err := time.Parse("20060102", v.UploadDate)
+	if err != nil {
+		logrus.Error(err)
+	}
+	if v.ReleaseTimestamp != 0 {
+		ytdlUploadDate = time.Unix(v.ReleaseTimestamp, 0)
+	}
+	if release != nil {
+		sqlTime, err := time.ParseInLocation(time.RFC3339, release.ReleaseTime, time.UTC)
+		if err == nil {
+			hoursDiff := math.Abs(sqlTime.Sub(ytdlUploadDate).Hours())
+			if hoursDiff > 48 {
+				logrus.Infof("upload day from APIs differs from the ytdl one by more than 2 days.")
+			} else {
+				v.uploadDateForReal = &sqlTime
+				return sqlTime
+			}
+		} else {
+			logrus.Error(err)
+		}
+	}
+	v.uploadDateForReal = &ytdlUploadDate
+	return ytdlUploadDate
 }

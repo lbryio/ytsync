@@ -868,7 +868,7 @@ func (s *Sync) enqueueYoutubeVideos() error {
 		return err
 	}
 
-	videos, err := ytapi.GetVideosToSync(s.Manager.ApiConfig, s.DbChannelData.ChannelId, s.syncedVideos, s.Manager.CliFlags.QuickSync, s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers), ytapi.VideoParams{
+	videos, err := ytapi.GetVideosToSync(s.DbChannelData.ChannelId, s.syncedVideos, s.Manager.CliFlags.QuickSync, s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers), ytapi.VideoParams{
 		VideoDir: s.videoDirectory,
 		Stopper:  s.grp,
 		IPPool:   ipPool,

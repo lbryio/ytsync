@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lbryio/ytsync/v5/blobs_reflector"
+	"github.com/lbryio/ytsync/v5/configs"
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/namer"
 	"github.com/lbryio/ytsync/v5/sdk"
@@ -29,12 +30,12 @@ type SyncManager struct {
 	channelsToSync []Sync
 }
 
-func NewSyncManager(cliFlags shared.SyncFlags, blobsDir, lbrycrdDsn string, apiConfig *sdk.APIConfig) *SyncManager {
+func NewSyncManager(cliFlags shared.SyncFlags, blobsDir string) *SyncManager {
 	return &SyncManager{
 		CliFlags:   cliFlags,
 		blobsDir:   blobsDir,
-		LbrycrdDsn: lbrycrdDsn,
-		ApiConfig:  apiConfig,
+		LbrycrdDsn: configs.Configuration.LbrycrdString,
+		ApiConfig:  sdk.GetAPIsConfigs(),
 	}
 }
 func (s *SyncManager) enqueueChannel(channel *shared.YoutubeChannel) {

@@ -1,10 +1,14 @@
 package configs
 
 import (
+	"os"
+	"regexp"
+
 	"github.com/lbryio/lbry.go/v2/extras/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	log "github.com/sirupsen/logrus"
 	"github.com/tkanos/gonfig"
 )
 
@@ -49,4 +53,23 @@ func (s *S3Configs) GetS3AWSConfig() *aws.Config {
 		Endpoint:         &s.Endpoint,
 		S3ForcePathStyle: aws.Bool(true),
 	}
+}
+func (c *Configs) GetHostname() string {
+	var hostname string
+
+	var err error
+	hostname, err = os.Hostname()
+	if err != nil {
+		log.Error("could not detect system hostname")
+		hostname = "ytsync_unknown"
+	}
+	reg, err := regexp.Compile("[^a-zA-Z0-9_]+")
+	if err == nil {
+		hostname = reg.ReplaceAllString(hostname, "_")
+
+	}
+	if len(hostname) > 30 {
+		hostname = hostname[0:30]
+	}
+	return hostname
 }
