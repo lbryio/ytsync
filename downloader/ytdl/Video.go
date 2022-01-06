@@ -29,7 +29,7 @@ type YtdlVideo struct {
 			AcceptEncoding string `json:"Accept-Encoding"`
 			AcceptLanguage string `json:"Accept-Language"`
 		} `json:"http_headers"`
-		Asr                int     `json:"asr,omitempty"`
+		Asr                float64 `json:"asr,omitempty"`
 		Filesize           int64   `json:"filesize,omitempty"`
 		SourcePreference   int     `json:"source_preference,omitempty"`
 		Quality            int     `json:"quality,omitempty"`
@@ -41,7 +41,7 @@ type YtdlVideo struct {
 			HttpChunkSize int `json:"http_chunk_size"`
 		} `json:"downloader_options,omitempty"`
 		Container      string  `json:"container,omitempty"`
-		Fps            int     `json:"fps,omitempty"`
+		Fps            float64 `json:"fps,omitempty"`
 		DynamicRange   string  `json:"dynamic_range,omitempty"`
 		Vbr            float64 `json:"vbr,omitempty"`
 		FilesizeApprox float64 `json:"filesize_approx,omitempty"`
@@ -77,11 +77,11 @@ type YtdlVideo struct {
 	DisplayId          string      `json:"display_id"`
 	DurationString     string      `json:"duration_string"`
 	ReleaseDate        string      `json:"release_date"`
-	Asr                int         `json:"asr"`
+	Asr                float64     `json:"asr"`
 	FormatId           string      `json:"format_id"`
 	FormatNote         string      `json:"format_note"`
 	SourcePreference   int         `json:"source_preference"`
-	Fps                int         `json:"fps"`
+	Fps                float64     `json:"fps"`
 	Height             int         `json:"height"`
 	Quality            int         `json:"quality"`
 	Tbr                float64     `json:"tbr"`
@@ -97,7 +97,7 @@ type YtdlVideo struct {
 	VideoExt           string      `json:"video_ext"`
 	AudioExt           string      `json:"audio_ext"`
 	Vbr                float64     `json:"vbr"`
-	Abr                int         `json:"abr"`
+	Abr                float64     `json:"abr"`
 	Format             string      `json:"format"`
 	Resolution         string      `json:"resolution"`
 	FilesizeApprox     float64     `json:"filesize_approx"`
