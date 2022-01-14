@@ -8,33 +8,34 @@ replace github.com/btcsuite/btcd => github.com/lbryio/lbrycrd.go v0.0.0-20200203
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/abadojack/whatlanggo v1.0.1
+	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200819183940-29e1ff8eb0bb
-	github.com/aws/aws-sdk-go v1.25.9
+	github.com/aws/aws-sdk-go v1.27.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
+	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
-	github.com/hashicorp/memberlist v0.1.5 // indirect
-	github.com/hashicorp/serf v0.8.5 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
+	github.com/lbryio/lbry.go v1.1.2 // indirect
 	github.com/lbryio/lbry.go/v2 v2.7.2-0.20210824154606-3e18b74da08b
-	github.com/lbryio/reflector.go v1.1.3-0.20210412225256-4392c9724262
-	github.com/miekg/dns v1.1.22 // indirect
+	github.com/lbryio/reflector.go v1.1.3-0.20211214213601-4d8e7739d704
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2 // indirect
-	github.com/prometheus/client_golang v0.9.3
+	github.com/prometheus/client_golang v1.10.0
 	github.com/shopspring/decimal v0.0.0-20191009025716-f1972eb1d1f5
-	github.com/sirupsen/logrus v1.4.2
-	github.com/spf13/cobra v0.0.5
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/afero v1.4.1 // indirect
+	github.com/spf13/cobra v1.1.3
+	github.com/spf13/viper v1.7.1 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/tkanos/gonfig v0.0.0-20210106201359-53e13348de2f
 	github.com/vbauerster/mpb/v7 v7.0.2
-	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/ini.v1 v1.60.2 // indirect
 	gopkg.in/vansante/go-ffprobe.v2 v2.0.2
 	gotest.tools v2.2.0+incompatible

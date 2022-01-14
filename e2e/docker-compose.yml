@@ -21,7 +21,7 @@ services:
   ## Wallet Server ##
   ###################
   walletserver:
-    image: lbry/wallet-server:latest-release
+    image: lbry/wallet-server:v0.101.1
     restart: always
     environment:
       - DB_DIRECTORY=/database
