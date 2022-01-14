@@ -50,7 +50,7 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, 
 
 const releaseTimeFormat = "2006-01-02, 15:04:05 (MST)"
 
-func GetVideoInformation(videoID string, stopChan stop.Chan, ip *net.TCPAddr, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
+func GetVideoInformation(videoID string, stopChan stop.Chan, pool *ip_manager.IPPool) (*ytdl.YtdlVideo, error) {
 	args := []string{
 		"--skip-download",
 		"--write-info-json",

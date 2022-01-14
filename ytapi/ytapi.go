@@ -223,7 +223,7 @@ func getVideos(channelID string, videoIDs []string, stopChan stop.Chan, ipPool *
 		if state == "published" {
 			continue
 		}
-		video, err := downloader.GetVideoInformation(videoID, stopChan, nil, ipPool)
+		video, err := downloader.GetVideoInformation(videoID, stopChan, ipPool)
 		if err != nil {
 			errSDK := config.MarkVideoStatus(shared.VideoStatus{
 				ChannelID:     channelID,
