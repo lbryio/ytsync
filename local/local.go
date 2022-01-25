@@ -20,6 +20,7 @@ type SyncContext struct {
 	DryRun              bool
 	KeepCache           bool
 	ReflectStreams      bool
+	ForceChannelScan    bool
 	TempDir             string
 	SyncDbPath          string
 	LbrynetAddr         string
@@ -75,6 +76,7 @@ func AddCommand(rootCmd *cobra.Command) {
 	cmd.Flags().BoolVar(&syncContext.DryRun, "dry-run", false, "Display information about the stream publishing, but do not publish the stream")
 	cmd.Flags().BoolVar(&syncContext.KeepCache, "keep-cache", false, "Don't delete local files after publishing.")
 	cmd.Flags().BoolVar(&syncContext.ReflectStreams, "reflect-streams", true, "Require published streams to be reflected.")
+	cmd.Flags().BoolVar(&syncContext.ForceChannelScan, "force-rescan", false, "Rescan channel to fill the sync DB.")
 	cmd.Flags().StringVar(&syncContext.TempDir, "temp-dir", getEnvDefault("TEMP_DIR", ""), "directory to use for temporary files")
 	cmd.Flags().StringVar(&syncContext.SyncDbPath, "sync-db-path", getEnvDefault("SYNC_DB_PATH", ""), "Path to the local sync DB")
 	cmd.Flags().Float64Var(&syncContext.PublishBid, "publish-bid", 0.01, "Bid amount for the stream claim")
@@ -101,13 +103,6 @@ func localCmd(cmd *cobra.Command, args []string) {
 		log.Error(err)
 		return
 	}
-	videoID := syncContext.VideoID
-	if videoID == "" {
-		log.Errorf("Only single video mode is supported currently. Please provided a video ID.")
-		return
-	}
-
-	log.Debugf("Running sync for video ID %s", videoID)
 
 	syncDB, err := NewSyncDb(syncContext.SyncDbPath)
 	if err != nil {
@@ -115,17 +110,6 @@ func localCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 	defer syncDB.Close()
-
-	isSynced, claimID, err := syncDB.IsVideoPublished("YouTube", videoID)
-	if err != nil {
-		log.Errorf("Error checking if video is already synced: %v", err)
-		return
-	}
-
-	if isSynced {
-		log.Infof("Video %s is already published as %s.", videoID, claimID)
-		return
-	}
 
 	var publisher VideoPublisher
 	publisher, err = NewLocalSDKPublisher(syncContext.LbrynetAddr, syncContext.ChannelID, syncContext.PublishBid)
@@ -136,37 +120,121 @@ func localCmd(cmd *cobra.Command, args []string) {
 
 	var videoSource VideoSource
 	if syncContext.YouTubeSourceConfig != nil {
-		videoSource, err = NewYtdlVideoSource(syncContext.TempDir, syncContext.YouTubeSourceConfig)
+		videoSource, err = NewYtdlVideoSource(syncContext.TempDir, syncContext.YouTubeSourceConfig, syncDB)
 		if err != nil {
 			log.Errorf("Error setting up video source: %v", err)
 			return
 		}
 	}
 
-	err = syncVideo(syncContext, syncDB, videoSource, publisher, videoID)
-	if err != nil {
-		log.Errorf("Error syncing %s: %v", videoID, err)
-		return
+	latestPublishedReleaseTime := int64(0)
+	latestKnownReleaseTime := int64(0)
+	if syncContext.ForceChannelScan {
+		log.Infof("Channel scan is being forced.")
+	} else {
+		dbSummary, err := syncDB.GetSummary()
+		if err != nil {
+			log.Errorf("Error getting sync DB summary for update scan: %v", err)
+			return
+		}
+		latestPublishedReleaseTime = dbSummary.LatestPublished
+		latestKnownReleaseTime = dbSummary.LatestKnown
+	}
+	log.Debugf("Latest known release time: %d", latestKnownReleaseTime)
+	for result := range videoSource.Scan(latestKnownReleaseTime) {
+		if result.Error != nil {
+			log.Errorf("Error while discovering new videos from source: %v", result.Error)
+		} else {
+			syncDB.SaveKnownVideo(*result.Video)
+		}
+	}
+	log.Debugf("Latest published release time: %d", latestPublishedReleaseTime)
+	for result := range publisher.PublishedVideoIterator(latestPublishedReleaseTime) {
+		if result.Error != nil {
+			log.Errorf("Error while discovering published videos: %v", result.Error)
+		} else {
+			syncDB.SavePublishedVideo(*result.Video)
+		}
+	}
+
+	var videoIDs []string
+	if syncContext.VideoID == "" {
+		videoIDs, err = syncDB.GetUnpublishedIDs(videoSource.SourceName())
+		if err != nil {
+			log.Errorf("Error getting unpublished videos from sync DB: %v", err)
+			return
+		}
+	} else {
+		videoIDs = []string{ syncContext.VideoID }
+	}
+	log.Debugf("Syncing videos: %v", videoIDs)
+	for _, videoID := range videoIDs {
+		err = syncVideo(syncContext, syncDB, videoSource, publisher, videoID)
+		if err != nil {
+			log.Errorf("Error syncing %s: %v", videoID, err)
+			return
+		}
 	}
 	log.Info("Done")
 }
 
-func syncVideo(syncContext SyncContext, syncDB *SyncDb, videoSource VideoSource, publisher VideoPublisher, videoID string) error {
+func cacheVideo(syncContext SyncContext, syncDB *SyncDb, videoSource VideoSource, videoID string) (*PublishableVideo, error) {
+	log.Debugf("Ensuring video %s:%s is cached", videoSource.SourceName(), videoID)
+
+	videoRecord, err := syncDB.GetVideoRecord(videoSource.SourceName(), videoID, true, true)
+	if err != nil {
+		log.Errorf("Error checking if video is already cached: %v", err)
+		return nil, err
+	}
+
+	if videoRecord != nil && videoRecord.FullLocalPath.Valid {
+		log.Debugf("%s:%s is already cached.", videoSource.SourceName(), videoID)
+		video := videoRecord.ToPublishableVideo()
+		if video == nil {
+			log.Warnf("%s:%s appears to be cached locally, but has missing data. Caching again.")
+		}
+		return video, nil
+	}
+
+	log.Debugf("%s:%s is not cached locally. Caching now.", videoSource.SourceName(), videoID)
 	sourceVideo, err := videoSource.GetVideo(videoID)
 	if err != nil {
 		log.Errorf("Error getting source video: %v", err)
-		return err
-	}
-
-	err = syncDB.SaveVideoData(*sourceVideo)
-	if err != nil {
-		log.Errorf("Error saving video data: %v", err)
-		return err
+		return nil, err
 	}
 
 	processedVideo, err := processVideoForPublishing(*sourceVideo, syncContext.ChannelID)
 	if err != nil {
 		log.Errorf("Error processing source video for publishing: %v", err)
+		return nil, err
+	}
+
+	err = syncDB.SavePublishableVideo(*processedVideo)
+	if err != nil {
+		log.Errorf("Error saving video data: %v", err)
+		return nil, err
+	}
+
+	return processedVideo, nil
+}
+
+func syncVideo(syncContext SyncContext, syncDB *SyncDb, videoSource VideoSource, publisher VideoPublisher, videoID string) error {
+	log.Debugf("Running sync for video %s:%s", videoSource.SourceName(), videoID)
+
+	isSynced, claimID, err := syncDB.IsVideoPublished(videoSource.SourceName(), videoID)
+	if err != nil {
+		log.Errorf("Error checking if video is already synced: %v", err)
+		return err
+	}
+
+	if isSynced {
+		log.Infof("Video %s:%s is already published as %s.", videoSource.SourceName(), videoID, claimID)
+		return nil
+	}
+
+	processedVideo, err := cacheVideo(syncContext, syncDB, videoSource, videoID)
+	if err != nil {
+		log.Errorf("Error ensuring video is cached prior to publication: %v", err)
 		return err
 	}
 
@@ -181,7 +249,7 @@ func syncVideo(syncContext SyncContext, syncDB *SyncDb, videoSource VideoSource,
 			log.Errorf("Error publishing video: %v", err)
 			return err
 		}
-		err = syncDB.SaveVideoPublication(*processedVideo, claimID)
+		err = syncDB.SavePublishedVideo((*processedVideo).ToPublished(claimID))
 		if err != nil {
 			// Sync DB is corrupted after getting here
 			// and will allow double publication.
@@ -202,6 +270,11 @@ func syncVideo(syncContext SyncContext, syncDB *SyncDb, videoSource VideoSource,
 
 	if !syncContext.KeepCache {
 		log.Infof("Deleting local files.")
+		err = syncDB.MarkVideoUncached(videoSource.SourceName(), videoID)
+		if err != nil {
+			log.Errorf("Error marking video %s:%s as uncached in syncDB", videoSource.SourceName(), videoID)
+			return err
+		}
 		err = videoSource.DeleteLocalCache(videoID)
 		if err != nil {
 			log.Errorf("Error deleting local files for video %s: %v", videoID, err)
@@ -222,7 +295,7 @@ type SourceVideo struct {
 	Tags []string
 	ReleaseTime *int64
 	ThumbnailURL *string
-	FullLocalPath string
+	FullLocalPath *string
 }
 
 type PublishableVideo struct {
@@ -239,7 +312,59 @@ type PublishableVideo struct {
 	FullLocalPath string
 }
 
+func (v PublishableVideo) ToPublished(claimID string) PublishedVideo {
+	return PublishedVideo {
+		ClaimID: claimID,
+		NativeID: v.ID,
+		Source: v.Source,
+		ClaimName: v.ClaimName,
+		Title: v.Title,
+		Description: v.Description,
+		SourceURL: v.SourceURL,
+		Languages: v.Languages,
+		Tags: v.Tags,
+		ReleaseTime: v.ReleaseTime,
+		ThumbnailURL: v.ThumbnailURL,
+		FullLocalPath: v.FullLocalPath,
+	}
+}
+
+type PublishedVideo struct {
+	ClaimID string
+	NativeID string
+	Source string
+	ClaimName string
+	Title string
+	Description string
+	SourceURL string
+	Languages []string
+	Tags []string
+	ReleaseTime int64
+	ThumbnailURL string
+	FullLocalPath string
+}
+
+func (v PublishedVideo) ToPublishable() PublishableVideo {
+	return PublishableVideo {
+		ID: v.NativeID,
+		Source: v.Source,
+		ClaimName: v.ClaimName,
+		Title: v.Title,
+		Description: v.Description,
+		SourceURL: v.SourceURL,
+		Languages: v.Languages,
+		Tags: v.Tags,
+		ReleaseTime: v.ReleaseTime,
+		ThumbnailURL: v.ThumbnailURL,
+		FullLocalPath: v.FullLocalPath,
+	}
+}
+
 func processVideoForPublishing(source SourceVideo, channelID string) (*PublishableVideo, error) {
+	if source.FullLocalPath == nil {
+		return nil, errors.New("Video is not cached locally")
+	}
+
 	tags, err := tags_manager.SanitizeTags(source.Tags, channelID)
 	if err != nil {
 		log.Errorf("Error sanitizing tags: %v", err)
@@ -289,7 +414,7 @@ func processVideoForPublishing(source SourceVideo, channelID string) (*Publishab
 		Tags: tags,
 		ReleaseTime: *releaseTime,
 		ThumbnailURL: *thumbnailURL,
-		FullLocalPath: source.FullLocalPath,
+		FullLocalPath: *source.FullLocalPath,
 	}
 
 	log.Debugf("Video prepared for publication: %v", processed)
@@ -313,10 +438,23 @@ func getAbbrevDescription(v SourceVideo) string {
 }
 
 type VideoSource interface {
+	SourceName() string
 	GetVideo(id string) (*SourceVideo, error)
 	DeleteLocalCache(id string) error
+	Scan(sinceTimestamp int64) <-chan SourceScanIteratorResult
+}
+
+type SourceScanIteratorResult struct {
+	Video *SourceVideo
+	Error error
 }
 
 type VideoPublisher interface {
-	Publish(video PublishableVideo, reflectStream bool) (string, chan error, error)
+	Publish(video PublishableVideo, reflectStream bool) (string, <-chan error, error)
+	PublishedVideoIterator(sinceTimestamp int64) <-chan PublishedVideoIteratorResult
+}
+
+type PublishedVideoIteratorResult struct {
+	Video *PublishedVideo
+	Error error
 }

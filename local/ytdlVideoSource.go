@@ -8,10 +8,11 @@ import (
 
 type YtdlVideoSource struct {
 	downloader Ytdl
+	channelScanner YouTubeChannelScanner
 	enrichers []YouTubeVideoEnricher
 }
 
-func NewYtdlVideoSource(downloadDir string, config *YouTubeSourceConfig) (*YtdlVideoSource, error) {
+func NewYtdlVideoSource(downloadDir string, config *YouTubeSourceConfig, syncDB *SyncDb) (*YtdlVideoSource, error) {
 	ytdl, err := NewYtdl(downloadDir)
 	if err != nil {
 		return nil, err
@@ -21,12 +22,25 @@ func NewYtdlVideoSource(downloadDir string, config *YouTubeSourceConfig) (*YtdlV
 		downloader: *ytdl,
 	}
 
+	if syncDB != nil {
+		source.enrichers = append(source.enrichers, NewCacheVideoEnricher(syncDB))
+	}
+
 	if config.APIKey != "" {
 		ytapiEnricher := NewYouTubeAPIVideoEnricher(config.APIKey)
 		source.enrichers = append(source.enrichers, ytapiEnricher)
+		source.channelScanner = NewYouTubeAPIChannelScanner(config.APIKey, config.ChannelID)
+	}
+
+	if source.channelScanner == nil {
+		log.Warnf("No means of scanning source channels has been provided")
 	}
 
 	return &source, nil
+}
+
+func (s *YtdlVideoSource) SourceName() string {
+	return "YouTube"
 }
 
 func (s *YtdlVideoSource) GetVideo(id string) (*SourceVideo, error) {
@@ -57,7 +71,7 @@ func (s *YtdlVideoSource) GetVideo(id string) (*SourceVideo, error) {
 		Tags: metadata.Tags,
 		ReleaseTime: nil,
 		ThumbnailURL: &bestThumbnail.URL,
-		FullLocalPath: videoPath,
+		FullLocalPath: &videoPath,
 	}
 
 	for _, enricher := range s.enrichers {
@@ -74,4 +88,14 @@ func (s *YtdlVideoSource) GetVideo(id string) (*SourceVideo, error) {
 
 func (s *YtdlVideoSource) DeleteLocalCache(id string) error {
 	return s.downloader.DeleteVideoFiles(id)
+}
+
+func (s *YtdlVideoSource) Scan(sinceTimestamp int64) <-chan SourceScanIteratorResult {
+	if s.channelScanner != nil {
+		return s.channelScanner.Scan(sinceTimestamp)
+	}
+
+	videoCh := make(chan SourceScanIteratorResult, 1)
+	close(videoCh)
+	return videoCh
 }

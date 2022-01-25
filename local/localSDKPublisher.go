@@ -48,7 +48,7 @@ func NewLocalSDKPublisher(sdkAddr, channelID string, publishBid float64) (*Local
 	return &publisher, nil
 }
 
-func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) (string, chan error, error) {
+func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) (string, <-chan error, error) {
 	streamCreateOptions := jsonrpc.StreamCreateOptions {
 		ClaimCreateOptions: jsonrpc.ClaimCreateOptions {
 			Title:        &video.Title,
@@ -114,6 +114,60 @@ func (p *LocalSDKPublisher) Publish(video PublishableVideo, reflectStream bool) 
 	}()
 
 	return *claimID, done, nil
+}
+
+func (p *LocalSDKPublisher) PublishedVideoIterator(sinceTimestamp int64) <-chan PublishedVideoIteratorResult {
+	videoCh := make(chan PublishedVideoIteratorResult, 10)
+	go func() {
+		defer close(videoCh)
+		for page := uint64(0); ; page++ {
+			streams, err := p.lbrynet.StreamList(nil, page, 100)
+			if err != nil {
+				log.Errorf("Error listing streams (page %d): %v", page, err)
+
+				errResult := PublishedVideoIteratorResult {
+					Error: err,
+				}
+				videoCh <- errResult
+				return
+			}
+			if len(streams.Items) == 0 {
+				return
+			}
+
+			for _, stream := range streams.Items {
+				if stream.ChannelID != p.channelID || stream.Value.GetStream().ReleaseTime < sinceTimestamp {
+					continue
+				}
+
+				languages := []string{}
+				for _, language := range stream.Value.Languages {
+					languages = append(languages, language.String())
+				}
+
+				video := PublishedVideo {
+					ClaimID: stream.ClaimID,
+					NativeID: "",
+					Source: "",
+					ClaimName: stream.Name,
+					Title: stream.Value.Title,
+					Description: stream.Value.Description,
+					Languages: languages,
+					Tags: stream.Value.Tags,
+					ReleaseTime: stream.Value.GetStream().ReleaseTime,
+					ThumbnailURL: stream.Value.Thumbnail.Url,
+					FullLocalPath: "",
+				}
+
+				videoResult := PublishedVideoIteratorResult {
+					Video: &video,
+				}
+				videoCh <- videoResult
+			}
+		}
+	}()
+
+	return videoCh
 }
 
 // if jsonrpc.Client.FileList is extended to match the actual jsonrpc schema, this can be removed
