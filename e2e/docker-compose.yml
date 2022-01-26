@@ -81,6 +81,7 @@ services:
       - walletserver
     environment:
       - LBRY_STREAMING_SERVER=0.0.0.0:5280
+      - LBRY_FEE_PER_NAME_CHAR=0
     volumes:
       - "./persist/.lbrynet:/home/lbrynet"
       - ".:/etc/lbry" #Put your daemon_settings.yml here

@@ -110,7 +110,7 @@ func (s *Sync) walletSetup() error {
 	}
 	requiredBalance := float64(unallocatedVideos)*(publishAmount+estimatedMaxTxFee) + channelFee
 	if s.Manager.CliFlags.UpgradeMetadata {
-		requiredBalance += float64(notUpgradedCount) * 0.001
+		requiredBalance += float64(notUpgradedCount) * estimatedMaxTxFee
 	}
 
 	refillAmount := 0.0
@@ -126,6 +126,12 @@ func (s *Sync) walletSetup() error {
 		err := s.addCredits(refillAmount)
 		if err != nil {
 			return errors.Err(err)
+		}
+	} else if balance > requiredBalance {
+		extraLBC := balance - requiredBalance
+		if extraLBC > 5 {
+			sendBackAmount := extraLBC - 1
+			logUtils.SendInfoToSlack("channel %s has %.1f credits which is %.1f more than it should. We should send at least %.1f that back.", s.DbChannelData.ChannelId, balance, extraLBC, sendBackAmount)
 		}
 	}
 

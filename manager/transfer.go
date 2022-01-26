@@ -241,7 +241,7 @@ func transferVideos(s *Sync) error {
 						},
 					},
 				},
-				Bid: util.PtrToString("0.005"), // Todo - Dont hardcode
+				Bid: util.PtrToString(fmt.Sprintf("%.5f", publishAmount/2.)),
 			}
 			videoStatus := shared.VideoStatus{
 				ChannelID:     s.DbChannelData.ChannelId,

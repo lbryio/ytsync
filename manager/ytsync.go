@@ -33,11 +33,10 @@ import (
 
 const (
 	channelClaimAmount    = 0.01
-	estimatedMaxTxFee     = 0.1
+	estimatedMaxTxFee     = 0.0015
 	minimumAccountBalance = 1.0
 	minimumRefillAmount   = 1
-	publishAmount         = 0.01
-	maxReasonLength       = 500
+	publishAmount         = 0.002
 )
 
 // Sync stores the options that control how syncing happens
