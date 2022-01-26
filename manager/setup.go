@@ -103,6 +103,9 @@ func (s *Sync) walletSetup() error {
 		videosOnYoutube = s.Manager.CliFlags.VideosToSync(s.DbChannelData.TotalSubscribers)
 	}
 	unallocatedVideos := videosOnYoutube - (publishedCount + failedCount)
+	if unallocatedVideos < 0 {
+		unallocatedVideos = 0
+	}
 	channelFee := channelClaimAmount
 	channelAlreadyClaimed := s.DbChannelData.ChannelClaimID != ""
 	if channelAlreadyClaimed {
@@ -131,7 +134,7 @@ func (s *Sync) walletSetup() error {
 		extraLBC := balance - requiredBalance
 		if extraLBC > 5 {
 			sendBackAmount := extraLBC - 1
-			logUtils.SendInfoToSlack("channel %s has %.1f credits which is %.1f more than it should. We should send at least %.1f that back.", s.DbChannelData.ChannelId, balance, extraLBC, sendBackAmount)
+			logUtils.SendInfoToSlack("channel %s has %.1f credits which is %.1f more than it requires (%.1f). We should send at least %.1f that back.", s.DbChannelData.ChannelId, balance, extraLBC, requiredBalance, sendBackAmount)
 		}
 	}
 
