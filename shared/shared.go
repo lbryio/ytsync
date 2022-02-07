@@ -199,12 +199,14 @@ var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgr
 const LatestMetadataVersion = 2
 
 const (
-	VideoStatusPublished     = "published"
-	VideoStatusFailed        = "failed"
-	VideoStatusUpgradeFailed = "upgradefailed"
-	VideoStatusUnpublished   = "unpublished"
-	VideoStatusTranferFailed = "transferfailed"
+	VideoStatusPublished      = "published"
+	VideoStatusFailed         = "failed"
+	VideoStatusUpgradeFailed  = "upgradefailed"
+	VideoStatusUnpublished    = "unpublished"
+	VideoStatusTransferFailed = "transferfailed"
 )
+
+var VideoSyncStatuses = []string{VideoStatusPublished, VideoStatusFailed, VideoStatusUpgradeFailed, VideoStatusUnpublished, VideoStatusTransferFailed}
 
 const (
 	TransferStateNotTouched = iota
