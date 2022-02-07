@@ -293,7 +293,7 @@ func (s *Sync) streamUpdate(ui *updateInfo) error {
 	timing.TimedComponent("transferStreamUpdate").Add(time.Since(start))
 	if updateError != nil {
 		ui.videoStatus.FailureReason = updateError.Error()
-		ui.videoStatus.Status = shared.VideoStatusTranferFailed
+		ui.videoStatus.Status = shared.VideoStatusTransferFailed
 		ui.videoStatus.IsTransferred = util.PtrToBool(false)
 	} else {
 		ui.videoStatus.IsTransferred = util.PtrToBool(len(result.Outputs) != 0)
