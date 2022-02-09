@@ -321,7 +321,7 @@ func (v *YoutubeVideo) download() error {
 	//speedThrottleRetries := 3
 	for i := 0; i < len(qualities); i++ {
 		quality := qualities[i]
-		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][vcodec!*=av01][height<="+quality+"]+bestaudio[ext!=webm][format_id!=258][format_id!=251][format_id!=256][format_id!=327]")
+		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][vcodec!*=av01][height<="+quality+"]+bestaudio[ext!=webm][format_id!=258][format_id!=251][format_id!=256][format_id!=327][format_id!=328]")
 		argsWithFilters = append(argsWithFilters, userAgent...)
 		//if speedThrottleRetries > 0 {
 		//	speedThrottleRetries--
