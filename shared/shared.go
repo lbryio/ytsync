@@ -190,11 +190,12 @@ const (
 	StatusSynced         = "synced"         // done
 	StatusWipeDb         = "pendingdbwipe"  // in sync queue. lbryum database will be pruned
 	StatusFailed         = "failed"
-	StatusFinalized      = "finalized" // no more changes allowed
-	StatusAbandoned      = "abandoned" // deleted on youtube or banned
+	StatusFinalized      = "finalized"     // no more changes allowed
+	StatusAbandoned      = "abandoned"     // deleted on youtube or banned
+	StatusAgeRestricted  = "agerestricted" // one or more videos are age restricted and should be reprocessed with special keys
 )
 
-var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned, StatusWipeDb}
+var SyncStatuses = []string{StatusPending, StatusPendingEmail, StatusPendingUpgrade, StatusQueued, StatusSyncing, StatusSynced, StatusFailed, StatusFinalized, StatusAbandoned, StatusWipeDb, StatusAgeRestricted}
 
 const LatestMetadataVersion = 2
 
