@@ -515,21 +515,28 @@ func (v *YoutubeVideo) trackProgressBar(argsWithFilters []string, ticker *time.T
 			bar.Completed()
 			bar.Abort(true)
 		}()
+		origSize := int64(0)
+		lastUpdate := time.Now()
 		for {
 			select {
 			case <-done.Ch():
 				return
 			case <-ticker.C:
+				var err error
 				size, err := logUtils.DirSize(v.videoDir())
 				if err != nil {
 					log.Errorf("error while getting size of download directory: %s", errors.FullTrace(err))
 					return
 				}
-				bar.SetCurrent(size)
-				if size > int64(videoSize+audioSize) {
-					bar.SetTotal(size+2048, false)
+				if size > origSize {
+					origSize = size
+					bar.SetCurrent(size)
+					if size > int64(videoSize+audioSize) {
+						bar.SetTotal(size+2048, false)
+					}
+					bar.DecoratorEwmaUpdate(time.Since(lastUpdate))
+					lastUpdate = time.Now()
 				}
-				bar.DecoratorEwmaUpdate(400 * time.Millisecond)
 			}
 		}
 	}()
@@ -862,7 +869,11 @@ func (v *YoutubeVideo) getMetadata() (languages []string, locations []jsonrpc.Lo
 }
 
 func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, existingVideoData *sdk.SyncedVideo) (*SyncSummary, error) {
-	c, err := daemon.ClaimSearch(nil, &existingVideoData.ClaimID, nil, nil, 1, 20)
+	c, err := daemon.ClaimSearch(jsonrpc.ClaimSearchArgs{
+		ClaimID:  &existingVideoData.ClaimID,
+		Page:     1,
+		PageSize: 20,
+	})
 	if err != nil {
 		return nil, errors.Err(err)
 	}

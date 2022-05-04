@@ -562,7 +562,11 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 		if sv.Transferred || sv.IsLbryFirst {
 			_, ok := allClaimsInfo[vID]
 			if !ok && sv.Published {
-				searchResponse, err := s.daemon.ClaimSearch(nil, &sv.ClaimID, nil, nil, 1, 20)
+				searchResponse, err := s.daemon.ClaimSearch(jsonrpc.ClaimSearchArgs{
+					ClaimID:  &sv.ClaimID,
+					Page:     1,
+					PageSize: 20,
+				})
 				if err != nil {
 					log.Error(err.Error())
 					continue
