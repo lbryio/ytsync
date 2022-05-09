@@ -16,17 +16,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/abadojack/whatlanggo"
 	"github.com/lbryio/ytsync/v5/downloader"
 	"github.com/lbryio/ytsync/v5/downloader/ytdl"
-	"github.com/lbryio/ytsync/v5/shared"
-	"github.com/vbauerster/mpb/v7"
-	"github.com/vbauerster/mpb/v7/decor"
-	"gopkg.in/vansante/go-ffprobe.v2"
-
 	"github.com/lbryio/ytsync/v5/ip_manager"
 	"github.com/lbryio/ytsync/v5/namer"
 	"github.com/lbryio/ytsync/v5/sdk"
+	"github.com/lbryio/ytsync/v5/shared"
 	"github.com/lbryio/ytsync/v5/tags_manager"
 	"github.com/lbryio/ytsync/v5/thumbs"
 	"github.com/lbryio/ytsync/v5/timing"
@@ -37,8 +32,12 @@ import (
 	"github.com/lbryio/lbry.go/v2/extras/stop"
 	"github.com/lbryio/lbry.go/v2/extras/util"
 
+	"github.com/abadojack/whatlanggo"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
+	"gopkg.in/vansante/go-ffprobe.v2"
 )
 
 type YoutubeVideo struct {
@@ -321,7 +320,7 @@ func (v *YoutubeVideo) download() error {
 	//speedThrottleRetries := 3
 	for i := 0; i < len(qualities); i++ {
 		quality := qualities[i]
-		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][vcodec!*=av01][height<="+quality+"]+bestaudio[ext!=webm][format_id!=258][format_id!=251][format_id!=256][format_id!=327][format_id!=328]")
+		argsWithFilters := append(ytdlArgs, "-fbestvideo[ext=mp4][vcodec!*=av01][height<="+quality+"]+bestaudio[ext!=webm][format_id!=258][format_id!=380][format_id!=251][format_id!=256][format_id!=327][format_id!=328]")
 		argsWithFilters = append(argsWithFilters, userAgent...)
 		//if speedThrottleRetries > 0 {
 		//	speedThrottleRetries--
