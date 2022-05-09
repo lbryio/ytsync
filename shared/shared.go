@@ -153,7 +153,7 @@ func (f *SyncFlags) VideosToSync(totalSubscribers uint) int {
 		800:   250,
 		600:   200,
 		200:   80,
-		100:   50,
+		100:   20,
 		1:     10,
 	}
 	videosToSync := 0
