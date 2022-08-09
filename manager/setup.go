@@ -470,7 +470,7 @@ func (s *Sync) ensureChannelOwnership() error {
 			return nil
 		}
 	} else {
-		c, err = s.daemon.ChannelCreate(s.DbChannelData.DesiredChannelName, channelBidAmount, jsonrpc.ChannelCreateOptions{
+		c, err = s.daemon.ChannelCreate(s.DbChannelData.DesiredChannelName, channelClaimAmount, jsonrpc.ChannelCreateOptions{
 			ClaimCreateOptions: claimCreateOptions,
 			CoverURL:           bannerURL,
 		})
