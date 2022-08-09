@@ -375,13 +375,11 @@ func (s *Sync) ensureChannelOwnership() error {
 
 	channelUsesOldMetadata := false
 	if channelToUse != nil {
-		channelUsesOldMetadata = channelToUse.Value.GetThumbnail() == nil
+		channelUsesOldMetadata = channelToUse.Value.GetThumbnail() == nil || (len(channelToUse.Value.Languages) == 0 && s.DbChannelData.Language == "")
 		if !channelUsesOldMetadata {
 			return nil
 		}
 	}
-
-	channelBidAmount := channelClaimAmount
 
 	balanceResp, err := s.daemon.AccountBalance(nil)
 	if err != nil {
@@ -394,8 +392,8 @@ func (s *Sync) ensureChannelOwnership() error {
 		return errors.Err(err)
 	}
 
-	if balance.LessThan(decimal.NewFromFloat(channelBidAmount)) {
-		err = s.addCredits(channelBidAmount + 0.3)
+	if balance.LessThan(decimal.NewFromFloat(channelClaimAmount)) {
+		err = s.addCredits(channelClaimAmount + estimatedMaxTxFee*3)
 		if err != nil {
 			return err
 		}
@@ -433,6 +431,9 @@ func (s *Sync) ensureChannelOwnership() error {
 	}
 
 	var languages []string = nil
+	if s.DbChannelData.Language != "" {
+		languages = []string{s.DbChannelData.Language}
+	}
 	//we don't have this data without the API
 	//if channelInfo.DefaultLanguage != "" {
 	//	if channelInfo.DefaultLanguage == "iw" {

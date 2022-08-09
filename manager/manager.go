@@ -138,7 +138,7 @@ func (s *SyncManager) Start() error {
 					"WALLET HAS NOT BEEN MOVED TO THE WALLET BACKUP DIR",
 					"NotEnoughFunds",
 					"no space left on device",
-					"failure uploading wallet",
+					"there was a problem uploading the wallet",
 					"the channel in the wallet is different than the channel in the database",
 					"this channel does not belong to this wallet!",
 					"You already have a stream claim published under the name",

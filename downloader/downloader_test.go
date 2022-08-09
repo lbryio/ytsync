@@ -19,7 +19,7 @@ func TestGetPlaylistVideoIDs(t *testing.T) {
 }
 
 func TestGetVideoInformation(t *testing.T) {
-	video, err := GetVideoInformation(nil, "zj7pXM9gE5M", nil, nil, nil)
+	video, err := GetVideoInformation("zj7pXM9gE5M", nil, nil)
 	if err != nil {
 		logrus.Error(err)
 	}

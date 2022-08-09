@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lbryio/ytsync/v5/configs"
 	"github.com/lbryio/ytsync/v5/util"
@@ -215,13 +216,22 @@ func (s *Sync) uploadWallet() error {
 	}
 	defer file.Close()
 
-	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(configs.Configuration.WalletS3Config.Bucket),
-		Key:    key,
-		Body:   file,
-	})
+	start := time.Now()
+
+	for time.Since(start) < 30*time.Minute {
+		_, err = uploader.Upload(&s3manager.UploadInput{
+			Bucket: aws.String(configs.Configuration.WalletS3Config.Bucket),
+			Key:    key,
+			Body:   file,
+		})
+		if err != nil {
+			time.Sleep(30 * time.Second)
+			continue
+		}
+		break
+	}
 	if err != nil {
-		return err
+		return errors.Prefix("there was a problem uploading the wallet to S3", errors.Err(err))
 	}
 	log.Println("wallet uploaded to S3")
 

@@ -26,6 +26,7 @@ type YoutubeChannel struct {
 	SizeLimit          int            `json:"size_limit"`
 	LastUploadedVideo  string         `json:"last_uploaded_video"`
 	WipeDB             bool           `json:"wipe_db"`
+	Language           string         `json:"language"`
 }
 
 type PublishAddress struct {

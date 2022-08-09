@@ -336,7 +336,7 @@ func (s *Sync) waitForDaemonStart() error {
 }
 
 func (s *Sync) stopAndUploadWallet(e *error) {
-	log.Printf("Stopping daemon")
+	log.Println("Stopping daemon")
 	shutdownErr := logUtils.StopDaemon()
 	if shutdownErr != nil {
 		logShutdownError(shutdownErr)
@@ -350,15 +350,10 @@ func (s *Sync) stopAndUploadWallet(e *error) {
 		} else {
 			err := s.uploadWallet()
 			if err != nil {
-				time.Sleep(10 * time.Second)
-				logUtils.SendErrorToSlack("there was a problem uploading the wallet to S3, waiting 10 seconds and retrying: %s", err.Error())
-				err = s.uploadWallet()
-			}
-			if err != nil {
 				if *e == nil {
 					*e = err
 				} else {
-					*e = errors.Prefix(fmt.Sprintf("failure uploading wallet: %s + original error", errors.FullTrace(err)), *e)
+					*e = errors.Prefix(fmt.Sprintf("%s + original error", errors.FullTrace(err)), *e)
 				}
 			}
 			err = s.uploadBlockchainDB()
@@ -501,7 +496,7 @@ func (s *Sync) updateRemoteDB(claims []jsonrpc.Claim, ownClaims []jsonrpc.Claim)
 		claimMarkedUnpublished := claimInDatabase && !sv.Published
 		_, isOwnClaim := ownClaimsInfo[videoID]
 		transferred := !isOwnClaim || s.DbChannelData.TransferState == 3
-		transferStatusMismatch := sv.Transferred != transferred
+		transferStatusMismatch := claimInDatabase && sv.Transferred != transferred
 
 		if metadataDiffers {
 			log.Debugf("%s: Mismatch in database for metadata. DB: %d - Blockchain: %d", videoID, sv.MetadataVersion, chainInfo.MetadataVersion)
@@ -682,7 +677,8 @@ func (s *Sync) checkIntegrity() error {
 
 	if pubsOnWallet > pubsOnDB { //This case should never happen
 		logUtils.SendInfoToSlack("We're claiming to have published %d videos but in reality we published %d (%s)", pubsOnDB, pubsOnWallet, s.DbChannelData.ChannelId)
-		return errors.Err("not all published videos are in the database")
+		//we never really done anything about those. it happens when a user updates the channel for a publish to another ytsync channel
+		//return errors.Err("not all published videos are in the database")
 	}
 	if pubsOnWallet < pubsOnDB {
 		logUtils.SendInfoToSlack("we're claiming to have published %d videos but we only published %d (%s)", pubsOnDB, pubsOnWallet, s.DbChannelData.ChannelId)

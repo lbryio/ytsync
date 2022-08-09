@@ -32,6 +32,10 @@ var (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	log.SetLevel(log.DebugLevel)
+	customFormatter := new(log.TextFormatter)
+	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
+	customFormatter.FullTimestamp = true
+	log.SetFormatter(customFormatter)
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		log.Error(http.ListenAndServe(":2112", nil))
