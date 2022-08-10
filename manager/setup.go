@@ -434,18 +434,13 @@ func (s *Sync) ensureChannelOwnership() error {
 	if s.DbChannelData.Language != "" {
 		languages = []string{s.DbChannelData.Language}
 	}
-	//we don't have this data without the API
-	//if channelInfo.DefaultLanguage != "" {
-	//	if channelInfo.DefaultLanguage == "iw" {
-	//		channelInfo.DefaultLanguage = "he"
-	//	}
-	//	languages = []string{channelInfo.DefaultLanguage}
-	//}
+
 	var locations []jsonrpc.Location = nil
 	if channelInfo.Topbar.DesktopTopbarRenderer.CountryCode != "" {
 		locations = []jsonrpc.Location{{Country: &channelInfo.Topbar.DesktopTopbarRenderer.CountryCode}}
 	}
 	var c *jsonrpc.TransactionSummary
+	var recoveredChannelClaimID string
 	claimCreateOptions := jsonrpc.ClaimCreateOptions{
 		Title:        &channelInfo.Microformat.MicroformatDataRenderer.Title,
 		Description:  &channelInfo.Metadata.ChannelMetadataRenderer.Description,
@@ -474,14 +469,44 @@ func (s *Sync) ensureChannelOwnership() error {
 			ClaimCreateOptions: claimCreateOptions,
 			CoverURL:           bannerURL,
 		})
+		if err != nil {
+			claimId, err2 := s.getChannelClaimIDForTimedOutCreation()
+			if err2 != nil {
+				err = errors.Prefix(err2.Error(), err)
+			} else {
+				recoveredChannelClaimID = claimId
+			}
+		}
 	}
-
 	if err != nil {
 		return err
 	}
-
-	s.DbChannelData.ChannelClaimID = c.Outputs[0].ClaimID
+	if recoveredChannelClaimID != "" {
+		s.DbChannelData.ChannelClaimID = recoveredChannelClaimID
+	} else {
+		s.DbChannelData.ChannelClaimID = c.Outputs[0].ClaimID
+	}
 	return s.Manager.ApiConfig.SetChannelClaimID(s.DbChannelData.ChannelId, s.DbChannelData.ChannelClaimID)
+}
+
+//getChannelClaimIDForTimedOutCreation is a raw function that returns the only channel that exists in the wallet
+// this is used because the SDK sucks and can't figure out when to return when creating a claim...
+func (s *Sync) getChannelClaimIDForTimedOutCreation() (string, error) {
+	channels, err := s.daemon.ChannelList(nil, 1, 500, nil)
+	if err != nil {
+		return "", err
+	} else if channels == nil {
+		return "", errors.Err("no channel response")
+	}
+	if len((*channels).Items) != 1 {
+		return "", errors.Err("more than one channel found when trying to recover from SDK failure in creating the channel")
+	}
+	desiredChannel := (*channels).Items[0]
+	if desiredChannel.Name != s.DbChannelData.DesiredChannelName {
+		return "", errors.Err("the channel found in the wallet has a different name than the one we expected")
+	}
+
+	return desiredChannel.ClaimID, nil
 }
 
 func (s *Sync) addCredits(amountToAdd float64) error {
