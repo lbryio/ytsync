@@ -375,7 +375,7 @@ func (s *Sync) ensureChannelOwnership() error {
 
 	channelUsesOldMetadata := false
 	if channelToUse != nil {
-		channelUsesOldMetadata = channelToUse.Value.GetThumbnail() == nil || (len(channelToUse.Value.Languages) == 0 && s.DbChannelData.Language == "")
+		channelUsesOldMetadata = channelToUse.Value.GetThumbnail() == nil || (len(channelToUse.Value.GetLanguages()) == 0 && s.DbChannelData.Language != "")
 		if !channelUsesOldMetadata {
 			return nil
 		}
