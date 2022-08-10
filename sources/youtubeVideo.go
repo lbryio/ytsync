@@ -787,6 +787,9 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 	if v.youtubeInfo.IsLive == true {
 		return nil, errors.Err("video is a live stream and hasn't completed yet")
 	}
+	if v.youtubeInfo.Availability != "public" {
+		return nil, errors.Err("video is not public")
+	}
 	if dur > v.maxVideoLength {
 		logUtils.SendErrorToSlack("%s is %s long and the limit is %s", v.id, dur.String(), v.maxVideoLength.String())
 		return nil, errors.Err("video is too long to process")
@@ -795,7 +798,8 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 		logUtils.SendErrorToSlack("%s is %s long and the minimum is %s", v.id, dur.String(), minDuration.String())
 		return nil, errors.Err("video is too short to process")
 	}
-	buggedLivestream := v.youtubeInfo.WasLive && time.Unix(v.youtubeInfo.ReleaseTimestamp, 0).After(time.Now().AddDate(0, 0, -1)) && int(dur.Seconds())%7200 == 0
+
+	buggedLivestream := v.youtubeInfo.LiveStatus == "post_live"
 	if buggedLivestream {
 		return nil, errors.Err("livestream is likely bugged as it was published less than 24 hours ago and has a length of %s", dur.String())
 	}
