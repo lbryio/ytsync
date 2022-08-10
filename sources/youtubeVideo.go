@@ -800,8 +800,8 @@ func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncPar
 	}
 
 	buggedLivestream := v.youtubeInfo.LiveStatus == "post_live"
-	if buggedLivestream {
-		return nil, errors.Err("livestream is likely bugged as it was published less than 24 hours ago and has a length of %s", dur.String())
+	if buggedLivestream && dur < 2*time.Hour {
+		return nil, errors.Err("livestream is likely bugged as it was recently published and has a length of %s which is more than 2 hours", dur.String())
 	}
 	for {
 		err = v.download()
