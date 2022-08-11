@@ -18,10 +18,11 @@ type YtdlVideo struct {
 	Tags              []string    `json:"tags"`
 	IsLive            bool        `json:"is_live"`
 	LiveStatus        string      `json:"live_status"`
-	ReleaseTimestamp  int64       `json:"release_timestamp"`
+	ReleaseTimestamp  *int64      `json:"release_timestamp"`
 	uploadDateForReal *time.Time
 	Availability      string `json:"availability"`
 	ReleaseDate       string `json:"release_date"`
+	UploadDate        string `json:"upload_date"`
 
 	//WasLive           bool        `json:"was_live"`
 	//Formats              interface{}   `json:"formats"`
@@ -41,7 +42,6 @@ type YtdlVideo struct {
 	//LikeCount            int           `json:"like_count"`
 	//Channel              string        `json:"channel"`
 	//ChannelFollowerCount int           `json:"channel_follower_count"`
-	//UploadDate        string     `json:"upload_date"`
 	//OriginalURL          string        `json:"original_url"`
 	//WebpageURLBasename   string        `json:"webpage_url_basename"`
 	//WebpageURLDomain     string        `json:"webpage_url_domain"`
@@ -94,13 +94,14 @@ func (v *YtdlVideo) GetUploadTime() time.Time {
 	// release timestamp from yt
 	// release timestamp from morty
 	// release date from yt
+	// upload date from yt
 	if v.uploadDateForReal != nil {
 		return *v.uploadDateForReal
 	}
 
 	var ytdlReleaseTimestamp time.Time
-	if v.ReleaseTimestamp > 0 {
-		ytdlReleaseTimestamp = time.Unix(v.ReleaseTimestamp, 0).UTC()
+	if v.ReleaseTimestamp != nil && *v.ReleaseTimestamp > 0 {
+		ytdlReleaseTimestamp = time.Unix(*v.ReleaseTimestamp, 0).UTC()
 	}
 	//get morty timestamp
 	var mortyReleaseTimestamp time.Time
@@ -118,13 +119,19 @@ func (v *YtdlVideo) GetUploadTime() time.Time {
 	if err != nil {
 		logrus.Error(err)
 	}
-
+	ytdlUploadDate, err := time.Parse("20060102", v.UploadDate)
+	if err != nil {
+		logrus.Error(err)
+	}
 	if !ytdlReleaseTimestamp.IsZero() {
 		v.uploadDateForReal = &ytdlReleaseTimestamp
 	} else if !mortyReleaseTimestamp.IsZero() {
 		v.uploadDateForReal = &mortyReleaseTimestamp
-	} else {
+	} else if !ytdlReleaseDate.IsZero() {
 		v.uploadDateForReal = &ytdlReleaseDate
+	} else {
+		v.uploadDateForReal = &ytdlUploadDate
 	}
+
 	return *v.uploadDateForReal
 }
