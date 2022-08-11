@@ -107,7 +107,7 @@ func (v *YtdlVideo) GetUploadTime() time.Time {
 	mortyRelease, err := sdk.GetAPIsConfigs().GetReleasedDate(v.ID)
 	if err != nil {
 		logrus.Error(err)
-	} else if mortyRelease.ReleaseTime != "" {
+	} else if mortyRelease != nil {
 		mortyReleaseTimestamp, err = time.ParseInLocation(time.RFC3339, mortyRelease.ReleaseTime, time.UTC)
 		if err != nil {
 			logrus.Error(err)
