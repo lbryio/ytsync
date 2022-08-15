@@ -939,12 +939,13 @@ func (v *YoutubeVideo) reprocess(daemon *jsonrpc.Client, params SyncParams, exis
 				params.DefaultAccount,
 			},
 		},
-		Author:    util.PtrToString(""),
-		License:   util.PtrToString("Copyrighted (contact publisher)"),
-		ChannelID: &v.lbryChannelID,
-		Height:    util.PtrToUint(720),
-		Width:     util.PtrToUint(1280),
-		Fee:       fee,
+		Author:      util.PtrToString(""),
+		License:     util.PtrToString("Copyrighted (contact publisher)"),
+		ChannelID:   &v.lbryChannelID,
+		Height:      util.PtrToUint(720),
+		Width:       util.PtrToUint(1280),
+		Fee:         fee,
+		ReleaseTime: util.PtrToInt64(v.publishedAt.Unix()),
 	}
 
 	v.walletLock.RLock()

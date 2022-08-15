@@ -109,7 +109,8 @@ func GetVideosToSync(channelID string, syncedVideos map[string]sdk.SyncedVideo, 
 	}
 
 	for k, v := range syncedVideos {
-		if !v.Published {
+		newMetadataVersion := int8(2)
+		if !v.Published && v.MetadataVersion >= newMetadataVersion {
 			continue
 		}
 		if _, ok := playlistMap[k]; !ok {
@@ -216,13 +217,6 @@ func getVideos(channelID string, videoIDs []string, stopChan stop.Chan, ipPool *
 		default:
 		}
 
-		state, err := config.VideoState(videoID)
-		if err != nil {
-			return nil, errors.Err(err)
-		}
-		if state == "published" {
-			continue
-		}
 		video, err := downloader.GetVideoInformation(videoID, stopChan, ipPool)
 		if err != nil {
 			errSDK := config.MarkVideoStatus(shared.VideoStatus{

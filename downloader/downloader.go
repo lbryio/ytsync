@@ -39,7 +39,6 @@ func GetPlaylistVideoIDs(channelName string, maxVideos int, stopChan stop.Chan, 
 		if v == "" {
 			continue
 		}
-		logrus.Debugf("%d - video id %s", i, v)
 		if i >= maxVideos {
 			break
 		}
