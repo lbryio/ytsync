@@ -450,12 +450,20 @@ func (s *Sync) ensureChannelOwnership() error {
 		ThumbnailURL: &thumbnailURL,
 	}
 	if channelUsesOldMetadata {
+		da, err := s.getDefaultAccount()
+		if err != nil {
+			return err
+		}
 		if s.DbChannelData.TransferState <= 1 {
 			c, err = s.daemon.ChannelUpdate(s.DbChannelData.ChannelClaimID, jsonrpc.ChannelUpdateOptions{
 				ClearTags:      util.PtrToBool(true),
 				ClearLocations: util.PtrToBool(true),
 				ClearLanguages: util.PtrToBool(true),
 				ChannelCreateOptions: jsonrpc.ChannelCreateOptions{
+					AccountID: &da,
+					FundingAccountIDs: []string{
+						da,
+					},
 					ClaimCreateOptions: claimCreateOptions,
 					CoverURL:           bannerURL,
 				},
