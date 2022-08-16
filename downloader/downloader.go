@@ -285,7 +285,8 @@ func runCmd(cmd *exec.Cmd, stopChan stop.Chan) ([]string, error) {
 		return nil, errors.Err("interrupted by user")
 	case err := <-done:
 		if err != nil {
-			return nil, errors.Prefix("yt-dlp "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
+			//return nil, errors.Prefix("yt-dlp "+strings.Join(cmd.Args, " ")+" ["+string(errorLog)+"]", err)
+			return nil, errors.Prefix(string(errorLog), err)
 		}
 		return strings.Split(strings.Replace(string(outLog), "\r\n", "\n", -1), "\n"), nil
 	}

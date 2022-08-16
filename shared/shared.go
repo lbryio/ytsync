@@ -78,6 +78,7 @@ var ErrorsNoRetry = []string{
 	"giving up after 0 fragment retries",
 	"Sorry about that",
 	"This video is not available",
+	"Video unavailable",
 	"requested format not available",
 	"interrupted by user",
 	"Sign in to confirm your age",
@@ -117,6 +118,7 @@ var NeverRetryFailures = []string{
 	"Playback on other websites has been disabled by the video owner",
 	"uploader has not made this video available in your country",
 	"This video has been removed by the uploader",
+	"Video unavailable",
 }
 
 type SyncFlags struct {

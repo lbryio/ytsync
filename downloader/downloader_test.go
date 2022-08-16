@@ -26,13 +26,10 @@ func TestGetVideoInformation(t *testing.T) {
 	s := stop.New()
 	ip, err := ip_manager.GetIPPool(s)
 	assert.NoError(t, err)
-	video, err := GetVideoInformation("zT_c6YhkXow", s.Ch(), ip)
-	if err != nil {
-		logrus.Error(err)
-	}
-	if video != nil {
-		logrus.Info(video.ID)
-	}
+	video, err := GetVideoInformation("kDGOHNpRjzc", s.Ch(), ip)
+	assert.NoError(t, err)
+	assert.NotNil(t, video)
+	logrus.Info(video.ID)
 }
 
 func Test_getUploadTime(t *testing.T) {
