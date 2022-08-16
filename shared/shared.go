@@ -119,6 +119,7 @@ var NeverRetryFailures = []string{
 	"uploader has not made this video available in your country",
 	"This video has been removed by the uploader",
 	"Video unavailable",
+	"Video is not available - hardcoded fix",
 }
 
 type SyncFlags struct {
