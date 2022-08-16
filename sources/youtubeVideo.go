@@ -780,6 +780,9 @@ func (v *YoutubeVideo) Sync(daemon *jsonrpc.Client, params SyncParams, existingV
 
 func (v *YoutubeVideo) downloadAndPublish(daemon *jsonrpc.Client, params SyncParams) (*SyncSummary, error) {
 	var err error
+	if v.youtubeInfo == nil {
+		return nil, errors.Err("Video is not available - hardcoded fix")
+	}
 
 	dur := time.Duration(v.youtubeInfo.Duration) * time.Second
 	minDuration := 7 * time.Second
