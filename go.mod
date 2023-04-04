@@ -12,7 +12,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/aws/aws-sdk-go v1.44.6
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/docker v20.10.17+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/lbryio/lbry.go/v2 v2.7.2-0.20220815204100-2adb8af5b68c
 	github.com/lbryio/reflector.go v1.1.3-0.20220730181028-f5d30b1a6e79
 	github.com/mitchellh/go-ps v1.0.0
